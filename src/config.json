@@ -12,6 +12,7 @@
     "_comment": "Modifier remapping",
     "CapsLock": "LeftShift",
     "LeftShift": "LeftCtrl",
+    "LeftCtrl": "CapsLock",
     "RightShift": "RightCtrl",
     "Enter": "RightShift",
     "LeftWin": "LeftAlt",
@@ -111,6 +112,7 @@
       "shiftMappings": [
         {"key": "E", "output": "Comma", "shift": true, "description": "< symbol"},
         {"key": "R", "output": "Period", "shift": true, "description": "> symbol"},
+        {"key": "J", "output": "Equals", "shift": true, "description": "+ symbol"},
         {"key": "Q", "output": "2", "shift": true, "description": "@ symbol"},
         {"key": "W", "output": "Grave", "shift": true, "description": "~ symbol"},
         {"key": "T", "output": "6", "shift": true, "description": "^ symbol"},

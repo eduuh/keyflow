@@ -1,5 +1,6 @@
 #include "HardwareIO.h"
 
+#include "../DebugLog.h"
 #include "interception.h"
 
 #include <iostream>
@@ -21,7 +22,7 @@ bool HardwareIO::initialize() noexcept {
     // Set keyboard filter to capture all keystrokes (including extended E0/E1 keys)
     interception_set_filter(context_, interception_is_keyboard,
                             INTERCEPTION_FILTER_KEY_DOWN | INTERCEPTION_FILTER_KEY_UP |
-                            INTERCEPTION_FILTER_KEY_E0 | INTERCEPTION_FILTER_KEY_E1);
+                                INTERCEPTION_FILTER_KEY_E0 | INTERCEPTION_FILTER_KEY_E1);
 
     initialized_ = true;
     std::cout << "[HardwareIO] Initialized successfully\n";
@@ -69,12 +70,12 @@ std::optional<KeyEvent> HardwareIO::waitForKey(int timeoutMS) noexcept {
     uint16_t scancode = keyStroke->code;
     bool isDown = !(keyStroke->state & INTERCEPTION_KEY_UP);
 
-    // DEBUG: Print ALL raw hardware input
-    std::cout << "[HW-DEBUG] code=0x" << std::hex << (int)scancode
-              << " state=0x" << (int)keyStroke->state << std::dec
+    // DEBUG: Print ALL raw hardware input (compiled out in Release)
+    DEBUG_LOG("[HW-DEBUG] code=0x"
+              << std::hex << (int)scancode << " state=0x" << (int)keyStroke->state << std::dec
               << " E0=" << (keyStroke->state & INTERCEPTION_KEY_E0 ? "1" : "0")
               << " E1=" << (keyStroke->state & INTERCEPTION_KEY_E1 ? "1" : "0")
-              << " UP=" << (keyStroke->state & INTERCEPTION_KEY_UP ? "1" : "0") << "\n";
+              << " UP=" << (keyStroke->state & INTERCEPTION_KEY_UP ? "1" : "0") << "\n");
 
     // Preserve E0/E1 extended key flags in scancode
     // E0 keys: RAlt, RCtrl, arrow keys, etc.

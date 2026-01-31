@@ -1,4 +1,5 @@
 #include "Config.h"
+#include "DebugLog.h"
 #include "config/ConfigBuilder.h"
 #include "config/ConfigLoader.h"
 #include "hardware/HardwareIO.h"
@@ -24,61 +25,20 @@ void signalHandler(int signal) {
 }
 
 /**
- * @brief Check if CapsLock is on and disable it if needed
+ * @brief Release all modifier keys to prevent stuck keys on shutdown
  */
-void disableCapsLockIfActive() {
-    // Check CapsLock state using Windows API
-    SHORT keyState = GetKeyState(VK_CAPITAL);
-    bool capsLockOn = (keyState & 0x0001) != 0; // Bit 0 = toggle state
+void releaseAllModifiers(HardwareIO& hardware) {
+    std::cout << "[Main] Releasing all modifier keys...\n";
 
-    if (capsLockOn) {
-        std::cout << "[Main] CapsLock is ON - disabling it...\n";
-
-        // Use Windows SendInput to toggle CapsLock off
-        INPUT inputs[2] = {};
-
-        // Press CapsLock
-        inputs[0].type = INPUT_KEYBOARD;
-        inputs[0].ki.wVk = VK_CAPITAL;
-        inputs[0].ki.dwFlags = 0;
-
-        // Release CapsLock
-        inputs[1].type = INPUT_KEYBOARD;
-        inputs[1].ki.wVk = VK_CAPITAL;
-        inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
-
-        SendInput(2, inputs, sizeof(INPUT));
-        std::cout << "[Main] CapsLock disabled\n";
-    }
-}
-
-bool handleHotkey(const KeyEvent& event) {
-    if (!event.isDown)
-        return false;
-
-    if (event.scancode == 0x44) { // F10 - Toggle debug
-        g_config.debugMode = !g_config.debugMode;
-        g_config.showAllKeys = g_config.debugMode;
-        g_config.showPipeline = g_config.debugMode;
-        std::cout << "\n[HOTKEY] Debug mode: " << (g_config.debugMode ? "ON" : "OFF") << "\n\n";
-        return true;
-    }
-
-    if (event.scancode == 0x57) { // F11 - Toggle keystroke logging
-        g_config.showAllKeys = !g_config.showAllKeys;
-        std::cout << "\n[HOTKEY] Keystroke logging: " << (g_config.showAllKeys ? "ON" : "OFF")
-                  << "\n\n";
-        return true;
-    }
-
-    if (event.scancode == 0x58) { // F12 - Toggle on/off
-        g_config.keyflowEnabled = !g_config.keyflowEnabled;
-        std::cout << "\n[HOTKEY] keyflow: " << (g_config.keyflowEnabled ? "ENABLED" : "DISABLED")
-                  << " 🌶️\n\n";
-        return true;
-    }
-
-    return false;
+    // Release all modifiers (both left and right)
+    hardware.sendKey(SC_LSHIFT, false);
+    hardware.sendKey(SC_RSHIFT, false);
+    hardware.sendKey(SC_LCTRL, false);
+    hardware.sendKey(SC_RCTRL, false);
+    hardware.sendKey(SC_LALT, false);
+    hardware.sendKey(SC_RALT, false);
+    hardware.sendKey(SC_LWIN, false);
+    hardware.sendKey(SC_RWIN, false);
 }
 
 int main(int argc, char* argv[]) {
@@ -137,9 +97,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Disable CapsLock if it's currently active
-    disableCapsLockIfActive();
-
     // Build pipeline from configuration
     Pipeline pipeline;
     bool verbose = !g_config.debugMode; // Show config loading unless in debug mode
@@ -156,10 +113,7 @@ int main(int argc, char* argv[]) {
     std::cout << "[Main] Starting main loop...\n\n";
 
     std::cout << "[Info] Runtime Controls:\n";
-    std::cout << "  F10  - Toggle debug mode\n";
-    std::cout << "  F11  - Toggle keystroke logging\n";
-    std::cout << "  F12  - Toggle keyflow on/off\n";
-    std::cout << "  Ctrl+C - Exit\n\n";
+    std::cout << "  Ctrl+Escape  - Exit\n\n";
 
     // Main processing loop
     int keystrokeCount = 0;
@@ -171,10 +125,6 @@ int main(int argc, char* argv[]) {
 
         keystrokeCount++;
 
-        // Handle hotkeys first
-        if (handleHotkey(*event))
-            continue;
-
         // If disabled, pass through unchanged
         if (!g_config.keyflowEnabled) {
             hardware.sendKey(event->scancode, event->isDown);
@@ -183,6 +133,14 @@ int main(int argc, char* argv[]) {
 
         // Process through pipeline
         auto result = pipeline.process(*event);
+
+        // Check for Ctrl+Escape to exit
+        if (event->isDown && event->scancode == SC_ESCAPE &&
+            (result.modifiers & (1 << 2) || result.modifiers & (1 << 3))) { // LCTRL or RCTRL
+            std::cout << "\n[HOTKEY] Ctrl+Escape detected, exiting...\n";
+            g_running = false;
+            continue;
+        }
 
         // Log keystroke if enabled (combined with pipeline result)
         if (g_config.showAllKeys) {
@@ -298,6 +256,9 @@ int main(int argc, char* argv[]) {
 
     std::cout << "\n[Main] Processed " << keystrokeCount << " keystrokes\n";
     std::cout << "[Main] Shutting down...\n";
+
+    // Release all modifiers to prevent stuck keys
+    releaseAllModifiers(hardware);
 
     hardware.shutdown();
     return 0;
