@@ -1,7 +1,9 @@
 #pragma once
 
-#include <shellapi.h>
+// clang-format off
 #include <windows.h>
+#include <shellapi.h>
+// clang-format on
 
 namespace keyflow {
 
@@ -49,7 +51,12 @@ class SystemTray {
         nid.uID = 1;
         nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
         nid.uCallbackMessage = WM_USER + 1;
-        nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+        // Load custom keyboard icon
+        nid.hIcon = (HICON)LoadImage(nullptr, "keyboard-icon.ico", IMAGE_ICON, 0, 0,
+                                     LR_LOADFROMFILE | LR_DEFAULTSIZE | LR_SHARED);
+        if (!nid.hIcon) {
+            nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION); // Fallback to default
+        }
         strcpy_s(nid.szTip, appName);
 
         if (Shell_NotifyIcon(NIM_ADD, &nid)) {

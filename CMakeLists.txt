@@ -77,6 +77,14 @@ add_custom_command(TARGET keyflow POST_BUILD
     COMMENT "Copying config.json to ${CMAKE_BUILD_TYPE} output directory"
 )
 
+# Copy keyboard-icon.ico to output directory
+add_custom_command(TARGET keyflow POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/keyboard-icon.ico"
+        "${OUTPUT_DIR}/keyboard-icon.ico"
+    COMMENT "Copying keyboard-icon.ico to ${CMAKE_BUILD_TYPE} output directory"
+)
+
 # Installation
 install(TARGETS keyflow DESTINATION bin)
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/interception.dll" DESTINATION bin)
