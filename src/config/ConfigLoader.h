@@ -79,11 +79,6 @@ class ConfigLoader {
             config.name = j["name"].get<std::string>();
         }
 
-        // Debug settings
-        if (j.contains("debug")) {
-            parseDebugConfig(j["debug"], config.debug);
-        }
-
         // Remapping
         if (j.contains("remapping")) {
             parseRemapping(j["remapping"], config.remapping);
@@ -100,24 +95,6 @@ class ConfigLoader {
         }
 
         return config;
-    }
-
-    /**
-     * @brief Parse debug configuration
-     */
-    static void parseDebugConfig(const json& j, DebugConfig& debug) {
-        if (j.contains("debugMode")) {
-            debug.debugMode = j["debugMode"].get<bool>();
-        }
-        if (j.contains("showAllKeys")) {
-            debug.showAllKeys = j["showAllKeys"].get<bool>();
-        }
-        if (j.contains("showPipeline")) {
-            debug.showPipeline = j["showPipeline"].get<bool>();
-        }
-        if (j.contains("showTimings")) {
-            debug.showTimings = j["showTimings"].get<bool>();
-        }
     }
 
     /**

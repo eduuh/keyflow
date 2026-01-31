@@ -1,12 +1,6 @@
 {
   "version": "1.0",
   "name": "Key ~ Flow Default layout",
-  "debug": {
-    "debugMode": true,
-    "showAllKeys": true,
-    "showPipeline": true,
-    "showTimings": false
-  },
 
   "remapping": {
     "_comment": "Modifier remapping",

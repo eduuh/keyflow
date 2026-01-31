@@ -78,14 +78,6 @@ int main(int argc, char* argv[]) {
         DEBUG_LOG("[Config] Loading: " << configPath << "\n\n");
         jsonConfig = ConfigLoader::loadFromFile(configPath);
 
-        // Apply debug settings from JSON
-        if (jsonConfig.debug.debugMode) {
-            g_config.debugMode = true;
-            g_config.showAllKeys = jsonConfig.debug.showAllKeys;
-            g_config.showPipeline = jsonConfig.debug.showPipeline;
-            g_config.showTimings = jsonConfig.debug.showTimings;
-        }
-
     } catch (const std::exception& e) {
         std::cerr << "[Config] ERROR: " << e.what() << "\n";
         std::cerr << "[Config] Failed to load config file: " << configPath << "\n\n";
