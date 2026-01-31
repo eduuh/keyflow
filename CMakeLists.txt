@@ -42,7 +42,7 @@ set(SOURCES
     src/hardware/HardwareIO.cpp
 )
 
-# Executable
+# Executable (always console subsystem, hide window at runtime for Release)
 add_executable(keyflow ${SOURCES})
 
 # Link Interception library

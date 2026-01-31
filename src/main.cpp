@@ -6,6 +6,10 @@
 #include "hardware/Scancodes.h"
 #include "pipeline/Pipeline.h"
 
+#ifndef DEBUG_BUILD
+#    include "SystemTray.h"
+#endif
+
 #include <csignal>
 #include <iomanip>
 #include <iostream>
@@ -42,6 +46,14 @@ void releaseAllModifiers(HardwareIO& hardware) {
 }
 
 int main(int argc, char* argv[]) {
+#ifndef DEBUG_BUILD
+    // Hide console window in Release builds (runs as system tray app)
+    HWND console = GetConsoleWindow();
+    if (console) {
+        ShowWindow(console, SW_HIDE);
+    }
+#endif
+
     std::cout << "==============================================\n";
     std::cout << "  keyflow 🌶️ - Keyboard Remapper\n";
     std::cout << "==============================================\n\n";
@@ -97,6 +109,15 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+#ifndef DEBUG_BUILD
+    // Initialize system tray (Release builds only)
+    SystemTray sysTray;
+    if (!sysTray.initialize("Keyflow - Keyboard Remapper")) {
+        std::cerr << "[Main] Failed to initialize system tray\n";
+        return 1;
+    }
+#endif
+
     // Build pipeline from configuration
     Pipeline pipeline;
     bool verbose = !g_config.debugMode; // Show config loading unless in debug mode
@@ -119,6 +140,14 @@ int main(int argc, char* argv[]) {
     int keystrokeCount = 0;
 
     while (g_running) {
+#ifndef DEBUG_BUILD
+        // Process system tray messages (Release builds)
+        if (!sysTray.processMessages()) {
+            g_running = false;
+            break;
+        }
+#endif
+
         auto event = hardware.waitForKey(2);
         if (!event)
             continue;
