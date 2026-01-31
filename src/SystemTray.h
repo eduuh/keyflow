@@ -8,10 +8,10 @@
 namespace keyflow {
 
 /**
- * @brief System tray icon manager for Release builds
+ * @brief System tray icon manager
  *
  * Creates a system tray icon with a right-click menu for exit.
- * Only used in Release builds (GUI subsystem).
+ * Used in both Debug and Release builds for better user experience.
  */
 class SystemTray {
   public:

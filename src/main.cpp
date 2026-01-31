@@ -1,14 +1,11 @@
 #include "Config.h"
 #include "DebugLog.h"
+#include "SystemTray.h"
 #include "config/ConfigBuilder.h"
 #include "config/ConfigLoader.h"
 #include "hardware/HardwareIO.h"
 #include "hardware/Scancodes.h"
 #include "pipeline/Pipeline.h"
-
-#ifndef DEBUG_BUILD
-#    include "SystemTray.h"
-#endif
 
 #include <csignal>
 #include <iomanip>
@@ -102,14 +99,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-#ifndef DEBUG_BUILD
-    // Initialize system tray (Release builds only)
+    // Initialize system tray
     SystemTray sysTray;
     if (!sysTray.initialize("Keyflow - Keyboard Remapper")) {
         std::cerr << "[Main] Failed to initialize system tray\n";
         return 1;
     }
-#endif
 
     // Build pipeline from configuration
     Pipeline pipeline;
@@ -137,13 +132,11 @@ int main(int argc, char* argv[]) {
 #endif
 
     while (g_running) {
-#ifndef DEBUG_BUILD
-        // Process system tray messages (Release builds)
+        // Process system tray messages
         if (!sysTray.processMessages()) {
             g_running = false;
             break;
         }
-#endif
 
         auto event = hardware.waitForKey(2);
         if (!event)
