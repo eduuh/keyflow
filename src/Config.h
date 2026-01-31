@@ -13,10 +13,7 @@ namespace keyflow {
  */
 struct Config {
     // Debug settings
-    bool debugMode = false;    // Verbose logging
-    bool showAllKeys = false;  // Log every keystroke
-    bool showPipeline = false; // Log pipeline decisions
-    bool showTimings = false;  // Log performance metrics
+    bool debugMode = false; // Verbose logging during config load
 
     // Runtime settings
     bool keyflowEnabled = true; // Master on/off switch
@@ -30,17 +27,6 @@ struct Config {
 
             if (arg == "--debug" || arg == "-d") {
                 debugMode = true;
-                showAllKeys = true;
-                showPipeline = true;
-            } else if (arg == "--verbose" || arg == "-v") {
-                debugMode = true;
-                showAllKeys = true;
-                showPipeline = true;
-                showTimings = true;
-            } else if (arg == "--keys" || arg == "-k") {
-                showAllKeys = true;
-            } else if (arg == "--pipeline" || arg == "-p") {
-                showPipeline = true;
             } else if (arg == "--help" || arg == "-h") {
                 printHelp();
             }
@@ -51,23 +37,18 @@ struct Config {
      * @brief Print help message
      */
     static void printHelp() {
-        std::cout << "keyflow 🌶️ - Keyboard Remapper\n\n";
-        std::cout << "Usage: keyflow [OPTIONS]\n\n";
+        std::cout << "keyflow - Keyboard Remapper\n\n";
+        std::cout << "Usage: keyflow [OPTIONS] [config.json]\n\n";
         std::cout << "Options:\n";
-        std::cout << "  -d, --debug      Enable debug mode (shows all logging)\n";
-        std::cout << "  -v, --verbose    Enable verbose mode (debug + timings)\n";
-        std::cout << "  -k, --keys       Show all keystrokes\n";
-        std::cout << "  -p, --pipeline   Show pipeline decisions\n";
+        std::cout << "  -d, --debug      Enable debug logging\n";
+        std::cout << "  --validate       Validate config and exit\n";
         std::cout << "  -h, --help       Show this help message\n\n";
-        std::cout << "Runtime Hotkeys:\n";
-        std::cout << "  F10              Toggle debug mode\n";
-        std::cout << "  F11              Toggle keystroke logging\n";
-        std::cout << "  F12              Toggle keyflow on/off\n";
-        std::cout << "  Ctrl+C           Exit\n\n";
+        std::cout << "Controls:\n";
+        std::cout << "  Ctrl+Escape      Exit\n\n";
         std::cout << "Examples:\n";
-        std::cout << "  keyflow              Run normally\n";
-        std::cout << "  keyflow --debug      Run with debug logging\n";
-        std::cout << "  keyflow -v           Run with verbose logging\n\n";
+        std::cout << "  keyflow                    Run with config.json\n";
+        std::cout << "  keyflow myconfig.json      Run with custom config\n";
+        std::cout << "  keyflow --validate         Validate config only\n\n";
     }
 };
 
