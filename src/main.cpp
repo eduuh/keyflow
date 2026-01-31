@@ -44,13 +44,14 @@ void releaseAllModifiers(HardwareIO& hardware) {
 }
 
 int main(int argc, char* argv[]) {
-#ifdef DEBUG_BUILD
+#ifndef DEBUG_BUILD
     // Hide console window in Release builds (runs as system tray app)
     HWND console = GetConsoleWindow();
     if (console) {
         ShowWindow(console, SW_HIDE);
     }
-
+#else
+    // Show banner in Debug builds
     std::cout << "==============================================\n";
     std::cout << "  keyflow 🌶️ - Keyboard Remapper\n";
     std::cout << "==============================================\n\n";
