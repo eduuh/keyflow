@@ -2,6 +2,7 @@
 
 #include "../pipeline/Pipeline.h"
 #include "../processors/ComboAdvanced.h"
+#include "../processors/LayerTriggerBlocker.h"
 #include "../processors/ModifierTracker.h"
 #include "../processors/Rewire.h"
 #include "JsonConfig.h"
@@ -48,6 +49,13 @@ class ConfigBuilder {
         // Step 3: Add ComboAdvanced processor if we have combos or layers
         if (!config.noModCombos.empty() || !config.layers.empty()) {
             if (!addComboProcessor(config, pipeline, verbose)) {
+                return false;
+            }
+        }
+
+        // Step 4: Add LayerTriggerBlocker if we have layers
+        if (!config.layers.empty()) {
+            if (!addLayerTriggerBlocker(config, pipeline, verbose)) {
                 return false;
             }
         }
@@ -228,6 +236,43 @@ class ConfigBuilder {
         }
 
         pipeline.addProcessor(std::move(combo));
+        return true;
+    }
+
+    /**
+     * @brief Add LayerTriggerBlocker to consume layer trigger keys
+     */
+    static bool addLayerTriggerBlocker(const JsonConfig& config, Pipeline& pipeline, bool verbose) {
+        auto blocker = std::make_unique<LayerTriggerBlocker>();
+
+        // Collect all unique trigger keys from all layers
+        std::vector<std::string> allTriggers;
+        for (const auto& layer : config.layers) {
+            for (const auto& trigger : layer.triggers) {
+                // Check if not already added
+                bool found = false;
+                for (const auto& existing : allTriggers) {
+                    if (existing == trigger) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    allTriggers.push_back(trigger);
+                }
+            }
+        }
+
+        // Add each trigger to the blocker
+        for (const auto& trigger : allTriggers) {
+            blocker->addTrigger(trigger.c_str());
+        }
+
+        if (verbose && blocker->triggerCount() > 0) {
+            std::cout << "[Config] Blocking " << blocker->triggerCount() << " layer trigger key(s)\n";
+        }
+
+        pipeline.addProcessor(std::move(blocker));
         return true;
     }
 };
