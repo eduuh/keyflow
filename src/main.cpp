@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
+#include <windows.h>
 
 using namespace keyflow;
 using keyflow::getScancodeNameOrNull;
@@ -20,6 +21,35 @@ volatile bool g_running = true;
 void signalHandler(int signal) {
     std::cout << "\n[Main] Received signal " << signal << ", shutting down...\n";
     g_running = false;
+}
+
+/**
+ * @brief Check if CapsLock is on and disable it if needed
+ */
+void disableCapsLockIfActive() {
+    // Check CapsLock state using Windows API
+    SHORT keyState = GetKeyState(VK_CAPITAL);
+    bool capsLockOn = (keyState & 0x0001) != 0; // Bit 0 = toggle state
+
+    if (capsLockOn) {
+        std::cout << "[Main] CapsLock is ON - disabling it...\n";
+
+        // Use Windows SendInput to toggle CapsLock off
+        INPUT inputs[2] = {};
+
+        // Press CapsLock
+        inputs[0].type = INPUT_KEYBOARD;
+        inputs[0].ki.wVk = VK_CAPITAL;
+        inputs[0].ki.dwFlags = 0;
+
+        // Release CapsLock
+        inputs[1].type = INPUT_KEYBOARD;
+        inputs[1].ki.wVk = VK_CAPITAL;
+        inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
+
+        SendInput(2, inputs, sizeof(INPUT));
+        std::cout << "[Main] CapsLock disabled\n";
+    }
 }
 
 bool handleHotkey(const KeyEvent& event) {
@@ -107,6 +137,9 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // Disable CapsLock if it's currently active
+    disableCapsLockIfActive();
+
     // Build pipeline from configuration
     Pipeline pipeline;
     bool verbose = !g_config.debugMode; // Show config loading unless in debug mode
@@ -166,7 +199,7 @@ int main(int argc, char* argv[]) {
                           << event->scancode << std::dec << "  ";
             }
 
-            std::cout << " " << (event->isDown ? "↓" : "↑");
+            std::cout << " " << (event->isDown ? "DN" : "UP");
 
             // Show modifier state
             if (result.modifiers != 0) {
@@ -209,7 +242,7 @@ int main(int argc, char* argv[]) {
 
             // Show pipeline decision
             if (g_config.showPipeline) {
-                std::cout << " → ";
+                std::cout << " -> ";
                 switch (result.action) {
                     case Action::Forward:
                         std::cout << "Pass";

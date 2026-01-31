@@ -245,10 +245,16 @@ class ConfigBuilder {
     static bool addLayerTriggerBlocker(const JsonConfig& config, Pipeline& pipeline, bool verbose) {
         auto blocker = std::make_unique<LayerTriggerBlocker>();
 
-        // Collect all unique trigger keys from all layers
+        // Collect all unique ALT trigger keys from all layers
+        // Only block ALT keys, not CTRL/SHIFT (they need to pass through to Windows)
         std::vector<std::string> allTriggers;
         for (const auto& layer : config.layers) {
             for (const auto& trigger : layer.triggers) {
+                // Only add ALT keys to the blocker
+                if (trigger != "LALT" && trigger != "RALT") {
+                    continue; // Skip non-ALT triggers
+                }
+
                 // Check if not already added
                 bool found = false;
                 for (const auto& existing : allTriggers) {
@@ -263,13 +269,14 @@ class ConfigBuilder {
             }
         }
 
-        // Add each trigger to the blocker
+        // Add each ALT trigger to the blocker
         for (const auto& trigger : allTriggers) {
             blocker->addTrigger(trigger.c_str());
         }
 
         if (verbose && blocker->triggerCount() > 0) {
-            std::cout << "[Config] Blocking " << blocker->triggerCount() << " layer trigger key(s)\n";
+            std::cout << "[Config] Blocking " << blocker->triggerCount()
+                      << " layer trigger key(s)\n";
         }
 
         pipeline.addProcessor(std::move(blocker));
