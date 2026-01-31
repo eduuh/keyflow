@@ -63,10 +63,19 @@ See [JSON_CONFIG.md](JSON_CONFIG.md) for complete reference.
 
 ## Build
 
+**Requirements:** CMake 3.15+, MinGW-w64 (or any C++17 compiler)
+
 ```bash
-cmake -B build -G "Visual Studio 17 2022"
-cmake --build build --config Release
+# Debug build (includes logging with cout)
+cmake -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+
+# Release build (no logging)
+cmake -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+cmake --build build
 ```
+
+Install MinGW-w64: https://www.msys2.org/
 
 ## Requirements
 

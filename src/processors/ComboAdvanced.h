@@ -34,25 +34,32 @@ class ComboAdvanced : public IProcessor {
         uint32_t blockedModifiers;     // Modifiers that must NOT be held
         uint16_t triggerKey;           // Key that triggers
         std::vector<KeyAction> output; // Output sequence
+        bool matchPhysicalKey;         // Match against physical key (true for layers)
 
-        ComboMapping(uint32_t reqMods, uint32_t blockMods, uint16_t trigger)
-            : requiredModifiers(reqMods), blockedModifiers(blockMods), triggerKey(trigger) {}
+        ComboMapping(uint32_t reqMods, uint32_t blockMods, uint16_t trigger,
+                     bool matchPhysical = false)
+            : requiredModifiers(reqMods), blockedModifiers(blockMods), triggerKey(trigger),
+              matchPhysicalKey(matchPhysical) {}
     };
 
     /**
      * @brief Add a simple combo (single output key)
+     * @param matchPhysical If true, match against physical key (before remapping)
      */
-    void addCombo(uint32_t modifiers, uint16_t triggerKey, uint16_t outputKey) {
-        ComboMapping combo(modifiers, 0, triggerKey);
+    void addCombo(uint32_t modifiers, uint16_t triggerKey, uint16_t outputKey,
+                  bool matchPhysical = false) {
+        ComboMapping combo(modifiers, 0, triggerKey, matchPhysical);
         combo.output.emplace_back(outputKey, false);
         combos_.push_back(combo);
     }
 
     /**
      * @brief Add a combo with Shift+key output
+     * @param matchPhysical If true, match against physical key (before remapping)
      */
-    void addComboWithShift(uint32_t modifiers, uint16_t triggerKey, uint16_t outputKey) {
-        ComboMapping combo(modifiers, 0, triggerKey);
+    void addComboWithShift(uint32_t modifiers, uint16_t triggerKey, uint16_t outputKey,
+                           bool matchPhysical = false) {
+        ComboMapping combo(modifiers, 0, triggerKey, matchPhysical);
         combo.output.emplace_back(outputKey, true); // Output with Shift
         combos_.push_back(combo);
     }
@@ -61,22 +68,22 @@ class ComboAdvanced : public IProcessor {
      * @brief Add combo with no modifiers required (for top-row remapping)
      */
     void addNoModCombo(uint16_t triggerKey, uint16_t outputKey, bool withShift = false) {
-        ComboMapping combo(0, 0xFFFFFFFF, triggerKey); // No mods, block all mods
+        ComboMapping combo(0, 0xFFFFFFFF, triggerKey, false); // Match remapped key
         combo.output.emplace_back(outputKey, withShift);
         combos_.push_back(combo);
     }
 
     /**
-     * @brief Add combo using modifier names (helper)
+     * @brief Add combo using modifier names (helper for layers)
      */
     void addCombo(const char* modName, uint16_t triggerKey, uint16_t outputKey) {
         uint32_t modBit = getModifierBit(modName);
-        addCombo(modBit, triggerKey, outputKey);
+        addCombo(modBit, triggerKey, outputKey, true); // Layers match physical keys
     }
 
     void addComboWithShift(const char* modName, uint16_t triggerKey, uint16_t outputKey) {
         uint32_t modBit = getModifierBit(modName);
-        addComboWithShift(modBit, triggerKey, outputKey);
+        addComboWithShift(modBit, triggerKey, outputKey, true); // Layers match physical keys
     }
 
     bool process(Context& ctx) override {
@@ -122,8 +129,11 @@ class ComboAdvanced : public IProcessor {
     };
 
     bool matchesCombo(const Context& ctx, const ComboMapping& combo) const noexcept {
-        // Check trigger key (use outputScancode after Rewire/Colemak remapping)
-        if (ctx.outputScancode != combo.triggerKey) {
+        // Check trigger key
+        // - Layers match against physical key (before remapping)
+        // - NoModCombos match against remapped key (after Rewire)
+        uint16_t keyToMatch = combo.matchPhysicalKey ? ctx.scancode : ctx.outputScancode;
+        if (keyToMatch != combo.triggerKey) {
             return false;
         }
 

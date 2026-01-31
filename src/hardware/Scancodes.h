@@ -213,4 +213,198 @@ inline constexpr bool isNumpad(uint16_t scancode) noexcept {
            scancode == SC_KP_ENTER || scancode == SC_KP_PERIOD;
 }
 
+/**
+ * @brief Get human-readable name for a scancode
+ */
+inline const char* getScancodeNameOrNull(uint16_t scancode) noexcept {
+    switch (scancode) {
+        // Function keys
+        case SC_ESCAPE:
+            return "Esc";
+        case SC_F1:
+            return "F1";
+        case SC_F2:
+            return "F2";
+        case SC_F3:
+            return "F3";
+        case SC_F4:
+            return "F4";
+        case SC_F5:
+            return "F5";
+        case SC_F6:
+            return "F6";
+        case SC_F7:
+            return "F7";
+        case SC_F8:
+            return "F8";
+        case SC_F9:
+            return "F9";
+        case SC_F10:
+            return "F10";
+        case SC_F11:
+            return "F11";
+        case SC_F12:
+            return "F12";
+
+        // Number row
+        case SC_GRAVE:
+            return "`";
+        case SC_1:
+            return "1";
+        case SC_2:
+            return "2";
+        case SC_3:
+            return "3";
+        case SC_4:
+            return "4";
+        case SC_5:
+            return "5";
+        case SC_6:
+            return "6";
+        case SC_7:
+            return "7";
+        case SC_8:
+            return "8";
+        case SC_9:
+            return "9";
+        case SC_0:
+            return "0";
+        case SC_MINUS:
+            return "-";
+        case SC_EQUALS:
+            return "=";
+        case SC_BACKSPACE:
+            return "Bksp";
+
+        // QWERTY row
+        case SC_TAB:
+            return "Tab";
+        case SC_Q:
+            return "Q";
+        case SC_W:
+            return "W";
+        case SC_E:
+            return "E";
+        case SC_R:
+            return "R";
+        case SC_T:
+            return "T";
+        case SC_Y:
+            return "Y";
+        case SC_U:
+            return "U";
+        case SC_I:
+            return "I";
+        case SC_O:
+            return "O";
+        case SC_P:
+            return "P";
+        case SC_LBRACKET:
+            return "[";
+        case SC_RBRACKET:
+            return "]";
+        case SC_BACKSLASH:
+            return "\\";
+
+        // ASDF row
+        case SC_CAPSLOCK:
+            return "Caps";
+        case SC_A:
+            return "A";
+        case SC_S:
+            return "S";
+        case SC_D:
+            return "D";
+        case SC_F:
+            return "F";
+        case SC_G:
+            return "G";
+        case SC_H:
+            return "H";
+        case SC_J:
+            return "J";
+        case SC_K:
+            return "K";
+        case SC_L:
+            return "L";
+        case SC_SEMICOLON:
+            return ";";
+        case SC_APOSTROPHE:
+            return "'";
+        case SC_ENTER:
+            return "Enter";
+
+        // ZXCV row
+        case SC_LSHIFT:
+            return "LShift";
+        case SC_Z:
+            return "Z";
+        case SC_X:
+            return "X";
+        case SC_C:
+            return "C";
+        case SC_V:
+            return "V";
+        case SC_B:
+            return "B";
+        case SC_N:
+            return "N";
+        case SC_M:
+            return "M";
+        case SC_COMMA:
+            return ",";
+        case SC_PERIOD:
+            return ".";
+        case SC_SLASH:
+            return "/";
+        case SC_RSHIFT:
+            return "RShift";
+
+        // Bottom row
+        case SC_LCTRL:
+            return "LCtrl";
+        case SC_LWIN:
+            return "LWin";
+        case SC_LALT:
+            return "LAlt";
+        case SC_SPACE:
+            return "Space";
+        case SC_RALT:
+            return "RAlt";
+        case SC_RWIN:
+            return "RWin";
+        case SC_APPS:
+            return "Apps";
+        case SC_RCTRL:
+            return "RCtrl";
+
+        // Navigation
+        case SC_INSERT:
+            return "Ins";
+        case SC_DELETE:
+            return "Del";
+        case SC_HOME:
+            return "Home";
+        case SC_END:
+            return "End";
+        case SC_PAGEUP:
+            return "PgUp";
+        case SC_PAGEDOWN:
+            return "PgDn";
+
+        // Arrows
+        case SC_UP:
+            return "Up";
+        case SC_DOWN:
+            return "Down";
+        case SC_LEFT:
+            return "Left";
+        case SC_RIGHT:
+            return "Right";
+
+        default:
+            return nullptr;
+    }
+}
+
 } // namespace keyflow

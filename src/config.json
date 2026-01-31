@@ -2,9 +2,9 @@
   "version": "1.0",
   "name": "Key ~ Flow Default layout",
   "debug": {
-    "debugMode": false,
-    "showAllKeys": false,
-    "showPipeline": false,
+    "debugMode": true,
+    "showAllKeys": true,
+    "showPipeline": true,
     "showTimings": false
   },
 
@@ -74,7 +74,7 @@
   "layers": [
     {
       "name": "Numpad Layer",
-      "trigger": "RALT",
+      "trigger": "LALT",
       "mappings": {
         "9": "7",
         "0": "8",
@@ -96,7 +96,7 @@
     },
     {
       "name": "Arrows and Symbols Layer",
-      "trigger": "LALT",
+      "trigger": "RALT",
       "mappings": {
         "K": "Left",
         "L": "Down",

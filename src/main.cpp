@@ -11,6 +11,7 @@
 #include <stdexcept>
 
 using namespace keyflow;
+using keyflow::getScancodeNameOrNull;
 
 // Global state
 Config g_config;
@@ -147,31 +148,88 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        // Log keystroke if enabled
-        if (g_config.showAllKeys) {
-            std::cout << "[" << std::setw(8) << keystrokeCount << "] "
-                      << "0x" << std::hex << std::setw(4) << std::setfill('0') << event->scancode
-                      << std::dec << " " << (event->isDown ? "DOWN" : "UP  ") << "\n";
-        }
-
         // Process through pipeline
         auto result = pipeline.process(*event);
 
-        // Show pipeline decision if enabled
-        if (g_config.showPipeline) {
-            std::cout << "         -> ";
-            switch (result.action) {
-                case Action::Forward:
-                    std::cout << "Forward (unchanged)";
-                    break;
-                case Action::Replace:
-                    std::cout << "Replace: 0x" << std::hex << std::setw(4) << std::setfill('0')
-                              << result.outputScancode << std::dec;
-                    break;
-                case Action::Consume:
-                    std::cout << "Consume (blocked)";
-                    break;
+        // Log keystroke if enabled (combined with pipeline result)
+        if (g_config.showAllKeys) {
+            // Get key name or use hex if unknown
+            const char* keyName = getScancodeNameOrNull(event->scancode);
+
+            std::cout << "[" << std::setw(5) << keystrokeCount << "] ";
+
+            // Show key name or scancode
+            if (keyName) {
+                std::cout << std::setw(8) << std::left << keyName << std::right;
+            } else {
+                std::cout << "0x" << std::hex << std::setw(4) << std::setfill('0')
+                          << event->scancode << std::dec << "  ";
             }
+
+            std::cout << " " << (event->isDown ? "↓" : "↑");
+
+            // Show modifier state
+            if (result.modifiers != 0) {
+                std::cout << " [";
+                bool first = true;
+                if (result.modifiers & (1 << 4)) {
+                    std::cout << (first ? "" : "+") << "LA";
+                    first = false;
+                }
+                if (result.modifiers & (1 << 5)) {
+                    std::cout << (first ? "" : "+") << "RA";
+                    first = false;
+                }
+                if (result.modifiers & (1 << 2)) {
+                    std::cout << (first ? "" : "+") << "LC";
+                    first = false;
+                }
+                if (result.modifiers & (1 << 3)) {
+                    std::cout << (first ? "" : "+") << "RC";
+                    first = false;
+                }
+                if (result.modifiers & (1 << 0)) {
+                    std::cout << (first ? "" : "+") << "LS";
+                    first = false;
+                }
+                if (result.modifiers & (1 << 1)) {
+                    std::cout << (first ? "" : "+") << "RS";
+                    first = false;
+                }
+                if (result.modifiers & (1 << 6)) {
+                    std::cout << (first ? "" : "+") << "LW";
+                    first = false;
+                }
+                if (result.modifiers & (1 << 8)) {
+                    std::cout << (first ? "" : "+") << "PR";
+                    first = false;
+                }
+                std::cout << "]";
+            }
+
+            // Show pipeline decision
+            if (g_config.showPipeline) {
+                std::cout << " → ";
+                switch (result.action) {
+                    case Action::Forward:
+                        std::cout << "Pass";
+                        break;
+                    case Action::Replace: {
+                        const char* outName = getScancodeNameOrNull(result.outputScancode);
+                        if (result.injectShift)
+                            std::cout << "Shift+";
+                        if (outName) {
+                            std::cout << outName;
+                        } else {
+                            std::cout << "0x" << std::hex << result.outputScancode << std::dec;
+                        }
+                    } break;
+                    case Action::Consume:
+                        std::cout << "Block";
+                        break;
+                }
+            }
+
             std::cout << "\n";
         }
 
