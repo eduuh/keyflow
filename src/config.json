@@ -1,0 +1,140 @@
+{
+  "version": "1.0",
+  "name": "Key ~ Flow Default layout",
+  "debug": {
+    "debugMode": false,
+    "showAllKeys": false,
+    "showPipeline": false,
+    "showTimings": false
+  },
+
+  "remapping": {
+    "_comment": "Modifier remapping",
+    "CapsLock": "LeftShift",
+    "LeftShift": "LeftCtrl",
+    "RightShift": "RightCtrl",
+    "Enter": "RightShift",
+    "LeftWin": "LeftAlt",
+    "RightCtrl": "PrintScreen",
+
+    "_comment2": "Colemak-DH Top Row",
+    "E": "F",
+    "R": "P",
+    "T": "G",
+    "Y": "V",
+    "U": "J",
+    "I": "L",
+    "O": "U",
+    "P": "Y",
+
+    "_comment3": "Colemak-DH Home Row",
+    "S": "R",
+    "D": "S",
+    "F": "T",
+    "G": "D",
+    "H": "Slash",
+    "J": "K",
+    "K": "N",
+    "L": "E",
+    "Semicolon": "I",
+    "Apostrophe": "O",
+
+    "_comment4": "Colemak-DH Bottom Row",
+    "Z": "X",
+    "X": "C",
+    "C": "B",
+    "B": "Minus",
+    "N": "Z",
+    "Comma": "H",
+    "Period": "Comma",
+    "Slash": "Period",
+
+    "_comment5": "Special mappings",
+    "LeftBracket": "Semicolon",
+    "Backslash": "Equals"
+  },
+
+  "noModCombos": [
+    {"key": "Grave", "output": "Slash", "shift": true, "description": "` → ?"},
+    {"key": "1", "output": "1", "shift": true, "description": "1 → !"},
+    {"key": "2", "output": "LeftBracket", "shift": false, "description": "2 → ["},
+    {"key": "3", "output": "RightBracket", "shift": false, "description": "3 → ]"},
+    {"key": "4", "output": "Apostrophe", "shift": true, "description": "4 → \""},
+    {"key": "5", "output": "LeftBracket", "shift": true, "description": "5 → {"},
+    {"key": "6", "output": "RightBracket", "shift": true, "description": "6 → }"},
+    {"key": "7", "output": "8", "shift": true, "description": "7 → *"},
+    {"key": "8", "output": "Slash", "shift": false, "description": "8 → /"},
+    {"key": "9", "output": "Apostrophe", "shift": false, "description": "9 → '"},
+    {"key": "0", "output": "0", "shift": true, "description": "0 → )"},
+    {"key": "Minus", "output": "9", "shift": true, "description": "- → ("},
+    {"key": "Equals", "output": "Equals", "shift": true, "description": "= → +"},
+    {"key": "RightBracket", "output": "Semicolon", "shift": true, "description": "] → :"}
+  ],
+
+  "layers": [
+    {
+      "name": "Numpad Layer",
+      "trigger": "RALT",
+      "mappings": {
+        "9": "7",
+        "0": "8",
+        "Minus": "9",
+        "I": "4",
+        "O": "5",
+        "P": "6",
+        "K": "1",
+        "L": "2",
+        "Semicolon": "3",
+        "Apostrophe": "0",
+        "J": "Backslash"
+      },
+      "shiftMappings": [
+        {"key": "N", "output": "4", "shift": true, "description": "$ symbol"},
+        {"key": "M", "output": "5", "shift": true, "description": "% symbol"},
+        {"key": "Comma", "output": "3", "shift": true, "description": "# symbol"}
+      ]
+    },
+    {
+      "name": "Arrows and Symbols Layer",
+      "trigger": "LALT",
+      "mappings": {
+        "K": "Left",
+        "L": "Down",
+        "Semicolon": "Right",
+        "O": "Up",
+        "Apostrophe": "Enter",
+        "E": "Comma",
+        "R": "Period",
+        "A": "Backslash",
+        "S": "Escape",
+        "D": "9",
+        "X": "Grave"
+      },
+      "shiftMappings": [
+        {"key": "Q", "output": "2", "shift": true, "description": "@ symbol"},
+        {"key": "W", "output": "Grave", "shift": true, "description": "~ symbol"},
+        {"key": "T", "output": "6", "shift": true, "description": "^ symbol"},
+        {"key": "F", "output": "1", "shift": true, "description": "! symbol"},
+        {"key": "G", "output": "Slash", "shift": true, "description": "? symbol"},
+        {"key": "Z", "output": "8", "shift": true, "description": "* symbol"},
+        {"key": "C", "output": "7", "shift": true, "description": "& symbol"},
+        {"key": "V", "output": "Backslash", "shift": true, "description": "| symbol"}
+      ]
+    },
+    {
+      "name": "Tab and Brackets Layer",
+      "trigger": ["LCTRL", "LWIN"],
+      "mappings": {
+        "J": "Tab",
+        "Semicolon": "LeftBracket",
+        "I": "Slash"
+      },
+      "shiftMappings": [
+        {"key": "K", "output": "9", "shift": true, "description": "( symbol"},
+        {"key": "L", "output": "LeftBracket", "shift": true, "description": "{ symbol"},
+        {"key": "Comma", "output": "0", "shift": true, "description": ") symbol"},
+        {"key": "Period", "output": "RightBracket", "shift": true, "description": "} symbol"}
+      ]
+    }
+  ]
+}
