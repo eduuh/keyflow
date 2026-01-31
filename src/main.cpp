@@ -142,7 +142,8 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        // Log keystroke if enabled (combined with pipeline result)
+        // Log keystroke if enabled (compiled out in Release)
+#ifdef DEBUG_BUILD
         if (g_config.showAllKeys) {
             // Get key name or use hex if unknown
             const char* keyName = getScancodeNameOrNull(event->scancode);
@@ -223,6 +224,7 @@ int main(int argc, char* argv[]) {
 
             std::cout << "\n";
         }
+#endif // DEBUG_BUILD
 
         // Execute result
         switch (result.action) {
