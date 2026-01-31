@@ -23,6 +23,7 @@ class SystemTray {
      * @return true if successful
      */
     bool initialize(const char* appName) {
+        appName_ = appName;
         // Create hidden window for message handling
         WNDCLASSEX wc = {};
         wc.cbSize = sizeof(WNDCLASSEX);
@@ -53,10 +54,35 @@ class SystemTray {
 
         if (Shell_NotifyIcon(NIM_ADD, &nid)) {
             iconAdded_ = true;
+
+            // Show startup notification
+            showNotification("Keyflow is Running",
+                             "Keyboard remapper is active. Right-click tray icon to exit.");
+
             return true;
         }
 
         return false;
+    }
+
+    /**
+     * @brief Show a notification balloon
+     */
+    void showNotification(const char* title, const char* message) {
+        if (!iconAdded_)
+            return;
+
+        NOTIFYICONDATA nid = {};
+        nid.cbSize = sizeof(NOTIFYICONDATA);
+        nid.hWnd = hwnd_;
+        nid.uID = 1;
+        nid.uFlags = NIF_INFO;
+        strcpy_s(nid.szInfoTitle, title);
+        strcpy_s(nid.szInfo, message);
+        nid.dwInfoFlags = NIIF_INFO;
+        nid.uTimeout = 3000; // 3 seconds
+
+        Shell_NotifyIcon(NIM_MODIFY, &nid);
     }
 
     /**
@@ -78,6 +104,7 @@ class SystemTray {
   private:
     HWND hwnd_;
     bool iconAdded_;
+    const char* appName_;
 
     void cleanup() {
         if (iconAdded_) {
@@ -113,7 +140,9 @@ class SystemTray {
                 GetCursorPos(&pt);
 
                 HMENU menu = CreatePopupMenu();
-                AppendMenu(menu, MF_STRING, 1, "Exit Keyflow");
+                AppendMenu(menu, MF_STRING, 1, "Status");
+                AppendMenu(menu, MF_SEPARATOR, 0, nullptr);
+                AppendMenu(menu, MF_STRING, 2, "Exit Keyflow");
 
                 SetForegroundWindow(hwnd);
                 int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, hwnd,
@@ -121,6 +150,15 @@ class SystemTray {
                 DestroyMenu(menu);
 
                 if (cmd == 1) {
+                    // Show status
+                    if (self) {
+                        MessageBox(hwnd,
+                                   "Keyflow keyboard remapper is running.\n\n"
+                                   "Right-click the tray icon to exit.",
+                                   self->appName_, MB_OK | MB_ICONINFORMATION);
+                    }
+                } else if (cmd == 2) {
+                    // Exit
                     PostQuitMessage(0);
                 }
             }
