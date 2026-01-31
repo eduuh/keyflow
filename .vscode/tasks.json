@@ -17,7 +17,7 @@
             "command": "cmake",
             "args": [
                 "-B",
-                "${workspaceFolder}/build/debug",
+                "${workspaceFolder}/build",
                 "-G",
                 "MinGW Makefiles",
                 "-DCMAKE_BUILD_TYPE=Debug"
@@ -33,7 +33,7 @@
             "command": "cmake",
             "args": [
                 "--build",
-                "${workspaceFolder}/build/debug"
+                "${workspaceFolder}/build"
             ],
             "group": {
                 "kind": "build",
