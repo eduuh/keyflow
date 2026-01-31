@@ -8,6 +8,7 @@
 #include "pipeline/Pipeline.h"
 
 #include <csignal>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
@@ -19,10 +20,24 @@ using keyflow::getScancodeNameOrNull;
 // Global state
 Config g_config;
 volatile bool g_running = true;
+HardwareIO* g_hardware = nullptr; // For signal handler access
 
 void signalHandler(int signal) {
     (void)signal; // Unused in Release builds
     DEBUG_LOG("\n[Main] Received signal " << signal << ", shutting down...\n");
+
+    // CRITICAL: Release all modifiers immediately to prevent stuck keys
+    if (g_hardware != nullptr) {
+        g_hardware->sendKey(SC_LSHIFT, false);
+        g_hardware->sendKey(SC_RSHIFT, false);
+        g_hardware->sendKey(SC_LCTRL, false);
+        g_hardware->sendKey(SC_RCTRL, false);
+        g_hardware->sendKey(SC_LALT, false);
+        g_hardware->sendKey(SC_RALT, false);
+        g_hardware->sendKey(SC_LWIN, false);
+        g_hardware->sendKey(SC_RWIN, false);
+    }
+
     g_running = false;
 }
 
@@ -43,6 +58,34 @@ void releaseAllModifiers(HardwareIO& hardware) {
     hardware.sendKey(SC_RWIN, false);
 }
 
+/**
+ * @brief Emergency cleanup on abnormal termination
+ */
+void emergencyCleanup() {
+    if (g_hardware != nullptr) {
+        // Release all modifiers without logging (may be called during crash)
+        g_hardware->sendKey(SC_LSHIFT, false);
+        g_hardware->sendKey(SC_RSHIFT, false);
+        g_hardware->sendKey(SC_LCTRL, false);
+        g_hardware->sendKey(SC_RCTRL, false);
+        g_hardware->sendKey(SC_LALT, false);
+        g_hardware->sendKey(SC_RALT, false);
+        g_hardware->sendKey(SC_LWIN, false);
+        g_hardware->sendKey(SC_RWIN, false);
+    }
+}
+
+/**
+ * @brief Windows console control handler (handles Ctrl+C, close, etc.)
+ */
+BOOL WINAPI consoleHandler(DWORD signal) {
+    if (signal == CTRL_C_EVENT || signal == CTRL_CLOSE_EVENT || signal == CTRL_BREAK_EVENT) {
+        emergencyCleanup();
+        ExitProcess(0);
+    }
+    return TRUE;
+}
+
 int main(int argc, char* argv[]) {
 #ifndef DEBUG_BUILD
     // Hide console window in Release builds (runs as system tray app)
@@ -60,6 +103,15 @@ int main(int argc, char* argv[]) {
     // Parse command-line arguments
     g_config.parseArgs(argc, argv);
 
+    // Check for validate-only mode
+    bool validateOnly = false;
+    for (int i = 1; i < argc; i++) {
+        if (std::string(argv[i]) == "--validate") {
+            validateOnly = true;
+            break;
+        }
+    }
+
     // Determine config file path
     std::string configPath = "config.json";
     for (int i = 1; i < argc; i++) {
@@ -76,19 +128,65 @@ int main(int argc, char* argv[]) {
         DEBUG_LOG("[Config] Loading: " << configPath << "\n\n");
         jsonConfig = ConfigLoader::loadFromFile(configPath);
 
+        // Validate configuration
+        auto validation = ConfigLoader::validate(jsonConfig);
+        if (!validation) {
+            std::cerr << "\n[Config] ❌ Validation failed:\n\n";
+            for (const auto& [field, message] : validation.errors) {
+                std::cerr << "  • " << field << ": " << message << "\n";
+            }
+            std::cerr << "\n💡 Tips:\n";
+            std::cerr << "  - Check key names in CONFIG_FORMAT.md\n";
+            std::cerr << "  - Key names are case-sensitive (e.g., 'CapsLock' not 'capslock')\n";
+            std::cerr << "  - See examples/ directory for working configs\n\n";
+            return 1;
+        }
+
     } catch (const std::exception& e) {
-        std::cerr << "[Config] ERROR: " << e.what() << "\n";
-        std::cerr << "[Config] Failed to load config file: " << configPath << "\n\n";
-        std::cerr << "Make sure:\n";
-        std::cerr << "  1. config.json exists in the current directory\n";
-        std::cerr << "  2. JSON syntax is valid\n";
-        std::cerr << "  3. All key names are recognized\n\n";
+        std::cerr << "\n[Config] ❌ Failed to load: " << configPath << "\n\n";
+        std::cerr << "Error: " << e.what() << "\n\n";
+
+        // Check if file exists
+        std::ifstream test(configPath);
+        if (!test.good()) {
+            std::cerr << "File not found! Make sure config.json exists.\n\n";
+            std::cerr << "💡 Quick start:\n";
+            std::cerr << "  1. Copy an example: cp examples/minimal.json config.json\n";
+            std::cerr << "  2. Or create config.json with:\n";
+            std::cerr << "     {\n";
+            std::cerr << "       \"version\": \"1.0\",\n";
+            std::cerr << "       \"name\": \"My Config\",\n";
+            std::cerr << "       \"remapping\": { \"CapsLock\": \"LeftCtrl\" }\n";
+            std::cerr << "     }\n\n";
+        } else {
+            std::cerr << "💡 Common issues:\n";
+            std::cerr << "  - Check JSON syntax (missing commas, brackets)\n";
+            std::cerr << "  - Ensure 'version' field exists\n";
+            std::cerr << "  - Validate at https://jsonlint.com\n\n";
+        }
         return 1;
     }
 
-    // Setup signal handlers
+    // If validate-only mode, exit after successful validation
+    if (validateOnly) {
+        std::cout << "[Config] ✅ Validation successful\n";
+        std::cout << "[Config] Config name: " << jsonConfig.name << "\n";
+        std::cout << "[Config] Remappings: " << jsonConfig.remapping.size() << "\n";
+        std::cout << "[Config] NoModCombos: " << jsonConfig.noModCombos.size() << "\n";
+        std::cout << "[Config] Layers: " << jsonConfig.layers.size() << "\n";
+        return 0;
+    }
+
+    // Setup signal handlers (Unix-style)
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
+    std::signal(SIGABRT, signalHandler);
+
+    // Setup Windows console handlers
+    SetConsoleCtrlHandler(consoleHandler, TRUE);
+
+    // Register emergency cleanup for abnormal termination
+    std::atexit(emergencyCleanup);
 
     // Initialize hardware
     HardwareIO hardware;
@@ -99,6 +197,9 @@ int main(int argc, char* argv[]) {
         std::cerr << "  2. Interception driver is installed\n";
         return 1;
     }
+
+    // Set global for signal handler (critical for stuck key prevention)
+    g_hardware = &hardware;
 
     // Initialize system tray
     SystemTray sysTray;
@@ -283,6 +384,9 @@ int main(int argc, char* argv[]) {
 
     // Release all modifiers to prevent stuck keys
     releaseAllModifiers(hardware);
+
+    // Clear global pointer before hardware destruction
+    g_hardware = nullptr;
 
     hardware.shutdown();
     return 0;
