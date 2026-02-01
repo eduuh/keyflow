@@ -3,6 +3,7 @@
 #include "../hardware/KeyEvent.h"
 
 #include <cstdint>
+#include <type_traits>
 #include <vector>
 
 namespace keyflow {
@@ -69,5 +70,10 @@ struct Context {
         return (modifiers & modBit) != 0;
     }
 };
+
+// Compile-time safety checks
+static_assert(std::is_trivially_copyable_v<Context>,
+              "Context must be trivially copyable for performance");
+static_assert(sizeof(Context) <= 64, "Context should fit in cache line for performance");
 
 } // namespace keyflow

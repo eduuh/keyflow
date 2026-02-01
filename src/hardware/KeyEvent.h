@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <type_traits>
 
 namespace keyflow {
 
@@ -20,5 +21,9 @@ struct KeyEvent {
     constexpr KeyEvent() noexcept : scancode(0), isDown(false) {}
     constexpr KeyEvent(uint16_t sc, bool down) noexcept : scancode(sc), isDown(down) {}
 };
+
+// Compile-time safety checks
+static_assert(std::is_trivially_copyable_v<KeyEvent>, "KeyEvent must be trivially copyable");
+static_assert(sizeof(KeyEvent) <= 8, "KeyEvent should be small for efficient passing");
 
 } // namespace keyflow
