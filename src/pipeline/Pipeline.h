@@ -18,8 +18,19 @@ struct ProcessingResult {
     uint32_t modifiers;      // Active modifiers during processing
     bool injectShift;        // Inject Shift modifier with output
 
-    ProcessingResult(Action a, uint16_t sc, uint32_t mods, bool shift = false) noexcept
+    constexpr ProcessingResult(Action a, uint16_t sc, uint32_t mods, bool shift = false) noexcept
         : action(a), outputScancode(sc), modifiers(mods), injectShift(shift) {}
+
+    // Helper methods for better readability
+    [[nodiscard]] constexpr bool shouldForward() const noexcept {
+        return action == Action::Forward;
+    }
+    [[nodiscard]] constexpr bool shouldReplace() const noexcept {
+        return action == Action::Replace;
+    }
+    [[nodiscard]] constexpr bool shouldConsume() const noexcept {
+        return action == Action::Consume;
+    }
 };
 
 /**

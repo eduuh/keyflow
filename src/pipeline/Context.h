@@ -61,6 +61,13 @@ struct Context {
         action = Action::Forward;
         injectShift = false;
     }
+
+    // Helper methods for better readability
+    [[nodiscard]] constexpr bool isKeyDown() const noexcept { return isDown; }
+    [[nodiscard]] constexpr bool isKeyUp() const noexcept { return !isDown; }
+    [[nodiscard]] constexpr bool hasModifier(uint32_t modBit) const noexcept {
+        return (modifiers & modBit) != 0;
+    }
 };
 
 } // namespace keyflow
