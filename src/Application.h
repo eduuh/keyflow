@@ -16,15 +16,29 @@ namespace keyflow {
  *
  * Encapsulates global state and provides clean lifecycle management.
  * Replaces global variables with RAII pattern.
+ *
+ * Design:
+ * - RAII: Automatic cleanup on destruction
+ * - Move-only: No copying (hardware resources are unique)
+ * - Exception-safe: Cleanup guaranteed even on exceptions
+ * - Privacy-first: No logging, no data collection
+ *
+ * Usage:
+ *   Application app;
+ *   if (!app.initialize("MyApp")) { return 1; }
+ *   while (app.isRunning()) { ... main loop ... }
+ *   // Automatic cleanup on scope exit
  */
 class Application {
   public:
     Application() = default;
-    ~Application() { cleanup(); }
+    ~Application() noexcept { cleanup(); }
 
-    // Disable copy/move (singleton-like behavior)
+    // Move-only semantics: Application owns unique hardware resources
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
+    Application(Application&&) = delete;            // Hardware state not movable
+    Application& operator=(Application&&) = delete; // Hardware state not movable
 
     /**
      * @brief Initialize the application
