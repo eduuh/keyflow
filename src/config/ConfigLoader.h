@@ -220,6 +220,11 @@ class ConfigLoader {
             parseLayers(j["layers"], config.layers);
         }
 
+        // Strict mode (optional, defaults to false)
+        if (j.contains("strictMode")) {
+            config.strictMode = j["strictMode"].get<bool>();
+        }
+
         return config;
     }
 

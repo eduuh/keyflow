@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "name": "Strict Mode Example",
+  "strictMode": true,
+  "_comment": "Only the keys listed below will work. All other keys are blocked.",
+
+  "remapping": {
+    "A": "B",
+    "B": "A",
+    "CapsLock": "Escape",
+    "Escape": "Grave"
+  },
+
+  "noModCombos": [
+    {
+      "key": "1",
+      "output": "LeftBracket",
+      "shift": false,
+      "description": "1 → ["
+    },
+    {
+      "key": "2",
+      "output": "RightBracket",
+      "shift": false,
+      "description": "2 → ]"
+    }
+  ],
+
+  "_usage": "With strictMode enabled, only A, B, CapsLock, Escape, 1, 2, and their mapped outputs will work. All other keys (C, D, E, F, etc.) will be completely blocked."
+}

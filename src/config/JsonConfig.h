@@ -61,6 +61,9 @@ struct JsonConfig {
     std::vector<NoModCombo> noModCombos;
     std::vector<Layer> layers;
 
+    // Strict mode: Only mapped keys produce output, all others blocked
+    bool strictMode = false;
+
     JsonConfig() = default;
 };
 
