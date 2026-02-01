@@ -190,7 +190,7 @@ class ConfigBuilder {
 
                     // Add combo for each trigger
                     for (const auto& trigger : layer.triggers) {
-                        combo->addCombo(trigger.c_str(), *keyScancode, *targetScancode);
+                        combo->addCombo(trigger, *keyScancode, *targetScancode);
                     }
 
                     if (verbose) {
@@ -216,7 +216,7 @@ class ConfigBuilder {
 
                     // Add shift combo for each trigger
                     for (const auto& trigger : layer.triggers) {
-                        combo->addComboWithShift(trigger.c_str(), *keyScancode, *outputScancode);
+                        combo->addComboWithShift(trigger, *keyScancode, *outputScancode);
                     }
 
                     if (verbose) {
@@ -271,7 +271,7 @@ class ConfigBuilder {
 
         // Add each ALT trigger to the blocker
         for (const auto& trigger : allTriggers) {
-            blocker->addTrigger(trigger.c_str());
+            blocker->addTrigger(trigger);
         }
 
         if (verbose && blocker->triggerCount() > 0) {
