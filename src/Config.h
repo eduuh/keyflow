@@ -36,7 +36,7 @@ struct Config {
     /**
      * @brief Print help message
      */
-    static void printHelp() {
+    static void printHelp() noexcept {
         std::cout << "keyflow - Keyboard Remapper\n\n";
         std::cout << "Usage: keyflow [OPTIONS] [config.json]\n\n";
         std::cout << "Options:\n";

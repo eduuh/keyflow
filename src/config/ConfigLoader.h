@@ -38,7 +38,7 @@ class ConfigLoader {
      * @return JsonConfig structure
      * @throws std::runtime_error if file cannot be loaded or parsed
      */
-    static JsonConfig loadFromFile(const std::string& filepath) {
+    [[nodiscard]] static JsonConfig loadFromFile(const std::string& filepath) {
         // Read file
         std::ifstream file(filepath);
         if (!file.is_open()) {
@@ -62,7 +62,7 @@ class ConfigLoader {
      * @param jsonStr JSON string
      * @return JsonConfig structure
      */
-    static JsonConfig loadFromString(const std::string& jsonStr) {
+    [[nodiscard]] static JsonConfig loadFromString(const std::string& jsonStr) {
         json j;
         try {
             j = json::parse(jsonStr);
@@ -78,7 +78,7 @@ class ConfigLoader {
      * @param config The configuration to validate
      * @return ValidationResult with clear error messages
      */
-    static ValidationResult validate(const JsonConfig& config) {
+    [[nodiscard]] static ValidationResult validate(const JsonConfig& config) {
         ValidationResult result;
         result.valid = true;
 

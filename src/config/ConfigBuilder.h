@@ -25,7 +25,8 @@ class ConfigBuilder {
      * @param verbose Enable verbose logging
      * @return true if successful, false otherwise
      */
-    static bool buildPipeline(const JsonConfig& config, Pipeline& pipeline, bool verbose = true) {
+    [[nodiscard]] static bool buildPipeline(const JsonConfig& config, Pipeline& pipeline,
+                                            bool verbose = true) {
         if (verbose && !config.name.empty()) {
             std::cout << "[Config] Loading: " << config.name << "\n";
         }
