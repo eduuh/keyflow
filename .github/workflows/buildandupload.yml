@@ -3,12 +3,16 @@ name: Release
 on:
   push:
     branches: [main]
+    tags:
+      - 'v*'
   release:
     types: [published]
 
 jobs:
   build-and-upload:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,24 +38,99 @@ jobs:
             Write-Host "Found: build/Release"
             Get-ChildItem "build/Release" -Recurse | ForEach-Object { Write-Host "  $_" }
           }
+          if (Test-Path "build/release/bin") {
+            Write-Host "Found: build/release/bin"
+            Get-ChildItem "build/release/bin" -Recurse | ForEach-Object { Write-Host "  $_" }
+          }
 
       - name: Zip RELEASE folder
         shell: pwsh
         run: |
-          $releaseFolder = "build/bin/Release"
-          if (-not (Test-Path $releaseFolder)) {
-            Write-Error "Release folder not found at $releaseFolder"
+          # Find folder containing keyflow.exe
+          # Visual Studio multi-config: build/release/bin/Release or build/Release
+          # Single-config generators: build/release/bin
+          $possiblePaths = @(
+            "build/release/bin/Release",
+            "build/Release",
+            "build/release/bin",
+            "build/bin/Release"
+          )
+          $releaseFolder = $null
+
+          foreach ($path in $possiblePaths) {
+            $exePath = Join-Path $path "keyflow.exe"
+            if (Test-Path $exePath) {
+              $releaseFolder = $path
+              Write-Host "Found release folder at: $releaseFolder"
+              break
+            }
+          }
+
+          if (-not $releaseFolder) {
+            Write-Error "Release folder containing keyflow.exe not found"
             exit 1
           }
+
+          # Verify all required files exist
+          $requiredFiles = @("keyflow.exe", "interception.dll", "config.json")
+          foreach ($file in $requiredFiles) {
+            $filePath = Join-Path $releaseFolder $file
+            if (-not (Test-Path $filePath)) {
+              Write-Error "Required file missing: $file"
+              exit 1
+            }
+          }
+
           $zipPath = "keyflow-release.zip"
           Compress-Archive -Path "$releaseFolder/*" -DestinationPath $zipPath
           Write-Host "Created $zipPath with contents:"
           Get-ChildItem $releaseFolder | ForEach-Object { Write-Host "  $($_.Name)" }
 
-      - name: Upload Release Asset
-        if: github.event_name == 'release'
+      - name: Create Version Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          name: KeyFlow ${{ github.ref_name }}
+          body: |
+            ## KeyFlow ${{ github.ref_name }}
+
+            **Privacy-first keyboard remapper for Windows**
+
+            ### Download
+            Download `keyflow-release.zip` and extract to get started.
+
+            ### Requirements
+            - Windows 10/11
+            - Administrator privileges
+            - Interception driver
+
+            ### Runtime Controls
+            - **Ctrl+Escape** - Exit KeyFlow
+
+            ---
+            **Privacy:** No data collection • No network • Open source
           files: keyflow-release.zip
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Latest Development Build
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Development Build
+          body: |
+            Automated build from latest commit on main branch.
+
+            **Commit:** ${{ github.sha }}
+            **Date:** ${{ github.event.head_commit.timestamp }}
+            **Message:** ${{ github.event.head_commit.message }}
+
+            ⚠️ This is a development build. For stable releases, see tagged versions.
+          files: keyflow-release.zip
+          prerelease: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

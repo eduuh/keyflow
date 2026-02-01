@@ -46,7 +46,14 @@
 
     "_comment5": "Special mappings",
     "LeftBracket": "Semicolon",
-    "Backslash": "Equals"
+    "Backslash": "Equals",
+
+    "_comment6": "Essential keys for strict mode",
+    "Space": "Space",
+    "Backspace": "Backspace",
+    "Tab": "Tab",
+    "Delete": "Delete",
+    "Escape": "Escape"
   },
 
   "noModCombos": [
