@@ -96,15 +96,17 @@ class Application {
 
   private:
     void cleanup() noexcept {
-        releaseAllModifiers();
-        hardware_.shutdown();
+        if (hardware_.isInitialized()) {
+            releaseAllModifiers();
+            hardware_.shutdown();
+        }
     }
 
     Config config_;
     HardwareIO hardware_;
     SystemTray sysTray_;
     Pipeline pipeline_;
-    std::atomic<bool> running_{true};
+    bool running_{true};
 };
 
 } // namespace keyflow
