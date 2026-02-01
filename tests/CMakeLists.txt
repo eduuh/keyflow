@@ -29,11 +29,11 @@ target_include_directories(keyflow_tests
 # Set C++17 standard (matching main project)
 target_compile_features(keyflow_tests PRIVATE cxx_std_17)
 
-# Copy test data to build directory
+# Copy test data to build directory (handles multi-config generators like MSVC)
 add_custom_command(TARGET keyflow_tests POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/tests/fixtures
-    ${CMAKE_CURRENT_BINARY_DIR}/fixtures
+    $<TARGET_FILE_DIR:keyflow_tests>/fixtures
 )
 
 # Register tests with CTest
