@@ -1,45 +1,34 @@
-#include "Config.h"
+#include "Application.h"
 #include "DebugLog.h"
-#include "SystemTray.h"
 #include "config/ConfigBuilder.h"
 #include "config/ConfigLoader.h"
-#include "hardware/HardwareIO.h"
 #include "hardware/Scancodes.h"
-#include "pipeline/Pipeline.h"
 
 #include <csignal>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <windows.h>
 
 using namespace keyflow;
 
-Config g_config;
-volatile bool g_running = true;
-HardwareIO* g_hardware = nullptr;
-
-void releaseAllModifiers(HardwareIO* hardware) {
-    if (hardware) {
-        hardware->sendKey(SC_LSHIFT, false);
-        hardware->sendKey(SC_RSHIFT, false);
-        hardware->sendKey(SC_LCTRL, false);
-        hardware->sendKey(SC_RCTRL, false);
-        hardware->sendKey(SC_LALT, false);
-        hardware->sendKey(SC_RALT, false);
-        hardware->sendKey(SC_LWIN, false);
-        hardware->sendKey(SC_RWIN, false);
-    }
-}
+// Global application pointer for signal handlers
+// This is the only remaining global, needed for signal handlers
+static Application* g_app = nullptr;
 
 void signalHandler(int signal) {
     (void)signal;
     DEBUG_LOG("\n[Main] Signal received, shutting down...\n");
-    releaseAllModifiers(g_hardware);
-    g_running = false;
+    if (g_app) {
+        g_app->releaseAllModifiers();
+        g_app->requestShutdown();
+    }
 }
 
 void emergencyCleanup() {
-    releaseAllModifiers(g_hardware);
+    if (g_app) {
+        g_app->releaseAllModifiers();
+    }
 }
 
 BOOL WINAPI consoleHandler(DWORD signal) {
@@ -59,7 +48,11 @@ int main(int argc, char* argv[]) {
     std::cout << "keyflow - Keyboard Remapper\n\n";
 #endif
 
-    g_config.parseArgs(argc, argv);
+    // Create application instance
+    Application app;
+    g_app = &app;
+
+    app.config().parseArgs(argc, argv);
 
     bool validateOnly = false;
     for (int i = 1; i < argc; i++) {
@@ -137,27 +130,19 @@ int main(int argc, char* argv[]) {
     SetConsoleCtrlHandler(consoleHandler, TRUE);
     std::atexit(emergencyCleanup);
 
-    HardwareIO hardware;
-    if (!hardware.initialize()) {
+    if (!app.initialize("Keyflow - Keyboard Remapper")) {
         std::cerr << "[Main] Failed to initialize hardware\n";
         std::cerr << "[Main] Make sure:\n";
         std::cerr << "  1. Running as Administrator\n";
         std::cerr << "  2. Interception driver is installed\n";
+        g_app = nullptr;
         return 1;
     }
 
-    g_hardware = &hardware;
-
-    SystemTray sysTray;
-    if (!sysTray.initialize("Keyflow - Keyboard Remapper")) {
-        std::cerr << "[Main] Failed to initialize system tray\n";
-        return 1;
-    }
-
-    Pipeline pipeline;
-    bool verbose = !g_config.debugMode;
-    if (!ConfigBuilder::buildPipeline(jsonConfig, pipeline, verbose)) {
+    bool verbose = !app.config().debugMode;
+    if (!ConfigBuilder::buildPipeline(jsonConfig, app.pipeline(), verbose)) {
         std::cerr << "[Main] Failed to build pipeline from config\n";
+        g_app = nullptr;
         return 1;
     }
 
@@ -165,49 +150,49 @@ int main(int argc, char* argv[]) {
     if (!jsonConfig.name.empty()) {
         std::cout << "[Main] Config: " << jsonConfig.name << "\n";
     }
-    std::cout << "[Main] Pipeline: " << pipeline.processorCount() << " processors\n";
+    std::cout << "[Main] Pipeline: " << app.pipeline().processorCount() << " processors\n";
     std::cout << "[Main] Ctrl+Escape to exit\n\n";
 #endif
 
-    while (g_running) {
-        if (!sysTray.processMessages()) {
-            g_running = false;
+    while (app.isRunning()) {
+        if (!app.sysTray().processMessages()) {
+            app.requestShutdown();
             break;
         }
 
-        auto event = hardware.waitForKey(2);
+        auto event = app.hardware().waitForKey(2);
         if (!event)
             continue;
 
-        if (!g_config.keyflowEnabled) {
-            hardware.sendKey(event->scancode, event->isDown);
+        if (!app.config().keyflowEnabled) {
+            app.hardware().sendKey(event->scancode, event->isDown);
             continue;
         }
 
-        auto result = pipeline.process(*event);
+        auto result = app.pipeline().process(*event);
 
         if (event->isDown && event->scancode == SC_ESCAPE &&
             (result.modifiers & (1 << 2) || result.modifiers & (1 << 3))) {
             DEBUG_LOG("\n[Main] Ctrl+Escape, exiting...\n");
-            g_running = false;
+            app.requestShutdown();
             continue;
         }
         switch (result.action) {
             case Action::Forward:
-                hardware.sendKey(event->scancode, event->isDown);
+                app.hardware().sendKey(event->scancode, event->isDown);
                 break;
 
             case Action::Replace:
                 if (result.injectShift) {
                     if (event->isDown) {
-                        hardware.sendKey(SC_LSHIFT, true);
-                        hardware.sendKey(result.outputScancode, true);
+                        app.hardware().sendKey(SC_LSHIFT, true);
+                        app.hardware().sendKey(result.outputScancode, true);
                     } else {
-                        hardware.sendKey(result.outputScancode, false);
-                        hardware.sendKey(SC_LSHIFT, false);
+                        app.hardware().sendKey(result.outputScancode, false);
+                        app.hardware().sendKey(SC_LSHIFT, false);
                     }
                 } else {
-                    hardware.sendKey(result.outputScancode, event->isDown);
+                    app.hardware().sendKey(result.outputScancode, event->isDown);
                 }
                 break;
 
@@ -217,9 +202,7 @@ int main(int argc, char* argv[]) {
     }
 
     DEBUG_LOG("\n[Main] Shutting down...\n");
-    releaseAllModifiers(&hardware);
-    g_hardware = nullptr;
-
-    hardware.shutdown();
+    g_app = nullptr;
+    // app destructor handles cleanup
     return 0;
 }
