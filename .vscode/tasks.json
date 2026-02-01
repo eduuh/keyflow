@@ -56,7 +56,6 @@
         {
             "label": "pre-debug-keyflow",
             "dependsOn": [
-                "check-admin",
                 "kill-keyflow",
                 "build-keyflow-debug"
             ],
