@@ -3,6 +3,7 @@
 #include "../pipeline/IProcessor.h"
 
 #include <array>
+#include <cstdint>
 
 namespace keyflow {
 
@@ -17,11 +18,12 @@ namespace keyflow {
  */
 class Rewire : public IProcessor {
   public:
+    // Sentinel value indicating no mapping is defined for this scancode
+    static constexpr uint16_t NO_MAPPING = 0xFFFF;
+
     Rewire() {
         // Initialize to identity mapping (no changes)
-        for (size_t i = 0; i < map_.size(); i++) {
-            map_[i] = 0xFFFF; // 0xFFFF = no mapping
-        }
+        map_.fill(NO_MAPPING);
     }
 
     /**
@@ -40,7 +42,7 @@ class Rewire : public IProcessor {
      */
     void clearMapping(uint16_t scancode) noexcept {
         if (scancode < map_.size()) {
-            map_[scancode] = 0xFFFF;
+            map_[scancode] = NO_MAPPING;
         }
     }
 
@@ -54,7 +56,7 @@ class Rewire : public IProcessor {
 
         uint16_t mapped = map_[ctx.scancode];
 
-        if (mapped != 0xFFFF) {
+        if (mapped != NO_MAPPING) {
             // Mapping defined - apply it
             ctx.outputScancode = mapped;
             ctx.action = Action::Replace;
@@ -67,7 +69,7 @@ class Rewire : public IProcessor {
 
   private:
     // Simple lookup table: scancode → mapped scancode
-    // 0xFFFF = no mapping defined
+    // NO_MAPPING = no mapping defined
     std::array<uint16_t, 512> map_;
 };
 
