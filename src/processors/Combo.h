@@ -66,12 +66,12 @@ class Combo : public IProcessor {
         return true; // Continue pipeline
     }
 
-    const char* name() const noexcept override { return "Combo"; }
+    [[nodiscard]] const char* name() const noexcept override { return "Combo"; }
 
     /**
      * @brief Get number of combos registered
      */
-    size_t comboCount() const noexcept { return combos_.size(); }
+    [[nodiscard]] size_t comboCount() const noexcept { return combos_.size(); }
 
   private:
     std::vector<ComboMapping> combos_;

@@ -41,12 +41,12 @@ class IProcessor {
      * @param ctx Mutable context to read/modify
      * @return true to continue pipeline, false to stop immediately
      */
-    virtual bool process(Context& ctx) = 0;
+    [[nodiscard]] virtual bool process(Context& ctx) = 0;
 
     /**
      * @brief Get processor name for debugging/logging
      */
-    virtual const char* name() const noexcept { return "IProcessor"; }
+    [[nodiscard]] virtual const char* name() const noexcept { return "IProcessor"; }
 };
 
 } // namespace keyflow

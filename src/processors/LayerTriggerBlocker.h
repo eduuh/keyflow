@@ -55,9 +55,9 @@ class LayerTriggerBlocker : public IProcessor {
         return true; // Continue pipeline
     }
 
-    const char* name() const noexcept override { return "LayerTriggerBlocker"; }
+    [[nodiscard]] const char* name() const noexcept override { return "LayerTriggerBlocker"; }
 
-    size_t triggerCount() const noexcept { return triggers_.size(); }
+    [[nodiscard]] size_t triggerCount() const noexcept { return triggers_.size(); }
 
   private:
     std::vector<uint16_t> triggers_;

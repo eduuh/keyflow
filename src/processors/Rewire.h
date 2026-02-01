@@ -65,7 +65,7 @@ class Rewire : public IProcessor {
         return true; // Continue to next processor
     }
 
-    const char* name() const noexcept override { return "Rewire"; }
+    [[nodiscard]] const char* name() const noexcept override { return "Rewire"; }
 
   private:
     // Simple lookup table: scancode → mapped scancode

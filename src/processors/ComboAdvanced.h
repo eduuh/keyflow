@@ -107,9 +107,9 @@ class ComboAdvanced : public IProcessor {
         return true; // Continue
     }
 
-    const char* name() const noexcept override { return "ComboAdvanced"; }
+    [[nodiscard]] const char* name() const noexcept override { return "ComboAdvanced"; }
 
-    size_t comboCount() const noexcept { return combos_.size(); }
+    [[nodiscard]] size_t comboCount() const noexcept { return combos_.size(); }
 
   private:
     std::vector<ComboMapping> combos_;

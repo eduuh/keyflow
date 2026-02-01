@@ -37,17 +37,17 @@ class ModifierTracker : public IProcessor {
         return true; // Continue pipeline
     }
 
-    const char* name() const noexcept override { return "ModifierTracker"; }
+    [[nodiscard]] const char* name() const noexcept override { return "ModifierTracker"; }
 
     /**
      * @brief Get current modifier state
      */
-    uint32_t getModifiers() const noexcept { return activeModifiers_; }
+    [[nodiscard]] uint32_t getModifiers() const noexcept { return activeModifiers_; }
 
     /**
      * @brief Check if specific modifier is active
      */
-    bool isModifierActive(ModifierBit modBit) const noexcept {
+    [[nodiscard]] bool isModifierActive(ModifierBit modBit) const noexcept {
         return (activeModifiers_ & modBit) != 0;
     }
 

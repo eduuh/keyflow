@@ -49,7 +49,7 @@ class Pipeline {
      * @param event Hardware keystroke
      * @return Processing result (action + output scancode)
      */
-    ProcessingResult process(const KeyEvent& event) noexcept {
+    [[nodiscard]] ProcessingResult process(const KeyEvent& event) noexcept {
         // Initialize context
         context_.initialize(event);
 
@@ -68,7 +68,7 @@ class Pipeline {
     /**
      * @brief Get number of processors in pipeline
      */
-    size_t processorCount() const noexcept { return processors_.size(); }
+    [[nodiscard]] size_t processorCount() const noexcept { return processors_.size(); }
 
     /**
      * @brief Clear all processors

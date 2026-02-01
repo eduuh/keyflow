@@ -50,7 +50,7 @@ class Application {
     /**
      * @brief Check if application should continue running
      */
-    bool isRunning() const noexcept { return running_; }
+    [[nodiscard]] bool isRunning() const noexcept { return running_; }
 
     /**
      * @brief Get mutable config
