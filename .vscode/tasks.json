@@ -28,8 +28,25 @@
             "command": "cmake",
             "args": [
                 "-B",
-                "${workspaceFolder}/build",
+                "${workspaceFolder}/builds/debug",
                 "-DCMAKE_BUILD_TYPE=Debug"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "configure-cmake-debug-ninja",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-B",
+                "${workspaceFolder}/builds/debug-ninja",
+                "-G", "Ninja",
+                "-DCMAKE_BUILD_TYPE=Debug",
+                "-DCMAKE_C_COMPILER=cl",
+                "-DCMAKE_CXX_COMPILER=cl"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -42,7 +59,7 @@
             "command": "cmake",
             "args": [
                 "--build",
-                "${workspaceFolder}/build",
+                "${workspaceFolder}/builds/debug",
                 "--config",
                 "Debug"
             ],
@@ -52,6 +69,22 @@
             },
             "problemMatcher": ["$msCompile"],
             "dependsOn": "configure-cmake-debug"
+        },
+        {
+            "label": "build-keyflow-debug-ninja",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/builds/debug-ninja",
+                "--parallel"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": ["$msCompile"],
+            "dependsOn": "configure-cmake-debug-ninja"
         },
         {
             "label": "pre-debug-keyflow",
