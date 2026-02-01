@@ -13,6 +13,11 @@
       "type": "string",
       "description": "Configuration name (e.g., 'Colemak-DH', 'EDUUH_MOD')"
     },
+    "strictMode": {
+      "type": "boolean",
+      "default": false,
+      "description": "When enabled, only explicitly mapped keys produce output. All unmapped keys are blocked. Useful for full keyboard remappings to prevent unmapped keys from leaking through."
+    },
     "debug": {
       "type": "object",
       "description": "Debug and logging settings",

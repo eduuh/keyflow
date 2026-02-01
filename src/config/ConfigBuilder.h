@@ -5,6 +5,7 @@
 #include "../processors/LayerTriggerBlocker.h"
 #include "../processors/ModifierTracker.h"
 #include "../processors/Rewire.h"
+#include "../processors/StrictModeFilter.h"
 #include "JsonConfig.h"
 #include "KeyNameMapper.h"
 
@@ -57,6 +58,13 @@ class ConfigBuilder {
         // Step 4: Add LayerTriggerBlocker if we have layers
         if (!config.layers.empty()) {
             if (!addLayerTriggerBlocker(config, pipeline, verbose)) {
+                return false;
+            }
+        }
+
+        // Step 5: Add StrictModeFilter if enabled (must be LAST in pipeline)
+        if (config.strictMode) {
+            if (!addStrictModeFilter(config, pipeline, verbose)) {
                 return false;
             }
         }
@@ -281,6 +289,90 @@ class ConfigBuilder {
         }
 
         pipeline.addProcessor(std::move(blocker));
+        return true;
+    }
+
+    /**
+     * @brief Add StrictModeFilter to block all unmapped keys
+     *
+     * Collects all explicitly mapped keys from config and creates a filter
+     * that blocks everything else. This ensures only mapped keys produce output.
+     */
+    static bool addStrictModeFilter(const JsonConfig& config, Pipeline& pipeline, bool verbose) {
+        auto filter = std::make_unique<StrictModeFilter>();
+
+        // Collect all allowed keys from remappings
+        for (const auto& [keyName, targetName] : config.remapping) {
+            auto keyScancode = KeyNameMapper::nameToScancode(keyName);
+            auto targetScancode = KeyNameMapper::nameToScancode(targetName);
+
+            if (keyScancode) {
+                filter->addAllowedKey(*keyScancode);
+            }
+            if (targetScancode) {
+                filter->addAllowedKey(*targetScancode);
+            }
+        }
+
+        // Collect all allowed keys from noModCombos
+        for (const auto& combo : config.noModCombos) {
+            auto keyScancode = KeyNameMapper::nameToScancode(combo.key);
+            auto outputScancode = KeyNameMapper::nameToScancode(combo.output);
+
+            if (keyScancode) {
+                filter->addAllowedKey(*keyScancode);
+            }
+            if (outputScancode) {
+                filter->addAllowedKey(*outputScancode);
+            }
+        }
+
+        // Collect all allowed keys from layers
+        for (const auto& layer : config.layers) {
+            // Regular mappings
+            for (const auto& [keyName, targetName] : layer.mappings) {
+                auto keyScancode = KeyNameMapper::nameToScancode(keyName);
+                auto targetScancode = KeyNameMapper::nameToScancode(targetName);
+
+                if (keyScancode) {
+                    filter->addAllowedKey(*keyScancode);
+                }
+                if (targetScancode) {
+                    filter->addAllowedKey(*targetScancode);
+                }
+            }
+
+            // Shift mappings
+            for (const auto& shiftMapping : layer.shiftMappings) {
+                auto keyScancode = KeyNameMapper::nameToScancode(shiftMapping.key);
+                auto outputScancode = KeyNameMapper::nameToScancode(shiftMapping.output);
+
+                if (keyScancode) {
+                    filter->addAllowedKey(*keyScancode);
+                }
+                if (outputScancode) {
+                    filter->addAllowedKey(*outputScancode);
+                }
+            }
+        }
+
+        // Always allow modifier keys (they're needed for layers/combos)
+        filter->addAllowedKey(SC_LSHIFT);
+        filter->addAllowedKey(SC_RSHIFT);
+        filter->addAllowedKey(SC_LCTRL);
+        filter->addAllowedKey(SC_RCTRL);
+        filter->addAllowedKey(SC_LALT);
+        filter->addAllowedKey(SC_RALT);
+        filter->addAllowedKey(SC_LWIN);
+        filter->addAllowedKey(SC_RWIN);
+
+        if (verbose) {
+            std::cout << "[Config] Strict Mode: Enabled (" << filter->allowedKeyCount()
+                      << " allowed keys)\n";
+            std::cout << "  All unmapped keys will be blocked\n";
+        }
+
+        pipeline.addProcessor(std::move(filter));
         return true;
     }
 };
