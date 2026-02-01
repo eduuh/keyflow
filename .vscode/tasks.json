@@ -2,6 +2,17 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "check-admin",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-Command",
+                "$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator); if (-not $isAdmin) { Write-Host ''; Write-Host 'ERROR: VSCode must run as Administrator to debug keyflow' -ForegroundColor Red; Write-Host 'Please close VSCode and restart it as Administrator' -ForegroundColor Yellow; Write-Host ''; exit 1 } else { Write-Host 'Running as Administrator - OK' -ForegroundColor Green; exit 0 }"
+            ],
+            "problemMatcher": []
+        },
+        {
             "label": "kill-keyflow",
             "type": "shell",
             "command": "powershell",
@@ -18,8 +29,6 @@
             "args": [
                 "-B",
                 "${workspaceFolder}/build",
-                "-G",
-                "MinGW Makefiles",
                 "-DCMAKE_BUILD_TYPE=Debug"
             ],
             "options": {
@@ -33,18 +42,21 @@
             "command": "cmake",
             "args": [
                 "--build",
-                "${workspaceFolder}/build"
+                "${workspaceFolder}/build",
+                "--config",
+                "Debug"
             ],
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": ["$msCompile"],
             "dependsOn": "configure-cmake-debug"
         },
         {
             "label": "pre-debug-keyflow",
             "dependsOn": [
+                "check-admin",
                 "kill-keyflow",
                 "build-keyflow-debug"
             ],

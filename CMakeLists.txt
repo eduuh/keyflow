@@ -61,28 +61,26 @@ set_target_properties(keyflow PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
 )
 
-# Copy interception.dll to output directory
+# Copy files to output directory (handles multi-config generators like Visual Studio)
 add_custom_command(TARGET keyflow POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/interception.dll"
-        "${OUTPUT_DIR}/interception.dll"
-    COMMENT "Copying interception.dll to ${CMAKE_BUILD_TYPE} output directory"
+        "$<TARGET_FILE_DIR:keyflow>/interception.dll"
+    COMMENT "Copying interception.dll"
 )
 
-# Copy config.json to output directory
 add_custom_command(TARGET keyflow POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/src/config.json"
-        "${OUTPUT_DIR}/config.json"
-    COMMENT "Copying config.json to ${CMAKE_BUILD_TYPE} output directory"
+        "$<TARGET_FILE_DIR:keyflow>/config.json"
+    COMMENT "Copying config.json"
 )
 
-# Copy keyboard-icon.ico to output directory
 add_custom_command(TARGET keyflow POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/src/keyboard-icon.ico"
-        "${OUTPUT_DIR}/keyboard-icon.ico"
-    COMMENT "Copying keyboard-icon.ico to ${CMAKE_BUILD_TYPE} output directory"
+        "$<TARGET_FILE_DIR:keyflow>/keyboard-icon.ico"
+    COMMENT "Copying keyboard-icon.ico"
 )
 
 # Installation
