@@ -4,6 +4,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 namespace keyflow {
@@ -18,10 +19,12 @@ class KeyNameMapper {
      * @param name Key name (e.g., "CapsLock", "A", "LeftCtrl")
      * @return Scancode if found, nullopt otherwise
      */
-    static std::optional<uint16_t> nameToScancode(const std::string& name) {
+    [[nodiscard]] static std::optional<uint16_t> nameToScancode(std::string_view name) {
         static const std::unordered_map<std::string, uint16_t> map = createNameToScancodeMap();
 
-        auto it = map.find(name);
+        // In C++17, we need to convert string_view to string for lookup
+        // TODO: In C++20, use transparent comparator for zero-copy lookup
+        auto it = map.find(std::string(name));
         if (it != map.end()) {
             return it->second;
         }
@@ -33,7 +36,7 @@ class KeyNameMapper {
      * @param scancode Scancode value
      * @return Key name if found, nullopt otherwise
      */
-    static std::optional<std::string> scancodeToName(uint16_t scancode) {
+    [[nodiscard]] static std::optional<std::string> scancodeToName(uint16_t scancode) noexcept {
         static const std::unordered_map<uint16_t, std::string> map = createScancodeToNameMap();
 
         auto it = map.find(scancode);

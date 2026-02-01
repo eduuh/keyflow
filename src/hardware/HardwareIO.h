@@ -24,7 +24,7 @@ class HardwareIO {
      * @brief Initialize hardware driver connection
      * @return true if successful, false otherwise
      */
-    bool initialize() noexcept;
+    [[nodiscard]] bool initialize() noexcept;
 
     /**
      * @brief Cleanup and release driver resources
@@ -36,7 +36,7 @@ class HardwareIO {
      * @param timeoutMS Timeout in milliseconds (0 = infinite)
      * @return KeyEvent if available, nullopt on timeout
      */
-    std::optional<KeyEvent> waitForKey(int timeoutMS = 0) noexcept;
+    [[nodiscard]] std::optional<KeyEvent> waitForKey(int timeoutMS = 0) noexcept;
 
     /**
      * @brief Send a single keystroke to the OS
@@ -48,7 +48,7 @@ class HardwareIO {
     /**
      * @brief Check if hardware is initialized
      */
-    bool isInitialized() const noexcept { return initialized_; }
+    [[nodiscard]] bool isInitialized() const noexcept { return initialized_; }
 
   private:
     bool initialized_ = false;
