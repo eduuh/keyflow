@@ -77,6 +77,33 @@ cmake --build build
 
 Install MinGW-w64: https://www.msys2.org/
 
+## Testing
+
+**Unit Tests:** 152/152 (100%) ✅
+
+KeyFlow includes comprehensive unit tests using Google Test:
+
+```bash
+# Build with tests enabled (automatic in Debug builds)
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_TESTS=ON
+cmake --build build --target keyflow_tests
+
+# Run all tests
+cd build
+ctest --output-on-failure -C Debug
+
+# Run specific test suite
+./tests/Debug/keyflow_tests.exe --gtest_filter="ModifiersTest.*"
+```
+
+**Test Coverage:**
+- ✅ Pipeline components (modifiers, context, orchestration)
+- ✅ Processors (rewire, modifier tracking, combos)
+- ✅ Hardware layer (KeyEvent struct)
+- ✅ Config system (parsing, validation, key mapping)
+
+See [tests/README.md](tests/README.md) for detailed testing documentation.
+
 ## Requirements
 
 - Windows 10/11
