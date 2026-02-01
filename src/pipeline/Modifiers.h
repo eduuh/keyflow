@@ -48,6 +48,20 @@ constexpr uint32_t operator&(uint32_t lhs, ModifierBit rhs) noexcept {
 }
 
 /**
+ * @brief Bitwise OR assignment for combining modifiers
+ */
+constexpr uint32_t operator|=(uint32_t& lhs, ModifierBit rhs) noexcept {
+    return lhs |= static_cast<uint32_t>(rhs);
+}
+
+/**
+ * @brief Bitwise AND assignment for masking modifiers
+ */
+constexpr uint32_t operator&=(uint32_t& lhs, ModifierBit rhs) noexcept {
+    return lhs &= static_cast<uint32_t>(rhs);
+}
+
+/**
  * @brief Check if scancode is a modifier key
  */
 constexpr bool isModifierKey(uint16_t scancode) noexcept {
@@ -115,6 +129,41 @@ constexpr ModifierBit modifierNameToBit(std::string_view modName) noexcept {
         return ModifierBit::RightWin;
 
     return ModifierBit::None;
+}
+
+/**
+ * @brief Check if any shift key is pressed
+ */
+[[nodiscard]] constexpr bool hasAnyShift(uint32_t modifiers) noexcept {
+    return (modifiers & (ModifierBit::LeftShift | ModifierBit::RightShift)) != 0;
+}
+
+/**
+ * @brief Check if any ctrl key is pressed
+ */
+[[nodiscard]] constexpr bool hasAnyCtrl(uint32_t modifiers) noexcept {
+    return (modifiers & (ModifierBit::LeftCtrl | ModifierBit::RightCtrl)) != 0;
+}
+
+/**
+ * @brief Check if any alt key is pressed
+ */
+[[nodiscard]] constexpr bool hasAnyAlt(uint32_t modifiers) noexcept {
+    return (modifiers & (ModifierBit::LeftAlt | ModifierBit::RightAlt)) != 0;
+}
+
+/**
+ * @brief Check if any win/super key is pressed
+ */
+[[nodiscard]] constexpr bool hasAnyWin(uint32_t modifiers) noexcept {
+    return (modifiers & (ModifierBit::LeftWin | ModifierBit::RightWin)) != 0;
+}
+
+/**
+ * @brief Check if no modifiers are pressed
+ */
+[[nodiscard]] constexpr bool hasNoModifiers(uint32_t modifiers) noexcept {
+    return modifiers == 0;
 }
 
 } // namespace keyflow
