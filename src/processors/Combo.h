@@ -1,10 +1,9 @@
 #pragma once
 
-#include "../hardware/Scancodes.h"
 #include "../pipeline/IProcessor.h"
+#include "../pipeline/Modifiers.h"
 
 #include <cstdint>
-#include <cstring>
 #include <vector>
 
 namespace keyflow {
@@ -41,8 +40,8 @@ class Combo : public IProcessor {
     /**
      * @brief Add a combo using modifier names (helper)
      */
-    void addCombo(const char* modName, uint16_t triggerKey, uint16_t outputKey) {
-        uint32_t modBit = getModifierBit(modName);
+    void addCombo(std::string_view modName, uint16_t triggerKey, uint16_t outputKey) {
+        uint32_t modBit = static_cast<uint32_t>(modifierNameToBit(modName));
         if (modBit != 0) {
             addCombo(modBit, triggerKey, outputKey);
         }
@@ -77,19 +76,6 @@ class Combo : public IProcessor {
   private:
     std::vector<ComboMapping> combos_;
 
-    // Modifier bit definitions (must match ModifierTracker)
-    enum ModBits : uint32_t {
-        MOD_LSHIFT = 1 << 0,
-        MOD_RSHIFT = 1 << 1,
-        MOD_LCTRL = 1 << 2,
-        MOD_RCTRL = 1 << 3,
-        MOD_LALT = 1 << 4,
-        MOD_RALT = 1 << 5,
-        MOD_LWIN = 1 << 6,
-        MOD_RWIN = 1 << 7,
-        MOD_PRINT = 1 << 8,
-    };
-
     bool matchesCombo(const Context& ctx, const ComboMapping& combo) const noexcept {
         // Check if the trigger key matches (use outputScancode after Rewire)
         if (ctx.outputScancode != combo.triggerKey) {
@@ -100,26 +86,6 @@ class Combo : public IProcessor {
         // Note: We only check the modifiers we care about
         uint32_t relevantMods = ctx.modifiers & combo.requiredModifiers;
         return relevantMods == combo.requiredModifiers;
-    }
-
-    uint32_t getModifierBit(const char* modName) const noexcept {
-        if (strcmp(modName, "LALT") == 0 || strcmp(modName, "MOD12") == 0)
-            return MOD_LALT;
-        if (strcmp(modName, "RALT") == 0 || strcmp(modName, "MOD11") == 0)
-            return MOD_RALT;
-        if (strcmp(modName, "LCTRL") == 0 || strcmp(modName, "MOD13") == 0)
-            return MOD_LCTRL;
-        if (strcmp(modName, "LWIN") == 0)
-            return MOD_LWIN;
-        if (strcmp(modName, "PRINT") == 0)
-            return MOD_PRINT;
-        if (strcmp(modName, "LSHIFT") == 0)
-            return MOD_LSHIFT;
-        if (strcmp(modName, "RSHIFT") == 0)
-            return MOD_RSHIFT;
-        if (strcmp(modName, "RCTRL") == 0)
-            return MOD_RCTRL;
-        return 0;
     }
 };
 
