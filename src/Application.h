@@ -30,12 +30,12 @@ class Application {
      * @brief Initialize the application
      * @return true if successful
      */
-    bool initialize(const std::string& appName) {
+    [[nodiscard]] bool initialize(std::string appName) {
         if (!hardware_.initialize()) {
             return false;
         }
 
-        if (!sysTray_.initialize(appName.c_str())) {
+        if (!sysTray_.initialize(std::move(appName))) {
             return false;
         }
 
