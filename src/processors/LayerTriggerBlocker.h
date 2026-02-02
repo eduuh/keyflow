@@ -3,6 +3,7 @@
 #include "../pipeline/IProcessor.h"
 #include "../pipeline/Modifiers.h"
 
+#include <unordered_set>
 #include <vector>
 
 namespace keyflow {
@@ -23,7 +24,7 @@ class LayerTriggerBlocker : public IProcessor {
      * @brief Add a physical trigger key to block (for custom modifiers)
      * Checks ctx.scancode (before remapping)
      */
-    void addPhysicalTrigger(uint16_t scancode) { physicalTriggers_.push_back(scancode); }
+    void addPhysicalTrigger(uint16_t scancode) { physicalTriggers_.insert(scancode); }
 
     /**
      * @brief Add a trigger key to block by scancode (for custom modifiers)
@@ -45,7 +46,7 @@ class LayerTriggerBlocker : public IProcessor {
         if (modBit != ModifierBit::None) {
             uint16_t scancode = getScancodeFromModifier(modBit);
             if (scancode != 0) {
-                outputTriggers_.push_back(scancode);
+                outputTriggers_.insert(scancode);
             }
         }
     }
@@ -56,22 +57,16 @@ class LayerTriggerBlocker : public IProcessor {
             return true; // Already handled by another processor
         }
 
-        // Check physical triggers (custom modifiers) - check before remapping
-        for (uint16_t trigger : physicalTriggers_) {
-            if (ctx.scancode == trigger) {
-                // Consume this key - don't let it reach Windows
-                ctx.action = Action::Consume;
-                return true;
-            }
+        // Check physical triggers (custom modifiers) - O(1) hash lookup
+        if (physicalTriggers_.find(ctx.scancode) != physicalTriggers_.end()) {
+            ctx.action = Action::Consume;
+            return true;
         }
 
-        // Check output triggers (standard layers) - check after remapping
-        for (uint16_t trigger : outputTriggers_) {
-            if (ctx.outputScancode == trigger) {
-                // Consume this key - don't let it reach Windows
-                ctx.action = Action::Consume;
-                return true;
-            }
+        // Check output triggers (standard layers) - O(1) hash lookup
+        if (outputTriggers_.find(ctx.outputScancode) != outputTriggers_.end()) {
+            ctx.action = Action::Consume;
+            return true;
         }
 
         return true; // Continue pipeline
@@ -84,8 +79,8 @@ class LayerTriggerBlocker : public IProcessor {
     }
 
   private:
-    std::vector<uint16_t> physicalTriggers_; // Custom modifiers (check ctx.scancode)
-    std::vector<uint16_t> outputTriggers_;   // Standard layers (check ctx.outputScancode)
+    std::unordered_set<uint16_t> physicalTriggers_; // Custom modifiers (check ctx.scancode)
+    std::unordered_set<uint16_t> outputTriggers_;   // Standard layers (check ctx.outputScancode)
 
     constexpr uint16_t getScancodeFromModifier(ModifierBit modBit) const noexcept {
         switch (modBit) {

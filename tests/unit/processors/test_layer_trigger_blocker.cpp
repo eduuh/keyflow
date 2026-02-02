@@ -235,8 +235,9 @@ TEST(LayerTriggerBlockerTest, EmptyBlockerPassesThrough) {
 TEST(LayerTriggerBlockerTest, DuplicateTriggersWork) {
   LayerTriggerBlocker blocker;
   blocker.addTrigger(SC_LALT);
-  blocker.addTrigger(SC_LALT); // Duplicate
-  EXPECT_EQ(blocker.triggerCount(), 2u);
+  blocker.addTrigger(
+      SC_LALT); // Duplicate - automatically deduplicated by unordered_set
+  EXPECT_EQ(blocker.triggerCount(), 1u); // Deduplicated to 1
 
   Context ctx;
   ctx.scancode = SC_LALT;
@@ -245,7 +246,7 @@ TEST(LayerTriggerBlockerTest, DuplicateTriggersWork) {
   ctx.action = Action::Forward;
 
   blocker.process(ctx);
-  EXPECT_EQ(ctx.action, Action::Consume); // Still works
+  EXPECT_EQ(ctx.action, Action::Consume); // Still works correctly
 }
 
 // ===== Custom Modifier Physical vs Output Tests =====

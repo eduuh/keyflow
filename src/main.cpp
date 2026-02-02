@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        auto event = app.hardware().waitForKey(2);
+        auto event = app.hardware().waitForKey(10);
         if (!event)
             continue;
 
