@@ -11,6 +11,9 @@
 
 namespace keyflow {
 
+// Forward declaration
+class ModifierTracker;
+
 /**
  * @brief Main application encapsulating keyflow runtime state
  *
@@ -92,6 +95,16 @@ class Application {
     SystemTray& sysTray() noexcept { return sysTray_; }
 
     /**
+     * @brief Get modifier tracker
+     */
+    ModifierTracker& modifierTracker() noexcept { return *modifierTracker_; }
+
+    /**
+     * @brief Set modifier tracker pointer (called during pipeline build)
+     */
+    void setModifierTracker(ModifierTracker* tracker) noexcept { modifierTracker_ = tracker; }
+
+    /**
      * @brief Release all held modifier keys
      *
      * Called during shutdown or emergency cleanup to ensure
@@ -121,6 +134,7 @@ class Application {
     SystemTray sysTray_;
     Pipeline pipeline_;
     bool running_{true};
+    ModifierTracker* modifierTracker_ = nullptr; // Pointer to ModifierTracker in pipeline
 };
 
 } // namespace keyflow

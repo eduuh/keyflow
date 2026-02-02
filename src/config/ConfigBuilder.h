@@ -24,10 +24,12 @@ class ConfigBuilder {
      * @param config JsonConfig structure
      * @param pipeline Pipeline to populate
      * @param verbose Enable verbose logging
+     * @param modTrackerOut Optional pointer to receive ModifierTracker pointer
      * @return true if successful, false otherwise
      */
     [[nodiscard]] static bool buildPipeline(const JsonConfig& config, Pipeline& pipeline,
-                                            bool verbose = true) {
+                                            bool verbose = true,
+                                            ModifierTracker** modTrackerOut = nullptr) {
         if (verbose && !config.name.empty()) {
             std::cout << "[Config] Loading: " << config.name << "\n";
         }
@@ -49,6 +51,11 @@ class ConfigBuilder {
             if (verbose) {
                 std::cout << "[Config] Added ModifierTracker\n";
             }
+        }
+
+        // Store ModifierTracker pointer if requested
+        if (modTrackerOut) {
+            *modTrackerOut = modTrackerPtr;
         }
 
         // Step 2.5: Register custom modifiers
