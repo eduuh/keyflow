@@ -20,9 +20,14 @@ namespace keyflow {
 class LayerTriggerBlocker : public IProcessor {
   public:
     /**
-     * @brief Add a trigger key to block (after remapping)
+     * @brief Add a trigger key to block by scancode (for custom modifiers)
      */
-    void addTrigger(uint16_t scancode) { triggers_.push_back(scancode); }
+    void addTriggerByScancode(uint16_t scancode) { triggers_.push_back(scancode); }
+
+    /**
+     * @brief Add a trigger key to block (after remapping) - deprecated, use addTriggerByScancode
+     */
+    void addTrigger(uint16_t scancode) { addTriggerByScancode(scancode); }
 
     /**
      * @brief Add trigger by name (e.g., "LALT", "RALT")

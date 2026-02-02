@@ -38,6 +38,19 @@ struct ShiftMapping {
 };
 
 /**
+ * @brief Custom modifier definition
+ */
+struct CustomModifier {
+    std::string key;          // Physical key name (e.g., "Space")
+    std::string modifierName; // Modifier name for layer triggers (e.g., "SPACE_MOD")
+    bool blockOutput = true;  // Block key output when used as modifier
+
+    CustomModifier() = default;
+    CustomModifier(const std::string& k, const std::string& m, bool block = true)
+        : key(k), modifierName(m), blockOutput(block) {}
+};
+
+/**
  * @brief Layer definition with modifier trigger
  */
 struct Layer {
@@ -59,6 +72,7 @@ struct JsonConfig {
 
     std::unordered_map<std::string, std::string> remapping;
     std::vector<NoModCombo> noModCombos;
+    std::vector<CustomModifier> customModifiers;
     std::vector<Layer> layers;
 
     // Strict mode: Only mapped keys produce output, all others blocked

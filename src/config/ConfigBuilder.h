@@ -40,23 +40,33 @@ class ConfigBuilder {
         }
 
         // Step 2: Add ModifierTracker (needed for layers)
-        if (!config.layers.empty() || !config.noModCombos.empty()) {
+        ModifierTracker* modTrackerPtr = nullptr;
+        if (!config.layers.empty() || !config.noModCombos.empty() ||
+            !config.customModifiers.empty()) {
             auto modTracker = std::make_unique<ModifierTracker>();
+            modTrackerPtr = modTracker.get(); // Keep pointer for custom modifier registration
             pipeline.addProcessor(std::move(modTracker));
             if (verbose) {
                 std::cout << "[Config] Added ModifierTracker\n";
             }
         }
 
-        // Step 3: Add ComboAdvanced processor if we have combos or layers
-        if (!config.noModCombos.empty() || !config.layers.empty()) {
-            if (!addComboProcessor(config, pipeline, verbose)) {
+        // Step 2.5: Register custom modifiers
+        if (!config.customModifiers.empty() && modTrackerPtr) {
+            if (!registerCustomModifiers(config, modTrackerPtr, verbose)) {
                 return false;
             }
         }
 
-        // Step 4: Add LayerTriggerBlocker if we have layers
-        if (!config.layers.empty()) {
+        // Step 3: Add ComboAdvanced processor if we have combos or layers
+        if (!config.noModCombos.empty() || !config.layers.empty()) {
+            if (!addComboProcessor(config, pipeline, modTrackerPtr, verbose)) {
+                return false;
+            }
+        }
+
+        // Step 4: Add LayerTriggerBlocker if we have layers or custom modifiers
+        if (!config.layers.empty() || !config.customModifiers.empty()) {
             if (!addLayerTriggerBlocker(config, pipeline, verbose)) {
                 return false;
             }
@@ -78,6 +88,49 @@ class ConfigBuilder {
     }
 
   private:
+    /**
+     * @brief Register custom modifiers with ModifierTracker
+     */
+    static bool registerCustomModifiers(const JsonConfig& config, ModifierTracker* modTracker,
+                                        bool verbose) {
+        if (verbose && !config.customModifiers.empty()) {
+            std::cout << "[Config] Custom modifiers:\n";
+        }
+
+        for (size_t i = 0; i < config.customModifiers.size(); ++i) {
+            const auto& customMod = config.customModifiers[i];
+
+            auto keyScancode = KeyNameMapper::nameToScancode(customMod.key);
+            if (!keyScancode) {
+                std::cerr << "[Config] ERROR: Unknown key name '" << customMod.key << "'\n";
+                return false;
+            }
+
+            // Assign custom modifier bit (1-based index, up to 23 custom modifiers)
+            ModifierBit modBit = getCustomModifierBit(static_cast<int>(i + 1));
+            if (modBit == ModifierBit::None) {
+                std::cerr << "[Config] ERROR: Too many custom modifiers (max 23)\n";
+                return false;
+            }
+
+            modTracker->registerCustomModifier(*keyScancode, customMod.modifierName, modBit);
+
+            if (verbose) {
+                std::cout << "  " << customMod.key << " → " << customMod.modifierName;
+                if (customMod.blockOutput) {
+                    std::cout << " (blocked)";
+                }
+                std::cout << "\n";
+            }
+        }
+
+        if (verbose && !config.customModifiers.empty()) {
+            std::cout << "\n";
+        }
+
+        return true;
+    }
+
     /**
      * @brief Add Rewire processor with remappings
      */
@@ -123,7 +176,8 @@ class ConfigBuilder {
     /**
      * @brief Add ComboAdvanced processor with combos and layers
      */
-    static bool addComboProcessor(const JsonConfig& config, Pipeline& pipeline, bool verbose) {
+    static bool addComboProcessor(const JsonConfig& config, Pipeline& pipeline,
+                                  ModifierTracker* modTracker, bool verbose) {
         auto combo = std::make_unique<ComboAdvanced>();
 
         // Add noModCombos
@@ -199,7 +253,22 @@ class ConfigBuilder {
 
                     // Add combo for each trigger
                     for (const auto& trigger : layer.triggers) {
-                        combo->addCombo(trigger, *keyScancode, *targetScancode);
+                        // First try standard modifier names
+                        uint32_t modBit = static_cast<uint32_t>(modifierNameToBit(trigger));
+
+                        // If not found, check custom modifiers
+                        if (modBit == 0 && modTracker) {
+                            modBit =
+                                static_cast<uint32_t>(modTracker->resolveCustomModifier(trigger));
+                        }
+
+                        if (modBit == 0) {
+                            std::cerr << "[Config] ERROR: Unknown trigger modifier '" << trigger
+                                      << "'\n";
+                            return false;
+                        }
+
+                        combo->addCombo(modBit, *keyScancode, *targetScancode, true);
                     }
 
                     if (verbose) {
@@ -225,7 +294,22 @@ class ConfigBuilder {
 
                     // Add shift combo for each trigger
                     for (const auto& trigger : layer.triggers) {
-                        combo->addComboWithShift(trigger, *keyScancode, *outputScancode);
+                        // First try standard modifier names
+                        uint32_t modBit = static_cast<uint32_t>(modifierNameToBit(trigger));
+
+                        // If not found, check custom modifiers
+                        if (modBit == 0 && modTracker) {
+                            modBit =
+                                static_cast<uint32_t>(modTracker->resolveCustomModifier(trigger));
+                        }
+
+                        if (modBit == 0) {
+                            std::cerr << "[Config] ERROR: Unknown trigger modifier '" << trigger
+                                      << "'\n";
+                            return false;
+                        }
+
+                        combo->addComboWithShift(modBit, *keyScancode, *outputScancode, true);
                     }
 
                     if (verbose) {
@@ -249,7 +333,7 @@ class ConfigBuilder {
     }
 
     /**
-     * @brief Add LayerTriggerBlocker to consume layer trigger keys
+     * @brief Add LayerTriggerBlocker to consume layer trigger keys and custom modifiers
      */
     static bool addLayerTriggerBlocker(const JsonConfig& config, Pipeline& pipeline, bool verbose) {
         auto blocker = std::make_unique<LayerTriggerBlocker>();
@@ -276,6 +360,16 @@ class ConfigBuilder {
         // Add each trigger to the blocker
         for (const auto& trigger : allTriggers) {
             blocker->addTrigger(trigger);
+        }
+
+        // Add custom modifiers with blockOutput=true
+        for (const auto& customMod : config.customModifiers) {
+            if (customMod.blockOutput) {
+                auto keyScancode = KeyNameMapper::nameToScancode(customMod.key);
+                if (keyScancode) {
+                    blocker->addTriggerByScancode(*keyScancode);
+                }
+            }
         }
 
         if (verbose && blocker->triggerCount() > 0) {
@@ -341,6 +435,15 @@ class ConfigBuilder {
                 if (keyScancode) {
                     filter->addAllowedKey(*keyScancode);
                 }
+            }
+        }
+
+        // Collect all allowed INPUT keys from custom modifiers
+        for (const auto& customMod : config.customModifiers) {
+            auto keyScancode = KeyNameMapper::nameToScancode(customMod.key);
+
+            if (keyScancode) {
+                filter->addAllowedKey(*keyScancode);
             }
         }
 

@@ -26,6 +26,31 @@ enum class ModifierBit : uint32_t {
     RightWin = 1 << 7,
     PrintScreen = 1 << 8,
 
+    // Custom modifiers (bits 9-31 available for user-defined modifiers)
+    Custom1 = 1 << 9,
+    Custom2 = 1 << 10,
+    Custom3 = 1 << 11,
+    Custom4 = 1 << 12,
+    Custom5 = 1 << 13,
+    Custom6 = 1 << 14,
+    Custom7 = 1 << 15,
+    Custom8 = 1 << 16,
+    Custom9 = 1 << 17,
+    Custom10 = 1 << 18,
+    Custom11 = 1 << 19,
+    Custom12 = 1 << 20,
+    Custom13 = 1 << 21,
+    Custom14 = 1 << 22,
+    Custom15 = 1 << 23,
+    Custom16 = 1 << 24,
+    Custom17 = 1 << 25,
+    Custom18 = 1 << 26,
+    Custom19 = 1 << 27,
+    Custom20 = 1 << 28,
+    Custom21 = 1 << 29,
+    Custom22 = 1 << 30,
+    Custom23 = 1u << 31,
+
     // Convenience aliases for layer systems
     None = 0,
     AnyShift = LeftShift | RightShift,
@@ -105,6 +130,9 @@ constexpr ModifierBit getModifierBit(uint16_t scancode) noexcept {
  *
  * Using string_view for compile-time string handling where possible.
  * This replaces C-string strcmp() with type-safe comparison.
+ *
+ * Note: This function handles standard modifiers only. Custom modifiers
+ * are resolved at runtime by ModifierTracker.
  */
 constexpr ModifierBit modifierNameToBit(std::string_view modName) noexcept {
     // Check common names
@@ -128,6 +156,62 @@ constexpr ModifierBit modifierNameToBit(std::string_view modName) noexcept {
         return ModifierBit::RightWin;
 
     return ModifierBit::None;
+}
+
+/**
+ * @brief Get custom modifier bit by index (1-23)
+ */
+constexpr ModifierBit getCustomModifierBit(int index) noexcept {
+    switch (index) {
+        case 1:
+            return ModifierBit::Custom1;
+        case 2:
+            return ModifierBit::Custom2;
+        case 3:
+            return ModifierBit::Custom3;
+        case 4:
+            return ModifierBit::Custom4;
+        case 5:
+            return ModifierBit::Custom5;
+        case 6:
+            return ModifierBit::Custom6;
+        case 7:
+            return ModifierBit::Custom7;
+        case 8:
+            return ModifierBit::Custom8;
+        case 9:
+            return ModifierBit::Custom9;
+        case 10:
+            return ModifierBit::Custom10;
+        case 11:
+            return ModifierBit::Custom11;
+        case 12:
+            return ModifierBit::Custom12;
+        case 13:
+            return ModifierBit::Custom13;
+        case 14:
+            return ModifierBit::Custom14;
+        case 15:
+            return ModifierBit::Custom15;
+        case 16:
+            return ModifierBit::Custom16;
+        case 17:
+            return ModifierBit::Custom17;
+        case 18:
+            return ModifierBit::Custom18;
+        case 19:
+            return ModifierBit::Custom19;
+        case 20:
+            return ModifierBit::Custom20;
+        case 21:
+            return ModifierBit::Custom21;
+        case 22:
+            return ModifierBit::Custom22;
+        case 23:
+            return ModifierBit::Custom23;
+        default:
+            return ModifierBit::None;
+    }
 }
 
 /**
