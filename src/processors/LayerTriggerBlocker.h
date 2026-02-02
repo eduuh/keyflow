@@ -20,9 +20,16 @@ namespace keyflow {
 class LayerTriggerBlocker : public IProcessor {
   public:
     /**
-     * @brief Add a trigger key to block by scancode (for custom modifiers)
+     * @brief Add a physical trigger key to block (for custom modifiers)
+     * Checks ctx.scancode (before remapping)
      */
-    void addTriggerByScancode(uint16_t scancode) { triggers_.push_back(scancode); }
+    void addPhysicalTrigger(uint16_t scancode) { physicalTriggers_.push_back(scancode); }
+
+    /**
+     * @brief Add a trigger key to block by scancode (for custom modifiers)
+     * Alias for addPhysicalTrigger for backward compatibility
+     */
+    void addTriggerByScancode(uint16_t scancode) { addPhysicalTrigger(scancode); }
 
     /**
      * @brief Add a trigger key to block (after remapping) - deprecated, use addTriggerByScancode
@@ -31,13 +38,14 @@ class LayerTriggerBlocker : public IProcessor {
 
     /**
      * @brief Add trigger by name (e.g., "LALT", "RALT")
+     * Checks ctx.outputScancode (after remapping) for standard layer triggers
      */
     void addTrigger(std::string_view name) {
         ModifierBit modBit = modifierNameToBit(name);
         if (modBit != ModifierBit::None) {
             uint16_t scancode = getScancodeFromModifier(modBit);
             if (scancode != 0) {
-                triggers_.push_back(scancode);
+                outputTriggers_.push_back(scancode);
             }
         }
     }
@@ -48,8 +56,17 @@ class LayerTriggerBlocker : public IProcessor {
             return true; // Already handled by another processor
         }
 
-        // Check if this key (after remapping) is a layer trigger
-        for (uint16_t trigger : triggers_) {
+        // Check physical triggers (custom modifiers) - check before remapping
+        for (uint16_t trigger : physicalTriggers_) {
+            if (ctx.scancode == trigger) {
+                // Consume this key - don't let it reach Windows
+                ctx.action = Action::Consume;
+                return true;
+            }
+        }
+
+        // Check output triggers (standard layers) - check after remapping
+        for (uint16_t trigger : outputTriggers_) {
             if (ctx.outputScancode == trigger) {
                 // Consume this key - don't let it reach Windows
                 ctx.action = Action::Consume;
@@ -62,10 +79,13 @@ class LayerTriggerBlocker : public IProcessor {
 
     [[nodiscard]] const char* name() const noexcept override { return "LayerTriggerBlocker"; }
 
-    [[nodiscard]] size_t triggerCount() const noexcept { return triggers_.size(); }
+    [[nodiscard]] size_t triggerCount() const noexcept {
+        return physicalTriggers_.size() + outputTriggers_.size();
+    }
 
   private:
-    std::vector<uint16_t> triggers_;
+    std::vector<uint16_t> physicalTriggers_; // Custom modifiers (check ctx.scancode)
+    std::vector<uint16_t> outputTriggers_;   // Standard layers (check ctx.outputScancode)
 
     constexpr uint16_t getScancodeFromModifier(ModifierBit modBit) const noexcept {
         switch (modBit) {
