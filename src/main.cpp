@@ -130,6 +130,14 @@ int main(int argc, char* argv[]) {
     SetConsoleCtrlHandler(consoleHandler, TRUE);
     std::atexit(emergencyCleanup);
 
+    // Check for single instance (must be done before hardware initialization)
+    if (!app.acquireSingleInstanceLock()) {
+        std::cerr << "[Main] Another instance of Keyflow is already running\n";
+        std::cerr << "[Main] Only one instance can run at a time\n";
+        g_app = nullptr;
+        return 1;
+    }
+
     if (!app.initialize("Keyflow - Keyboard Remapper")) {
         std::cerr << "[Main] Failed to initialize hardware\n";
         std::cerr << "[Main] Make sure:\n";
