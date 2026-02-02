@@ -6,7 +6,7 @@
     "_comment": "Modifier remapping",
     "CapsLock": "LeftShift",
     "LeftShift": "LeftCtrl",
-    "LeftCtrl": "CapsLock",
+    "LeftCtrl": "LeftCtrl",
     "RightShift": "RightCtrl",
     "Enter": "RightShift",
     "LeftWin": "LeftAlt",
@@ -70,7 +70,8 @@
     {"key": "0", "output": "0", "shift": true, "description": "0 → )"},
     {"key": "Minus", "output": "9", "shift": true, "description": "- → ("},
     {"key": "Equals", "output": "Equals", "shift": true, "description": "= → +"},
-    {"key": "RightBracket", "output": "Semicolon", "shift": true, "description": "] → :"}
+    {"key": "RightBracket", "output": "Semicolon", "shift": true, "description": "] → :"},
+    {"key": "Tab", "output": "Tab", "shift": false, "description": "Shift+Tab passthrough"}
   ],
 
   "layers": [
@@ -108,7 +109,8 @@
         "A": "Backslash",
         "S": "Escape",
         "D": "9",
-        "X": "Grave"
+        "X": "Grave",
+        "C": "CapsLock"
       },
       "shiftMappings": [
         {"key": "E", "output": "Comma", "shift": true, "description": "< symbol"},
