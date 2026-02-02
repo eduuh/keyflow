@@ -108,8 +108,7 @@
         "A": "Backslash",
         "S": "Escape",
         "D": "9",
-        "X": "Grave",
-        "C": "CapsLock"
+        "X": "Grave"
       },
       "shiftMappings": [
         {"key": "E", "output": "Comma", "shift": true, "description": "< symbol"},
