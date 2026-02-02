@@ -119,6 +119,14 @@ if(ENABLE_TESTS)
     # Make Google Test available
     FetchContent_MakeAvailable(googletest)
 
+    # Disable -Werror for Google Test targets
+    if(NOT MSVC)
+        target_compile_options(gtest PRIVATE -Wno-error=undef)
+        target_compile_options(gtest_main PRIVATE -Wno-error=undef)
+        target_compile_options(gmock PRIVATE -Wno-error=undef)
+        target_compile_options(gmock_main PRIVATE -Wno-error=undef)
+    endif()
+
     # Add tests subdirectory
     add_subdirectory(tests)
 endif()

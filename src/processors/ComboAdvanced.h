@@ -151,6 +151,7 @@ class ComboAdvanced : public IProcessor {
 
             // Set shift injection flag if needed
             ctx.injectShift = action.withShift;
+            ctx.cleanupInjectedShift = action.withShift; // Signal cleanup needed
         }
     }
 
