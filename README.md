@@ -102,6 +102,12 @@ Install MinGW-w64: https://www.msys2.org/
 
 ---
 
+## Acknowledgments
+
+Development assisted by [Claude Code](https://claude.com/claude-code) - Anthropic's AI-powered coding assistant.
+
+---
+
 ## License
 
 MIT License - See LICENSE file
