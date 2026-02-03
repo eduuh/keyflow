@@ -64,3 +64,9 @@ keyflow/
 - **Do NOT use `build/` directory** - everything goes in `builds/`
 - Both `build/` and `builds/` are in `.gitignore`
 - The build script ensures consistent build locations
+
+## Config Changes
+
+⚠️ **IMPORTANT**: When modifying `src/config.json`, you MUST also update the designer codebase!
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
