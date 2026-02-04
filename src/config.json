@@ -2,6 +2,7 @@
   "version": "1.0",
   "name": "Key ~ Flow Default layout",
   "strictMode": false,
+  "disableCapsLock": true,
   "remapping": {
     "_comment": "Modifier remapping",
     "CapsLock": "LeftShift",
