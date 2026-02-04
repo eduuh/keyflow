@@ -183,11 +183,18 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        // Cleanup injected shift from previous event (if needed)
-        if (app.pipeline().needsShiftCleanup() && modTracker) {
+        // SAFETY: Ensure Windows has processed shift release before new character
+        // This prevents shift from being "stuck" when typing very fast after shift injection
+        if (event->isDown && modTracker && modTracker->hasInjectedShift()) {
+            DEBUG_LOG("[Safety] Injected shift detected before key 0x"
+                      << std::hex << event->scancode << std::dec << ", cleaning up\n");
+            // Send redundant SHIFT UP unconditionally to guarantee Windows sees it
+            // This is safe even if physical shift is held because:
+            // 1. Physical shift will send its own DOWN event
+            // 2. Windows handles multiple SHIFT UP/DOWN pairs gracefully
+            DEBUG_LOG("[Safety] Sending redundant SHIFT UP to prevent stuck shift\n");
             app.hardware().sendKey(SC_LSHIFT, false);
             modTracker->clearInjectedModifiers();
-            app.pipeline().clearShiftCleanup();
         }
 
         auto result = app.pipeline().process(*event);
@@ -206,16 +213,22 @@ int main(int argc, char* argv[]) {
             case Action::Replace:
                 if (result.injectShift) {
                     if (event->isDown) {
+                        DEBUG_LOG("[ShiftInject] Injecting shift for key 0x"
+                                  << std::hex << event->scancode << std::dec << " → 0x" << std::hex
+                                  << result.outputScancode << std::dec << "\n");
                         app.hardware().sendKey(SC_LSHIFT, true);
                         app.hardware().sendKey(result.outputScancode, true);
                         if (modTracker) {
                             modTracker->setInjectedShift(true); // Track injection
                         }
                     } else {
+                        DEBUG_LOG("[ShiftInject] Releasing shift for key 0x"
+                                  << std::hex << event->scancode << std::dec
+                                  << " (tracker NOT cleared yet)\n");
                         app.hardware().sendKey(result.outputScancode, false);
                         app.hardware().sendKey(SC_LSHIFT, false);
-                        // Mark for cleanup BEFORE next event
-                        app.pipeline().markShiftCleanupNeeded(result.cleanupInjectedShift);
+                        // DON'T clear tracker yet - let safety check on next key DOWN handle it
+                        // This ensures we catch fast typing before Windows processes SHIFT UP
                     }
                 } else {
                     app.hardware().sendKey(result.outputScancode, event->isDown);

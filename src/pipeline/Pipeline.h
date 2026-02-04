@@ -89,25 +89,9 @@ class Pipeline {
      */
     void clear() noexcept { processors_.clear(); }
 
-    /**
-     * @brief Mark that shift cleanup is needed before next event
-     */
-    void markShiftCleanupNeeded(bool needed) noexcept { needsShiftCleanup_ = needed; }
-
-    /**
-     * @brief Check if shift cleanup is needed
-     */
-    [[nodiscard]] bool needsShiftCleanup() const noexcept { return needsShiftCleanup_; }
-
-    /**
-     * @brief Clear shift cleanup flag
-     */
-    void clearShiftCleanup() noexcept { needsShiftCleanup_ = false; }
-
   private:
     std::vector<std::unique_ptr<IProcessor>> processors_;
-    Context context_;                // Reused for each keystroke (avoid allocations)
-    bool needsShiftCleanup_ = false; // Track if cleanup is needed before next event
+    Context context_; // Reused for each keystroke (avoid allocations)
 };
 
 } // namespace keyflow

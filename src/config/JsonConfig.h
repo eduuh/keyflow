@@ -78,6 +78,9 @@ struct JsonConfig {
     // Strict mode: Only mapped keys produce output, all others blocked
     bool strictMode = false;
 
+    // Disable caps lock: Block CapsLock key from reaching OS (prevents accidental toggle)
+    bool disableCapsLock = false;
+
     JsonConfig() = default;
 };
 

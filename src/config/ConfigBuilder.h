@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../pipeline/Pipeline.h"
+#include "../processors/CapsLockBlocker.h"
 #include "../processors/ComboAdvanced.h"
 #include "../processors/LayerTriggerBlocker.h"
 #include "../processors/ModifierTracker.h"
@@ -76,6 +77,15 @@ class ConfigBuilder {
         if (!config.layers.empty() || !config.customModifiers.empty()) {
             if (!addLayerTriggerBlocker(config, pipeline, verbose)) {
                 return false;
+            }
+        }
+
+        // Step 4.5: Add CapsLockBlocker if disableCapsLock is enabled
+        if (config.disableCapsLock) {
+            auto blocker = std::make_unique<CapsLockBlocker>();
+            pipeline.addProcessor(std::move(blocker));
+            if (verbose) {
+                std::cout << "[Config] CapsLock blocking enabled\n";
             }
         }
 
