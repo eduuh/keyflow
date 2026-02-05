@@ -41,9 +41,10 @@ struct Context {
     uint32_t modifiers = 0;   // Current modifier state (bitmask)
 
     // ===== OUTPUT (determines result) =====
-    Action action = Action::Forward; // What to do with this keystroke
-    uint16_t outputScancode = 0;     // Replacement scancode (if Replace)
-    bool injectShift = false;        // Inject Shift modifier with output key
+    Action action = Action::Forward;   // What to do with this keystroke
+    uint16_t outputScancode = 0;       // Replacement scancode (if Replace)
+    bool injectShift = false;          // Inject Shift modifier with output key
+    bool cleanupInjectedShift = false; // Signal that injected shift needs cleanup
 
     /**
      * @brief Initialize context from hardware event
@@ -61,6 +62,7 @@ struct Context {
         modifiers = 0;
         action = Action::Forward;
         injectShift = false;
+        cleanupInjectedShift = false;
     }
 
     // Helper methods for better readability

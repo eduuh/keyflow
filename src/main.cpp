@@ -130,6 +130,14 @@ int main(int argc, char* argv[]) {
     SetConsoleCtrlHandler(consoleHandler, TRUE);
     std::atexit(emergencyCleanup);
 
+    // Check for single instance (must be done before hardware initialization)
+    if (!app.acquireSingleInstanceLock()) {
+        std::cerr << "[Main] Another instance of Keyflow is already running\n";
+        std::cerr << "[Main] Only one instance can run at a time\n";
+        g_app = nullptr;
+        return 1;
+    }
+
     if (!app.initialize("Keyflow - Keyboard Remapper")) {
         std::cerr << "[Main] Failed to initialize hardware\n";
         std::cerr << "[Main] Make sure:\n";
@@ -140,10 +148,16 @@ int main(int argc, char* argv[]) {
     }
 
     bool verbose = !app.config().debugMode;
-    if (!ConfigBuilder::buildPipeline(jsonConfig, app.pipeline(), verbose)) {
+    ModifierTracker* modTracker = nullptr;
+    if (!ConfigBuilder::buildPipeline(jsonConfig, app.pipeline(), verbose, &modTracker)) {
         std::cerr << "[Main] Failed to build pipeline from config\n";
         g_app = nullptr;
         return 1;
+    }
+
+    // Store ModifierTracker pointer in Application
+    if (modTracker) {
+        app.setModifierTracker(modTracker);
     }
 
 #ifdef DEBUG_BUILD
@@ -160,13 +174,27 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        auto event = app.hardware().waitForKey(2);
+        auto event = app.hardware().waitForKey(10);
         if (!event)
             continue;
 
         if (!app.config().keyflowEnabled) {
             app.hardware().sendKey(event->scancode, event->isDown);
             continue;
+        }
+
+        // SAFETY: Ensure Windows has processed shift release before new character
+        // This prevents shift from being "stuck" when typing very fast after shift injection
+        if (event->isDown && modTracker && modTracker->hasInjectedShift()) {
+            DEBUG_LOG("[Safety] Injected shift detected before key 0x"
+                      << std::hex << event->scancode << std::dec << ", cleaning up\n");
+            // Send redundant SHIFT UP unconditionally to guarantee Windows sees it
+            // This is safe even if physical shift is held because:
+            // 1. Physical shift will send its own DOWN event
+            // 2. Windows handles multiple SHIFT UP/DOWN pairs gracefully
+            DEBUG_LOG("[Safety] Sending redundant SHIFT UP to prevent stuck shift\n");
+            app.hardware().sendKey(SC_LSHIFT, false);
+            modTracker->clearInjectedModifiers();
         }
 
         auto result = app.pipeline().process(*event);
@@ -185,11 +213,22 @@ int main(int argc, char* argv[]) {
             case Action::Replace:
                 if (result.injectShift) {
                     if (event->isDown) {
+                        DEBUG_LOG("[ShiftInject] Injecting shift for key 0x"
+                                  << std::hex << event->scancode << std::dec << " → 0x" << std::hex
+                                  << result.outputScancode << std::dec << "\n");
                         app.hardware().sendKey(SC_LSHIFT, true);
                         app.hardware().sendKey(result.outputScancode, true);
+                        if (modTracker) {
+                            modTracker->setInjectedShift(true); // Track injection
+                        }
                     } else {
+                        DEBUG_LOG("[ShiftInject] Releasing shift for key 0x"
+                                  << std::hex << event->scancode << std::dec
+                                  << " (tracker NOT cleared yet)\n");
                         app.hardware().sendKey(result.outputScancode, false);
                         app.hardware().sendKey(SC_LSHIFT, false);
+                        // DON'T clear tracker yet - let safety check on next key DOWN handle it
+                        // This ensures we catch fast typing before Windows processes SHIFT UP
                     }
                 } else {
                     app.hardware().sendKey(result.outputScancode, event->isDown);

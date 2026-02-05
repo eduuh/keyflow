@@ -18,6 +18,11 @@
       "default": false,
       "description": "When enabled, only explicitly mapped keys produce output. All unmapped keys are blocked. Useful for full keyboard remappings to prevent unmapped keys from leaking through."
     },
+    "disableCapsLock": {
+      "type": "boolean",
+      "default": false,
+      "description": "When enabled, blocks the CapsLock key from reaching the OS, preventing accidental caps lock toggle. Useful when remapping CapsLock to another key (like Shift or Ctrl) to ensure the caps lock LED never activates."
+    },
     "debug": {
       "type": "object",
       "description": "Debug and logging settings",

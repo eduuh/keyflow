@@ -13,13 +13,16 @@ namespace keyflow {
  * @brief Result of pipeline processing
  */
 struct ProcessingResult {
-    Action action;           // What to do with keystroke
-    uint16_t outputScancode; // Output scancode (if Replace)
-    uint32_t modifiers;      // Active modifiers during processing
-    bool injectShift;        // Inject Shift modifier with output
+    Action action;             // What to do with keystroke
+    uint16_t outputScancode;   // Output scancode (if Replace)
+    uint32_t modifiers;        // Active modifiers during processing
+    bool injectShift;          // Inject Shift modifier with output
+    bool cleanupInjectedShift; // Signal cleanup needed before next event
 
-    constexpr ProcessingResult(Action a, uint16_t sc, uint32_t mods, bool shift = false) noexcept
-        : action(a), outputScancode(sc), modifiers(mods), injectShift(shift) {}
+    constexpr ProcessingResult(Action a, uint16_t sc, uint32_t mods, bool shift = false,
+                               bool cleanup = false) noexcept
+        : action(a), outputScancode(sc), modifiers(mods), injectShift(shift),
+          cleanupInjectedShift(cleanup) {}
 
     // Helper methods for better readability
     [[nodiscard]] constexpr bool shouldForward() const noexcept {
@@ -71,9 +74,9 @@ class Pipeline {
             }
         }
 
-        // Return result (including modifiers and shift injection for debugging)
+        // Return result (including modifiers, shift injection, and cleanup flag)
         return ProcessingResult(context_.action, context_.outputScancode, context_.modifiers,
-                                context_.injectShift);
+                                context_.injectShift, context_.cleanupInjectedShift);
     }
 
     /**

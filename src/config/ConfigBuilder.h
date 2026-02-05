@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../pipeline/Pipeline.h"
+#include "../processors/CapsLockBlocker.h"
 #include "../processors/ComboAdvanced.h"
 #include "../processors/LayerTriggerBlocker.h"
 #include "../processors/ModifierTracker.h"
@@ -24,10 +25,12 @@ class ConfigBuilder {
      * @param config JsonConfig structure
      * @param pipeline Pipeline to populate
      * @param verbose Enable verbose logging
+     * @param modTrackerOut Optional pointer to receive ModifierTracker pointer
      * @return true if successful, false otherwise
      */
     [[nodiscard]] static bool buildPipeline(const JsonConfig& config, Pipeline& pipeline,
-                                            bool verbose = true) {
+                                            bool verbose = true,
+                                            ModifierTracker** modTrackerOut = nullptr) {
         if (verbose && !config.name.empty()) {
             std::cout << "[Config] Loading: " << config.name << "\n";
         }
@@ -51,6 +54,11 @@ class ConfigBuilder {
             }
         }
 
+        // Store ModifierTracker pointer if requested
+        if (modTrackerOut) {
+            *modTrackerOut = modTrackerPtr;
+        }
+
         // Step 2.5: Register custom modifiers
         if (!config.customModifiers.empty() && modTrackerPtr) {
             if (!registerCustomModifiers(config, modTrackerPtr, verbose)) {
@@ -69,6 +77,15 @@ class ConfigBuilder {
         if (!config.layers.empty() || !config.customModifiers.empty()) {
             if (!addLayerTriggerBlocker(config, pipeline, verbose)) {
                 return false;
+            }
+        }
+
+        // Step 4.5: Add CapsLockBlocker if disableCapsLock is enabled
+        if (config.disableCapsLock) {
+            auto blocker = std::make_unique<CapsLockBlocker>();
+            pipeline.addProcessor(std::move(blocker));
+            if (verbose) {
+                std::cout << "[Config] CapsLock blocking enabled\n";
             }
         }
 
