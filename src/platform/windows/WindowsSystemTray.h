@@ -5,54 +5,26 @@
 #include <shellapi.h>
 // clang-format on
 
+#include "platform/IPlatform.h"
+
 #include <string>
 #include <string_view>
 
 namespace keyflow {
 
-/**
- * @brief System tray icon manager
- *
- * Creates a system tray icon with a right-click menu for exit.
- * Used in both Debug and Release builds for better user experience.
- */
-class SystemTray {
+class WindowsSystemTray final : public ISystemTray {
   public:
-    SystemTray() = default;
+    WindowsSystemTray() = default;
+    ~WindowsSystemTray() override { cleanup(); }
 
-    ~SystemTray() noexcept { cleanup(); }
+    WindowsSystemTray(const WindowsSystemTray&) = delete;
+    WindowsSystemTray& operator=(const WindowsSystemTray&) = delete;
+    WindowsSystemTray(WindowsSystemTray&&) = delete;
+    WindowsSystemTray& operator=(WindowsSystemTray&&) = delete;
 
-    // Disable copy (HWND is not copyable)
-    SystemTray(const SystemTray&) = delete;
-    SystemTray& operator=(const SystemTray&) = delete;
-
-    // Enable move
-    SystemTray(SystemTray&& other) noexcept
-        : hwnd_(other.hwnd_), iconAdded_(other.iconAdded_), appName_(std::move(other.appName_)) {
-        other.hwnd_ = nullptr;
-        other.iconAdded_ = false;
-    }
-
-    SystemTray& operator=(SystemTray&& other) noexcept {
-        if (this != &other) {
-            cleanup();
-            hwnd_ = other.hwnd_;
-            iconAdded_ = other.iconAdded_;
-            appName_ = std::move(other.appName_);
-            other.hwnd_ = nullptr;
-            other.iconAdded_ = false;
-        }
-        return *this;
-    }
-
-    /**
-     * @brief Initialize system tray icon
-     * @param appName Application name for tooltip
-     * @return true if successful
-     */
-    [[nodiscard]] bool initialize(std::string appName) {
+    [[nodiscard]] bool initialize(std::string appName) override {
         appName_ = std::move(appName);
-        // Create hidden window for message handling
+
         WNDCLASSEX wc = {};
         wc.cbSize = sizeof(WNDCLASSEX);
         wc.lpfnWndProc = windowProc;
@@ -70,38 +42,30 @@ class SystemTray {
             return false;
         }
 
-        // Add system tray icon
         NOTIFYICONDATA nid = {};
         nid.cbSize = sizeof(NOTIFYICONDATA);
         nid.hWnd = hwnd_;
         nid.uID = 1;
         nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
         nid.uCallbackMessage = WM_USER + 1;
-        // Load custom keyboard icon
         nid.hIcon = (HICON)LoadImage(nullptr, "keyboard-icon.ico", IMAGE_ICON, 0, 0,
                                      LR_LOADFROMFILE | LR_DEFAULTSIZE | LR_SHARED);
         if (!nid.hIcon) {
-            nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION); // Fallback to default
+            nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
         }
         strncpy_s(nid.szTip, sizeof(nid.szTip), appName_.c_str(), _TRUNCATE);
 
         if (Shell_NotifyIcon(NIM_ADD, &nid)) {
             iconAdded_ = true;
-
-            // Show startup notification
             showNotification("Keyflow is Running",
                              "Keyboard remapper is active. Right-click tray icon to exit.");
-
             return true;
         }
 
         return false;
     }
 
-    /**
-     * @brief Show a notification balloon
-     */
-    void showNotification(std::string_view title, std::string_view message) noexcept {
+    void showNotification(std::string_view title, std::string_view message) noexcept override {
         if (!iconAdded_)
             return;
 
@@ -113,16 +77,12 @@ class SystemTray {
         strncpy_s(nid.szInfoTitle, sizeof(nid.szInfoTitle), title.data(), _TRUNCATE);
         strncpy_s(nid.szInfo, sizeof(nid.szInfo), message.data(), _TRUNCATE);
         nid.dwInfoFlags = NIIF_INFO;
-        nid.uTimeout = 3000; // 3 seconds
+        nid.uTimeout = 3000;
 
         Shell_NotifyIcon(NIM_MODIFY, &nid);
     }
 
-    /**
-     * @brief Process Windows messages (call from main loop)
-     * @return false if exit requested
-     */
-    [[nodiscard]] bool processMessages() noexcept {
+    [[nodiscard]] bool processMessages() noexcept override {
         MSG msg;
         while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
@@ -156,19 +116,18 @@ class SystemTray {
     }
 
     static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-        SystemTray* self = nullptr;
+        WindowsSystemTray* self = nullptr;
 
         if (msg == WM_CREATE) {
             CREATESTRUCT* cs = reinterpret_cast<CREATESTRUCT*>(lParam);
-            self = reinterpret_cast<SystemTray*>(cs->lpCreateParams);
+            self = reinterpret_cast<WindowsSystemTray*>(cs->lpCreateParams);
             SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
         } else {
-            self = reinterpret_cast<SystemTray*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+            self = reinterpret_cast<WindowsSystemTray*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
         }
 
-        if (msg == WM_USER + 1) { // Tray icon message
+        if (msg == WM_USER + 1) {
             if (lParam == WM_RBUTTONUP) {
-                // Show context menu
                 POINT pt;
                 GetCursorPos(&pt);
 
@@ -183,7 +142,6 @@ class SystemTray {
                 DestroyMenu(menu);
 
                 if (cmd == 1) {
-                    // Show status
                     if (self) {
                         MessageBox(hwnd,
                                    "Keyflow keyboard remapper is running.\n\n"
@@ -191,7 +149,6 @@ class SystemTray {
                                    self->appName_.c_str(), MB_OK | MB_ICONINFORMATION);
                     }
                 } else if (cmd == 2) {
-                    // Exit
                     PostQuitMessage(0);
                 }
             }

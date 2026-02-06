@@ -1,13 +1,13 @@
-#include "HardwareIO.h"
+#include "WindowsHardwareIO.h"
 
-#include "../DebugLog.h"
+#include "DebugLog.h"
 #include "interception.h"
 
 #include <iostream>
 
 namespace keyflow {
 
-bool HardwareIO::initialize() noexcept {
+bool WindowsHardwareIO::initialize() noexcept {
     if (initialized_)
         return true;
 
@@ -26,7 +26,7 @@ bool HardwareIO::initialize() noexcept {
     return true;
 }
 
-void HardwareIO::shutdown() noexcept {
+void WindowsHardwareIO::shutdown() noexcept {
     if (context_) {
         interception_destroy_context(context_);
         context_ = nullptr;
@@ -35,7 +35,7 @@ void HardwareIO::shutdown() noexcept {
     DEBUG_LOG("[HardwareIO] Shutdown\n");
 }
 
-std::optional<KeyEvent> HardwareIO::waitForKey(int timeoutMS) noexcept {
+std::optional<KeyEvent> WindowsHardwareIO::waitForKey(int timeoutMS) noexcept {
     if (!initialized_ || !context_)
         return std::nullopt;
 
@@ -68,7 +68,7 @@ std::optional<KeyEvent> HardwareIO::waitForKey(int timeoutMS) noexcept {
     return KeyEvent(scancode, isDown);
 }
 
-void HardwareIO::sendKey(uint16_t scancode, bool isDown) noexcept {
+void WindowsHardwareIO::sendKey(uint16_t scancode, bool isDown) noexcept {
     if (!initialized_ || !context_ || !currentDevice_)
         return;
 

@@ -3,53 +3,40 @@
 #include "config/ConfigBuilder.h"
 #include "config/ConfigLoader.h"
 #include "hardware/Scancodes.h"
+#include "platform/PlatformFactory.h"
 
-#include <csignal>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
-#include <windows.h>
 
 using namespace keyflow;
 
 // Global application pointer for signal handlers
-// This is the only remaining global, needed for signal handlers
 static Application* g_app = nullptr;
 
-void signalHandler(int signal) {
-    (void)signal;
-    DEBUG_LOG("\n[Main] Signal received, shutting down...\n");
+static void shutdownCallback() {
     if (g_app) {
         g_app->releaseAllModifiers();
         g_app->requestShutdown();
     }
 }
 
-void emergencyCleanup() {
-    if (g_app) {
-        g_app->releaseAllModifiers();
-    }
-}
-
-BOOL WINAPI consoleHandler(DWORD signal) {
-    if (signal == CTRL_C_EVENT || signal == CTRL_CLOSE_EVENT || signal == CTRL_BREAK_EVENT) {
-        emergencyCleanup();
-        ExitProcess(0);
-    }
-    return TRUE;
-}
-
 int main(int argc, char* argv[]) {
-#ifndef DEBUG_BUILD
-    HWND console = GetConsoleWindow();
-    if (console)
-        ShowWindow(console, SW_HIDE);
-#else
+    auto platformInit = PlatformFactory::createPlatformInit();
+    platformInit->hideConsoleIfRelease();
+
+#ifdef DEBUG_BUILD
     std::cout << "keyflow - Keyboard Remapper\n\n";
 #endif
 
-    // Create application instance
-    Application app;
+    // Create platform-specific components
+    auto hardware = PlatformFactory::createHardwareIO();
+    auto sysTray = PlatformFactory::createSystemTray();
+    auto instanceLock = PlatformFactory::createSingleInstanceLock();
+
+    // Create application instance with injected dependencies
+    Application app(std::move(hardware), std::move(sysTray));
     g_app = &app;
 
     app.config().parseArgs(argc, argv);
@@ -78,11 +65,11 @@ int main(int argc, char* argv[]) {
 
         auto validation = ConfigLoader::validate(jsonConfig);
         if (!validation) {
-            std::cerr << "\n[Config] ❌ Validation failed:\n\n";
+            std::cerr << "\n[Config] Validation failed:\n\n";
             for (const auto& [field, message] : validation.errors) {
-                std::cerr << "  • " << field << ": " << message << "\n";
+                std::cerr << "  - " << field << ": " << message << "\n";
             }
-            std::cerr << "\n💡 Tips:\n";
+            std::cerr << "\nTips:\n";
             std::cerr << "  - Check key names in CONFIG_FORMAT.md\n";
             std::cerr << "  - Key names are case-sensitive (e.g., 'CapsLock' not 'capslock')\n";
             std::cerr << "  - See examples/ directory for working configs\n\n";
@@ -90,14 +77,13 @@ int main(int argc, char* argv[]) {
         }
 
     } catch (const std::exception& e) {
-        std::cerr << "\n[Config] ❌ Failed to load: " << configPath << "\n\n";
+        std::cerr << "\n[Config] Failed to load: " << configPath << "\n\n";
         std::cerr << "Error: " << e.what() << "\n\n";
 
-        // Check if file exists
         std::ifstream test(configPath);
         if (!test.good()) {
             std::cerr << "File not found! Make sure config.json exists.\n\n";
-            std::cerr << "💡 Quick start:\n";
+            std::cerr << "Quick start:\n";
             std::cerr << "  1. Copy an example: cp examples/minimal.json config.json\n";
             std::cerr << "  2. Or create config.json with:\n";
             std::cerr << "     {\n";
@@ -106,7 +92,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "       \"remapping\": { \"CapsLock\": \"LeftCtrl\" }\n";
             std::cerr << "     }\n\n";
         } else {
-            std::cerr << "💡 Common issues:\n";
+            std::cerr << "Common issues:\n";
             std::cerr << "  - Check JSON syntax (missing commas, brackets)\n";
             std::cerr << "  - Ensure 'version' field exists\n";
             std::cerr << "  - Validate at https://jsonlint.com\n\n";
@@ -116,7 +102,7 @@ int main(int argc, char* argv[]) {
 
     // If validate-only mode, exit after successful validation
     if (validateOnly) {
-        std::cout << "[Config] ✅ Validation successful\n";
+        std::cout << "[Config] Validation successful\n";
         std::cout << "[Config] Config name: " << jsonConfig.name << "\n";
         std::cout << "[Config] Remappings: " << jsonConfig.remapping.size() << "\n";
         std::cout << "[Config] NoModCombos: " << jsonConfig.noModCombos.size() << "\n";
@@ -124,14 +110,10 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    std::signal(SIGINT, signalHandler);
-    std::signal(SIGTERM, signalHandler);
-    std::signal(SIGABRT, signalHandler);
-    SetConsoleCtrlHandler(consoleHandler, TRUE);
-    std::atexit(emergencyCleanup);
+    platformInit->installSignalHandlers(shutdownCallback);
 
     // Check for single instance (must be done before hardware initialization)
-    if (!app.acquireSingleInstanceLock()) {
+    if (!instanceLock->acquire()) {
         std::cerr << "[Main] Another instance of Keyflow is already running\n";
         std::cerr << "[Main] Only one instance can run at a time\n";
         g_app = nullptr;
@@ -188,10 +170,6 @@ int main(int argc, char* argv[]) {
         if (event->isDown && modTracker && modTracker->hasInjectedShift()) {
             DEBUG_LOG("[Safety] Injected shift detected before key 0x"
                       << std::hex << event->scancode << std::dec << ", cleaning up\n");
-            // Send redundant SHIFT UP unconditionally to guarantee Windows sees it
-            // This is safe even if physical shift is held because:
-            // 1. Physical shift will send its own DOWN event
-            // 2. Windows handles multiple SHIFT UP/DOWN pairs gracefully
             DEBUG_LOG("[Safety] Sending redundant SHIFT UP to prevent stuck shift\n");
             app.hardware().sendKey(SC_LSHIFT, false);
             modTracker->clearInjectedModifiers();
@@ -214,12 +192,12 @@ int main(int argc, char* argv[]) {
                 if (result.injectShift) {
                     if (event->isDown) {
                         DEBUG_LOG("[ShiftInject] Injecting shift for key 0x"
-                                  << std::hex << event->scancode << std::dec << " → 0x" << std::hex
+                                  << std::hex << event->scancode << std::dec << " -> 0x" << std::hex
                                   << result.outputScancode << std::dec << "\n");
                         app.hardware().sendKey(SC_LSHIFT, true);
                         app.hardware().sendKey(result.outputScancode, true);
                         if (modTracker) {
-                            modTracker->setInjectedShift(true); // Track injection
+                            modTracker->setInjectedShift(true);
                         }
                     } else {
                         DEBUG_LOG("[ShiftInject] Releasing shift for key 0x"
@@ -227,8 +205,6 @@ int main(int argc, char* argv[]) {
                                   << " (tracker NOT cleared yet)\n");
                         app.hardware().sendKey(result.outputScancode, false);
                         app.hardware().sendKey(SC_LSHIFT, false);
-                        // DON'T clear tracker yet - let safety check on next key DOWN handle it
-                        // This ensures we catch fast typing before Windows processes SHIFT UP
                     }
                 } else {
                     app.hardware().sendKey(result.outputScancode, event->isDown);
@@ -242,6 +218,6 @@ int main(int argc, char* argv[]) {
 
     DEBUG_LOG("\n[Main] Shutting down...\n");
     g_app = nullptr;
-    // app destructor handles cleanup
+    // app destructor handles cleanup; instanceLock destructor releases mutex
     return 0;
 }

@@ -229,9 +229,24 @@ TEST(RewireTest, OutOfRangeScancode) {
   EXPECT_EQ(ctx.action, Action::Forward);
 }
 
-TEST(RewireTest, SetMappingOutOfRange) {
+TEST(RewireTest, MaxScancodeMapping) {
+  // 0xFFFF is the max uint16_t value but is a valid index in the 65536-element array
   Rewire rewire;
-  rewire.setMapping(0xFFFF, SC_A); // Should not crash
+  rewire.setMapping(0xFFFF, SC_A);
+
+  Context ctx;
+  ctx.scancode = 0xFFFF;
+  ctx.outputScancode = 0xFFFF;
+
+  rewire.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Replace);
+  EXPECT_EQ(ctx.outputScancode, SC_A);
+}
+
+TEST(RewireTest, ClearMaxScancode) {
+  Rewire rewire;
+  rewire.setMapping(0xFFFF, SC_A);
+  rewire.clearMapping(0xFFFF);
 
   Context ctx;
   ctx.scancode = 0xFFFF;
@@ -239,12 +254,6 @@ TEST(RewireTest, SetMappingOutOfRange) {
 
   rewire.process(ctx);
   EXPECT_EQ(ctx.action, Action::Forward);
-}
-
-TEST(RewireTest, ClearMappingOutOfRange) {
-  Rewire rewire;
-  rewire.clearMapping(0xFFFF); // Should not crash
-  SUCCEED();
 }
 
 // ===== Overwrite Mapping Tests =====

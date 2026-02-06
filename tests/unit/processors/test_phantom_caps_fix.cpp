@@ -165,7 +165,7 @@ TEST(PhantomCapsFixTest, FastTypingAfterShiftCombo) {
   // Event 3: Press 'A' very fast (injected shift already cleared)
   // With synchronous cleanup, no phantom capitalization occurs
   KeyEvent event3{SC_A, true};
-  auto result3 = simulateKeyEvent(pipeline, *trackerPtr, event3);
+  (void)simulateKeyEvent(pipeline, *trackerPtr, event3);
 
   EXPECT_FALSE(trackerPtr->hasInjectedShift()) << "No injected shift for 'A'";
   // Note: The shift cleanup happened synchronously in Event 2,
@@ -201,7 +201,7 @@ TEST(PhantomCapsFixTest, MultipleShiftCombosInSequence) {
   EXPECT_FALSE(trackerPtr->hasInjectedShift()) << "Cleanup done immediately after '1'";
 
   // Press 'A' (no injected shift to worry about)
-  auto resultA = simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_A, true});
+  (void)simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_A, true});
   EXPECT_FALSE(trackerPtr->hasInjectedShift()) << "No phantom capitalization on 'A'";
 }
 
@@ -328,6 +328,6 @@ TEST(PhantomCapsFixTest, RapidRepeatedCombo) {
   }
 
   // Type 'A' - no phantom caps since cleanup already done
-  auto result = simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_A, true});
+  (void)simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_A, true});
   EXPECT_FALSE(trackerPtr->hasInjectedShift()) << "No phantom capitalization";
 }
