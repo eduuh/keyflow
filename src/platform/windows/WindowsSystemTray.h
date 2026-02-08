@@ -17,6 +17,8 @@ class WindowsSystemTray final : public ISystemTray {
     WindowsSystemTray() = default;
     ~WindowsSystemTray() override { cleanup(); }
 
+    // Non-copyable, non-movable: owns HWND and shell icon resources.
+    // Managed via std::unique_ptr<ISystemTray> — moving the pointer suffices.
     WindowsSystemTray(const WindowsSystemTray&) = delete;
     WindowsSystemTray& operator=(const WindowsSystemTray&) = delete;
     WindowsSystemTray(WindowsSystemTray&&) = delete;

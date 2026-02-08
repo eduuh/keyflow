@@ -20,7 +20,8 @@ class ModifierTracker;
  *
  * Design:
  * - RAII: Automatic cleanup on destruction
- * - Move-only: No copying (hardware resources are unique)
+ * - Non-copyable, non-movable: Owns unique hardware resources via unique_ptr;
+ *   not movable because external code (signal handlers) holds raw pointer
  * - Exception-safe: Cleanup guaranteed even on exceptions
  * - Privacy-first: No logging, no data collection
  * - Platform-agnostic: Uses IHardwareIO and ISystemTray interfaces
@@ -41,8 +42,8 @@ class Application {
 
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
-    Application(Application&&) = delete;
-    Application& operator=(Application&&) = delete;
+    Application(Application&&) = delete;            // Not movable: signal handlers hold raw pointer
+    Application& operator=(Application&&) = delete; // Not movable: signal handlers hold raw pointer
 
     /**
      * @brief Initialize the application

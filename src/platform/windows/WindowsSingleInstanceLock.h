@@ -11,6 +11,8 @@ class WindowsSingleInstanceLock final : public ISingleInstanceLock {
     WindowsSingleInstanceLock() = default;
     ~WindowsSingleInstanceLock() override { release(); }
 
+    // Non-copyable, non-movable: owns Windows mutex handle.
+    // Managed via std::unique_ptr<ISingleInstanceLock> — moving the pointer suffices.
     WindowsSingleInstanceLock(const WindowsSingleInstanceLock&) = delete;
     WindowsSingleInstanceLock& operator=(const WindowsSingleInstanceLock&) = delete;
     WindowsSingleInstanceLock(WindowsSingleInstanceLock&&) = delete;

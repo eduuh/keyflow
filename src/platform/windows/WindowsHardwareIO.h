@@ -9,6 +9,8 @@ class WindowsHardwareIO final : public IHardwareIO {
     WindowsHardwareIO() = default;
     ~WindowsHardwareIO() override { shutdown(); }
 
+    // Non-copyable, non-movable: owns Interception driver context.
+    // Managed via std::unique_ptr<IHardwareIO> — moving the pointer suffices.
     WindowsHardwareIO(const WindowsHardwareIO&) = delete;
     WindowsHardwareIO& operator=(const WindowsHardwareIO&) = delete;
     WindowsHardwareIO(WindowsHardwareIO&&) = delete;

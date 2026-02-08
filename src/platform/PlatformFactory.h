@@ -13,6 +13,15 @@
 
 namespace keyflow {
 
+/**
+ * @brief Compile-time factory for platform-specific implementations.
+ *
+ * This file is only compiled on platforms with a backend (controlled by
+ * KEYFLOW_HAS_PLATFORM_BACKEND in CMakeLists.txt). The #error directives
+ * serve as compile-time guards — if a new platform is added to CMake
+ * without implementing the corresponding backend, the build fails with
+ * a clear message indicating which interface needs implementation.
+ */
 struct PlatformFactory {
     [[nodiscard]] static std::unique_ptr<IHardwareIO> createHardwareIO() {
 #ifdef _WIN32

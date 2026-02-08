@@ -5,6 +5,7 @@
 #include "hardware/Scancodes.h"
 #include "platform/PlatformFactory.h"
 
+#include <atomic>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -12,13 +13,14 @@
 
 using namespace keyflow;
 
-// Global application pointer for signal handlers
-static Application* g_app = nullptr;
+// Global application pointer for signal handlers (atomic for safe signal handler access)
+static std::atomic<Application*> g_app{nullptr};
 
 static void shutdownCallback() {
-    if (g_app) {
-        g_app->releaseAllModifiers();
-        g_app->requestShutdown();
+    auto* app = g_app.load();
+    if (app) {
+        app->releaseAllModifiers();
+        app->requestShutdown();
     }
 }
 
@@ -170,6 +172,10 @@ int main(int argc, char* argv[]) {
         if (event->isDown && modTracker && modTracker->hasInjectedShift()) {
             DEBUG_LOG("[Safety] Injected shift detected before key 0x"
                       << std::hex << event->scancode << std::dec << ", cleaning up\n");
+            // Send redundant SHIFT UP unconditionally to guarantee the OS sees it
+            // This is safe even if physical shift is held because:
+            // 1. Physical shift will send its own DOWN event
+            // 2. The OS handles multiple SHIFT UP/DOWN pairs gracefully
             DEBUG_LOG("[Safety] Sending redundant SHIFT UP to prevent stuck shift\n");
             app.hardware().sendKey(SC_LSHIFT, false);
             modTracker->clearInjectedModifiers();
@@ -205,6 +211,8 @@ int main(int argc, char* argv[]) {
                                   << " (tracker NOT cleared yet)\n");
                         app.hardware().sendKey(result.outputScancode, false);
                         app.hardware().sendKey(SC_LSHIFT, false);
+                        // DON'T clear tracker yet - let safety check on next key DOWN handle it
+                        // This ensures we catch fast typing before the OS processes SHIFT UP
                     }
                 } else {
                     app.hardware().sendKey(result.outputScancode, event->isDown);

@@ -4,6 +4,7 @@
 
 #include "platform/IPlatform.h"
 
+#include <atomic>
 #include <csignal>
 #include <cstdlib>
 
@@ -22,7 +23,7 @@ class WindowsPlatformInit final : public IPlatformInit {
     }
 
     void installSignalHandlers(ShutdownCallback callback) noexcept override {
-        s_callback = callback;
+        s_callback.store(callback);
         std::signal(SIGINT, posixSignalHandler);
         std::signal(SIGTERM, posixSignalHandler);
         std::signal(SIGABRT, posixSignalHandler);
@@ -31,25 +32,29 @@ class WindowsPlatformInit final : public IPlatformInit {
     }
 
   private:
-    static inline ShutdownCallback s_callback = nullptr;
+    // Atomic for safe access from signal handlers and console handler
+    static inline std::atomic<ShutdownCallback> s_callback{nullptr};
 
     static void posixSignalHandler(int /*signal*/) {
-        if (s_callback)
-            s_callback();
+        auto cb = s_callback.load();
+        if (cb)
+            cb();
     }
 
     static BOOL WINAPI consoleHandler(DWORD signal) {
         if (signal == CTRL_C_EVENT || signal == CTRL_CLOSE_EVENT || signal == CTRL_BREAK_EVENT) {
-            if (s_callback)
-                s_callback();
+            auto cb = s_callback.load();
+            if (cb)
+                cb();
             ExitProcess(0);
         }
         return TRUE;
     }
 
     static void atexitHandler() {
-        if (s_callback)
-            s_callback();
+        auto cb = s_callback.load();
+        if (cb)
+            cb();
     }
 };
 
