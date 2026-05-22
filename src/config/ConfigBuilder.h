@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../DebugLog.h"
 #include "../pipeline/Pipeline.h"
 #include "../processors/CapsLockBlocker.h"
 #include "../processors/ComboAdvanced.h"
@@ -326,6 +327,13 @@ class ConfigBuilder {
                             return false;
                         }
 
+                        // shiftMappings inject Shift with output, but don't require Shift input
+                        // This allows Layer+Key → Shift+Output (e.g., RALT+J → +)
+                        VERBOSE_LOG("[ConfigBuilder] Registering shift combo: modBit=0x"
+                                    << std::hex << modBit << " triggerKey=0x" << *keyScancode
+                                    << " outputKey=0x" << *outputScancode << std::dec
+                                    << " (trigger=" << trigger << " key=" << shiftMapping.key
+                                    << " output=" << shiftMapping.output << ")\n");
                         combo->addComboWithShift(modBit, *keyScancode, *outputScancode, true);
                     }
 

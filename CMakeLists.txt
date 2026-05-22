@@ -59,6 +59,7 @@ if(KEYFLOW_HAS_PLATFORM_BACKEND)
 
     set(SOURCES
         src/main.cpp
+        src/DebugLog.cpp
         ${PLATFORM_SOURCES}
     )
 

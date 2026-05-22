@@ -92,6 +92,13 @@ build*/
 keyflow-x64-Release.zip
 keyflow-x64-Release/
 keyflow-release.zip
+keyflow_debug.log
+
+# Windows reserved-name artifact (accidental `> nul` in PowerShell creates a literal file)
+/nul
+
+# Scratch / diagnostic notes — keep working notes out of the repo
+/scratch/
 
 # Roslyn cache directories
 *.ide/

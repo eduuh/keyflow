@@ -47,7 +47,9 @@ int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; i++) {
         if (std::string(argv[i]) == "--validate") {
             validateOnly = true;
-            break;
+        } else if (std::string(argv[i]) == "--verbose" || std::string(argv[i]) == "-v") {
+            g_verbose_logging = true;
+            std::cout << "[Main] Verbose logging enabled - writing to keyflow_debug.log\n";
         }
     }
 
@@ -162,6 +164,9 @@ int main(int argc, char* argv[]) {
         if (!event)
             continue;
 
+        VERBOSE_LOG("[Event] Received key: scancode=0x" << std::hex << event->scancode << std::dec
+                                                        << " isDown=" << event->isDown << "\n");
+
         if (!app.config().keyflowEnabled) {
             app.hardware().sendKey(event->scancode, event->isDown);
             continue;
@@ -183,6 +188,12 @@ int main(int argc, char* argv[]) {
 
         auto result = app.pipeline().process(*event);
 
+        VERBOSE_LOG("[Pipeline] Result: action=" << static_cast<int>(result.action)
+                                                 << " modifiers=0x" << std::hex << result.modifiers
+                                                 << std::dec << " outputScancode=0x" << std::hex
+                                                 << result.outputScancode << std::dec
+                                                 << " injectShift=" << result.injectShift << "\n");
+
         if (event->isDown && event->scancode == SC_ESCAPE &&
             (result.modifiers & (1 << 2) || result.modifiers & (1 << 3))) {
             DEBUG_LOG("\n[Main] Ctrl+Escape, exiting...\n");
@@ -191,6 +202,8 @@ int main(int argc, char* argv[]) {
         }
         switch (result.action) {
             case Action::Forward:
+                VERBOSE_LOG("[Action] Forward: scancode=0x" << std::hex << event->scancode
+                                                            << std::dec << "\n");
                 app.hardware().sendKey(event->scancode, event->isDown);
                 break;
 
@@ -200,7 +213,13 @@ int main(int argc, char* argv[]) {
                         DEBUG_LOG("[ShiftInject] Injecting shift for key 0x"
                                   << std::hex << event->scancode << std::dec << " -> 0x" << std::hex
                                   << result.outputScancode << std::dec << "\n");
+                        VERBOSE_LOG("[Action] Replace with shift: 0x"
+                                    << std::hex << event->scancode << std::dec << " -> SHIFT+0x"
+                                    << std::hex << result.outputScancode << std::dec << "\n");
+                        VERBOSE_LOG("[Hardware] Sending SHIFT DOWN (0x2A)\n");
                         app.hardware().sendKey(SC_LSHIFT, true);
+                        VERBOSE_LOG("[Hardware] Sending KEY DOWN (0x"
+                                    << std::hex << result.outputScancode << std::dec << ")\n");
                         app.hardware().sendKey(result.outputScancode, true);
                         if (modTracker) {
                             modTracker->setInjectedShift(true);
@@ -209,17 +228,25 @@ int main(int argc, char* argv[]) {
                         DEBUG_LOG("[ShiftInject] Releasing shift for key 0x"
                                   << std::hex << event->scancode << std::dec
                                   << " (tracker NOT cleared yet)\n");
+                        VERBOSE_LOG("[Hardware] Sending KEY UP (0x"
+                                    << std::hex << result.outputScancode << std::dec << ")\n");
                         app.hardware().sendKey(result.outputScancode, false);
+                        VERBOSE_LOG("[Hardware] Sending SHIFT UP (0x2A)\n");
                         app.hardware().sendKey(SC_LSHIFT, false);
                         // DON'T clear tracker yet - let safety check on next key DOWN handle it
                         // This ensures we catch fast typing before the OS processes SHIFT UP
                     }
                 } else {
+                    VERBOSE_LOG("[Action] Replace: 0x"
+                                << std::hex << event->scancode << std::dec << " -> 0x" << std::hex
+                                << result.outputScancode << std::dec << "\n");
                     app.hardware().sendKey(result.outputScancode, event->isDown);
                 }
                 break;
 
             case Action::Consume:
+                VERBOSE_LOG("[Action] Consume: scancode=0x" << std::hex << event->scancode
+                                                            << std::dec << "\n");
                 break;
         }
     }

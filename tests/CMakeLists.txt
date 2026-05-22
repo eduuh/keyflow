@@ -8,8 +8,11 @@ file(GLOB_RECURSE TEST_SOURCES
     "unit/**/*.cpp"
 )
 
-# Create test executable
-add_executable(keyflow_tests ${TEST_SOURCES})
+# Create test executable (include DebugLog.cpp for g_verbose_logging symbol)
+add_executable(keyflow_tests
+    ${TEST_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/DebugLog.cpp
+)
 
 # Link against Google Test and keyflow headers
 target_link_libraries(keyflow_tests

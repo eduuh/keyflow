@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../DebugLog.h"
 #include "../pipeline/IProcessor.h"
 #include "../pipeline/Modifiers.h"
 
@@ -95,26 +96,40 @@ class ComboAdvanced : public IProcessor {
     }
 
     bool process(Context& ctx) override {
+        VERBOSE_LOG("[ComboAdvanced] Processing: physical=0x"
+                    << std::hex << ctx.scancode << " output=0x" << ctx.outputScancode
+                    << " modifiers=0x" << ctx.modifiers << std::dec << "\n");
+
         // Check physical key combos first (layers)
         auto physicalIt = physicalKeyCombos_.find(ctx.scancode);
         if (physicalIt != physicalKeyCombos_.end()) {
+            VERBOSE_LOG("[ComboAdvanced] Found " << physicalIt->second.size()
+                                                 << " physical key combos for scancode 0x"
+                                                 << std::hex << ctx.scancode << std::dec << "\n");
             for (const auto& combo : physicalIt->second) {
                 if (matchesCombo(ctx, combo)) {
+                    VERBOSE_LOG("[ComboAdvanced] *** COMBO MATCHED *** physical key combo\n");
                     applyCombo(ctx, combo);
                     return true; // Combo handled
                 }
             }
+            VERBOSE_LOG("[ComboAdvanced] No physical key combo matched\n");
         }
 
         // Then check remapped key combos (noModCombos)
         auto remappedIt = remappedKeyCombos_.find(ctx.outputScancode);
         if (remappedIt != remappedKeyCombos_.end()) {
+            VERBOSE_LOG("[ComboAdvanced] Found "
+                        << remappedIt->second.size() << " remapped key combos for scancode 0x"
+                        << std::hex << ctx.outputScancode << std::dec << "\n");
             for (const auto& combo : remappedIt->second) {
                 if (matchesCombo(ctx, combo)) {
+                    VERBOSE_LOG("[ComboAdvanced] *** COMBO MATCHED *** remapped key combo\n");
                     applyCombo(ctx, combo);
                     return true; // Combo handled
                 }
             }
+            VERBOSE_LOG("[ComboAdvanced] No remapped key combo matched\n");
         }
 
         return true; // Continue
@@ -145,6 +160,10 @@ class ComboAdvanced : public IProcessor {
         if (!combo.output.empty()) {
             const auto& action = combo.output[0];
 
+            VERBOSE_LOG("[ComboAdvanced] Applying combo: outputScancode=0x"
+                        << std::hex << action.scancode << std::dec
+                        << " withShift=" << action.withShift << "\n");
+
             // Set output key
             ctx.outputScancode = action.scancode;
             ctx.action = Action::Replace;
@@ -159,18 +178,26 @@ class ComboAdvanced : public IProcessor {
         // Note: Trigger key check is now handled by hash map lookup in process()
         // Only need to verify modifier requirements
 
+        VERBOSE_LOG("[ComboAdvanced] Checking combo: required=0x"
+                    << std::hex << combo.requiredModifiers << " blocked=0x"
+                    << combo.blockedModifiers << " ctx.modifiers=0x" << ctx.modifiers << std::dec
+                    << "\n");
+
         // Check required modifiers are held
         if ((ctx.modifiers & combo.requiredModifiers) != combo.requiredModifiers) {
+            VERBOSE_LOG("[ComboAdvanced] Required modifiers not held\n");
             return false;
         }
 
         // Check blocked modifiers are NOT held
         if (combo.blockedModifiers != 0) {
             if ((ctx.modifiers & combo.blockedModifiers) != 0) {
+                VERBOSE_LOG("[ComboAdvanced] Blocked modifiers are held\n");
                 return false;
             }
         }
 
+        VERBOSE_LOG("[ComboAdvanced] Combo matches!\n");
         return true;
     }
 };

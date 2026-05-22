@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../DebugLog.h"
 #include "../pipeline/IProcessor.h"
 #include "../pipeline/Modifiers.h"
 
@@ -29,11 +30,19 @@ class ModifierTracker : public IProcessor {
         if (isModifierKey(ctx.outputScancode)) {
             ModifierBit modBit = getModifierBit(ctx.outputScancode);
 
+            VERBOSE_LOG("[ModifierTracker] Standard modifier key detected: scancode=0x"
+                        << std::hex << ctx.outputScancode << std::dec << " modBit="
+                        << static_cast<int>(modBit) << " isDown=" << ctx.isDown << "\n");
+
             // Update modifier state
             if (ctx.isDown) {
                 activeModifiers_ |= static_cast<uint32_t>(modBit);
+                VERBOSE_LOG("[ModifierTracker] Modifier pressed, activeModifiers now: 0x"
+                            << std::hex << activeModifiers_ << std::dec << "\n");
             } else {
                 activeModifiers_ &= ~static_cast<uint32_t>(modBit);
+                VERBOSE_LOG("[ModifierTracker] Modifier released, activeModifiers now: 0x"
+                            << std::hex << activeModifiers_ << std::dec << "\n");
             }
         }
 
@@ -42,11 +51,19 @@ class ModifierTracker : public IProcessor {
         if (customIt != customModifiers_.end()) {
             ModifierBit modBit = customIt->second;
 
+            VERBOSE_LOG("[ModifierTracker] Custom modifier key detected: scancode=0x"
+                        << std::hex << ctx.scancode << std::dec << " modBit="
+                        << static_cast<int>(modBit) << " isDown=" << ctx.isDown << "\n");
+
             // Update modifier state
             if (ctx.isDown) {
                 activeModifiers_ |= static_cast<uint32_t>(modBit);
+                VERBOSE_LOG("[ModifierTracker] Custom modifier pressed, activeModifiers now: 0x"
+                            << std::hex << activeModifiers_ << std::dec << "\n");
             } else {
                 activeModifiers_ &= ~static_cast<uint32_t>(modBit);
+                VERBOSE_LOG("[ModifierTracker] Custom modifier released, activeModifiers now: 0x"
+                            << std::hex << activeModifiers_ << std::dec << "\n");
             }
         }
 
