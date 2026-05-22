@@ -75,11 +75,12 @@ class ComboAdvanced : public IProcessor {
      * @brief Add combo with no modifiers required (for top-row remapping)
      */
     void addNoModCombo(uint16_t triggerKey, uint16_t outputKey, bool withShift = false) {
-        ComboMapping combo(0, 0xFFFFFFFF, triggerKey, false); // Match remapped key
+        ComboMapping combo(0, 0xFFFFFFFF, triggerKey, true); // Match physical key
         combo.output.emplace_back(outputKey, withShift);
 
-        // NoModCombos always match remapped key (matchPhysical = false)
-        remappedKeyCombos_[triggerKey].push_back(combo);
+        // BUG FIX: NoModCombos should match physical keys to avoid double-transformation
+        // when a key is remapped to a key that has a noModCombo defined
+        physicalKeyCombos_[triggerKey].push_back(combo);
     }
 
     /**
