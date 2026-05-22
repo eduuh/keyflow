@@ -5,6 +5,7 @@
 #include "pipeline/Pipeline.h"
 #include "platform/IPlatform.h"
 
+#include <atomic>
 #include <memory>
 
 namespace keyflow {
@@ -61,9 +62,13 @@ class Application {
         return true;
     }
 
-    void requestShutdown() noexcept { running_ = false; }
+    // Called from both the main thread (Ctrl+Escape branch) and the Windows
+    // console-ctrl handler thread on Ctrl+C / window close, so running_ is atomic.
+    void requestShutdown() noexcept { running_.store(false, std::memory_order_relaxed); }
 
-    [[nodiscard]] bool isRunning() const noexcept { return running_; }
+    [[nodiscard]] bool isRunning() const noexcept {
+        return running_.load(std::memory_order_relaxed);
+    }
 
     Config& config() noexcept { return config_; }
     const Config& config() const noexcept { return config_; }
@@ -104,7 +109,7 @@ class Application {
     std::unique_ptr<IHardwareIO> hardware_;
     std::unique_ptr<ISystemTray> sysTray_;
     Pipeline pipeline_;
-    bool running_{true};
+    std::atomic<bool> running_{true};
     ModifierTracker* modifierTracker_ = nullptr;
 };
 

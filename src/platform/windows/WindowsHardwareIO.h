@@ -2,6 +2,8 @@
 
 #include "platform/IPlatform.h"
 
+#include <atomic>
+
 namespace keyflow {
 
 class WindowsHardwareIO final : public IHardwareIO {
@@ -25,7 +27,9 @@ class WindowsHardwareIO final : public IHardwareIO {
   private:
     bool initialized_ = false;
     void* context_ = nullptr;
-    int currentDevice_ = 0;
+    // Atomic because the console-ctrl handler thread reads it via
+    // sendKey() during shutdown while the main thread writes it in waitForKey().
+    std::atomic<int> currentDevice_{0};
 };
 
 } // namespace keyflow

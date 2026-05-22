@@ -54,7 +54,7 @@ std::optional<KeyEvent> WindowsHardwareIO::waitForKey(int timeoutMS) noexcept {
     if (received <= 0)
         return std::nullopt;
 
-    currentDevice_ = device;
+    currentDevice_.store(device, std::memory_order_relaxed);
 
     auto* keyStroke = reinterpret_cast<InterceptionKeyStroke*>(&stroke);
     uint16_t scancode = keyStroke->code;
@@ -69,8 +69,10 @@ std::optional<KeyEvent> WindowsHardwareIO::waitForKey(int timeoutMS) noexcept {
 }
 
 void WindowsHardwareIO::sendKey(uint16_t scancode, bool isDown) noexcept {
-    if (!initialized_ || !context_ || !currentDevice_)
+    const int device = currentDevice_.load(std::memory_order_relaxed);
+    if (!initialized_ || context_ == nullptr || device == 0) {
         return;
+    }
 
     InterceptionKeyStroke stroke = {};
     uint16_t baseScancode = scancode & 0x00FF;
@@ -84,7 +86,7 @@ void WindowsHardwareIO::sendKey(uint16_t scancode, bool isDown) noexcept {
     if (isE1)
         stroke.state |= INTERCEPTION_KEY_E1;
 
-    interception_send(context_, currentDevice_, reinterpret_cast<InterceptionStroke*>(&stroke), 1);
+    interception_send(context_, device, reinterpret_cast<InterceptionStroke*>(&stroke), 1);
 }
 
 } // namespace keyflow
