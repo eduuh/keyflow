@@ -183,162 +183,160 @@ class ConfigBuilder {
         return true;
     }
 
-    /**
-     * @brief Add ComboAdvanced processor with combos and layers
-     */
+    // Resolve a trigger name (e.g. "LALT", "SPACE_MOD") to its modifier bit.
+    // Checks standard modifiers first, then custom modifiers via the tracker.
+    // Returns 0 if unknown — caller should treat that as a config error.
+    static uint32_t resolveTriggerBit(const std::string& trigger,
+                                      const ModifierTracker* modTracker) noexcept {
+        uint32_t modBit = static_cast<uint32_t>(modifierNameToBit(trigger));
+        if (modBit != 0) {
+            return modBit;
+        }
+        if (modTracker != nullptr) {
+            return static_cast<uint32_t>(modTracker->resolveCustomModifier(trigger));
+        }
+        return 0;
+    }
+
+    static bool appendNoModCombos(ComboAdvanced& combo, const JsonConfig& config, bool verbose) {
+        if (config.noModCombos.empty()) {
+            return true;
+        }
+        if (verbose) {
+            std::cout << "[Config] No-modifier combos:\n";
+        }
+        for (const auto& noModCombo : config.noModCombos) {
+            auto keyScancode = KeyNameMapper::nameToScancode(noModCombo.key);
+            auto outputScancode = KeyNameMapper::nameToScancode(noModCombo.output);
+            if (!keyScancode) {
+                std::cerr << "[Config] ERROR: Unknown key '" << noModCombo.key << "'\n";
+                return false;
+            }
+            if (!outputScancode) {
+                std::cerr << "[Config] ERROR: Unknown output '" << noModCombo.output << "'\n";
+                return false;
+            }
+            combo.addNoModCombo(*keyScancode, *outputScancode, noModCombo.shift);
+            if (verbose) {
+                std::cout << "  " << noModCombo.key << " → " << noModCombo.output;
+                if (noModCombo.shift) {
+                    std::cout << " (with Shift)";
+                }
+                if (!noModCombo.description.empty()) {
+                    std::cout << "  # " << noModCombo.description;
+                }
+                std::cout << "\n";
+            }
+        }
+        if (verbose) {
+            std::cout << "\n";
+        }
+        return true;
+    }
+
+    static bool appendLayerMappings(ComboAdvanced& combo, const Layer& layer,
+                                    const ModifierTracker* modTracker, bool verbose) {
+        for (const auto& [keyName, targetName] : layer.mappings) {
+            auto keyScancode = KeyNameMapper::nameToScancode(keyName);
+            auto targetScancode = KeyNameMapper::nameToScancode(targetName);
+            if (!keyScancode) {
+                std::cerr << "[Config] ERROR: Unknown key '" << keyName << "'\n";
+                return false;
+            }
+            if (!targetScancode) {
+                std::cerr << "[Config] ERROR: Unknown target '" << targetName << "'\n";
+                return false;
+            }
+            for (const auto& trigger : layer.triggers) {
+                uint32_t modBit = resolveTriggerBit(trigger, modTracker);
+                if (modBit == 0) {
+                    std::cerr << "[Config] ERROR: Unknown trigger modifier '" << trigger << "'\n";
+                    return false;
+                }
+                combo.addCombo(modBit, *keyScancode, *targetScancode, true);
+            }
+            if (verbose) {
+                std::cout << "    " << keyName << " → " << targetName << "\n";
+            }
+        }
+        return true;
+    }
+
+    static bool appendLayerShiftMappings(ComboAdvanced& combo, const Layer& layer,
+                                         const ModifierTracker* modTracker, bool verbose) {
+        for (const auto& shiftMapping : layer.shiftMappings) {
+            auto keyScancode = KeyNameMapper::nameToScancode(shiftMapping.key);
+            auto outputScancode = KeyNameMapper::nameToScancode(shiftMapping.output);
+            if (!keyScancode) {
+                std::cerr << "[Config] ERROR: Unknown key '" << shiftMapping.key << "'\n";
+                return false;
+            }
+            if (!outputScancode) {
+                std::cerr << "[Config] ERROR: Unknown output '" << shiftMapping.output << "'\n";
+                return false;
+            }
+            for (const auto& trigger : layer.triggers) {
+                uint32_t modBit = resolveTriggerBit(trigger, modTracker);
+                if (modBit == 0) {
+                    std::cerr << "[Config] ERROR: Unknown trigger modifier '" << trigger << "'\n";
+                    return false;
+                }
+                // shiftMappings inject Shift with output but don't require Shift input.
+                // Enables Layer+Key → Shift+Output (e.g., RALT+T → ^).
+                VERBOSE_LOG("[ConfigBuilder] Registering shift combo: modBit=0x"
+                            << std::hex << modBit << " triggerKey=0x" << *keyScancode
+                            << " outputKey=0x" << *outputScancode << std::dec
+                            << " (trigger=" << trigger << " key=" << shiftMapping.key
+                            << " output=" << shiftMapping.output << ")\n");
+                combo.addComboWithShift(modBit, *keyScancode, *outputScancode, true);
+            }
+            if (verbose) {
+                std::cout << "    " << shiftMapping.key << " → Shift+" << shiftMapping.output;
+                if (!shiftMapping.description.empty()) {
+                    std::cout << "  # " << shiftMapping.description;
+                }
+                std::cout << "\n";
+            }
+        }
+        return true;
+    }
+
+    static void printLayerHeader(const Layer& layer) {
+        std::cout << "  Layer: " << layer.name << "\n    Triggers: ";
+        for (size_t i = 0; i < layer.triggers.size(); i++) {
+            if (i > 0) {
+                std::cout << ", ";
+            }
+            std::cout << layer.triggers[i];
+        }
+        std::cout << "\n";
+    }
+
+    // Orchestrates the ComboAdvanced setup: noModCombos first, then each
+    // layer's regular mappings, then each layer's shift mappings. Returns
+    // false on the first config error so the caller can report it cleanly.
     static bool addComboProcessor(const JsonConfig& config, Pipeline& pipeline,
                                   ModifierTracker* modTracker, bool verbose) {
         auto combo = std::make_unique<ComboAdvanced>();
 
-        // Add noModCombos
-        if (!config.noModCombos.empty()) {
-            if (verbose) {
-                std::cout << "[Config] No-modifier combos:\n";
-            }
-
-            for (const auto& noModCombo : config.noModCombos) {
-                auto keyScancode = KeyNameMapper::nameToScancode(noModCombo.key);
-                auto outputScancode = KeyNameMapper::nameToScancode(noModCombo.output);
-
-                if (!keyScancode) {
-                    std::cerr << "[Config] ERROR: Unknown key '" << noModCombo.key << "'\n";
-                    return false;
-                }
-
-                if (!outputScancode) {
-                    std::cerr << "[Config] ERROR: Unknown output '" << noModCombo.output << "'\n";
-                    return false;
-                }
-
-                combo->addNoModCombo(*keyScancode, *outputScancode, noModCombo.shift);
-
-                if (verbose) {
-                    std::cout << "  " << noModCombo.key << " → " << noModCombo.output;
-                    if (noModCombo.shift)
-                        std::cout << " (with Shift)";
-                    if (!noModCombo.description.empty()) {
-                        std::cout << "  # " << noModCombo.description;
-                    }
-                    std::cout << "\n";
-                }
-            }
-
-            if (verbose) {
-                std::cout << "\n";
-            }
+        if (!appendNoModCombos(*combo, config, verbose)) {
+            return false;
         }
 
-        // Add layers
         if (!config.layers.empty()) {
             if (verbose) {
                 std::cout << "[Config] Layers:\n";
             }
-
             for (const auto& layer : config.layers) {
                 if (verbose) {
-                    std::cout << "  Layer: " << layer.name << "\n";
-                    std::cout << "    Triggers: ";
-                    for (size_t i = 0; i < layer.triggers.size(); i++) {
-                        if (i > 0)
-                            std::cout << ", ";
-                        std::cout << layer.triggers[i];
-                    }
-                    std::cout << "\n";
+                    printLayerHeader(layer);
                 }
-
-                // Add regular mappings
-                for (const auto& [keyName, targetName] : layer.mappings) {
-                    auto keyScancode = KeyNameMapper::nameToScancode(keyName);
-                    auto targetScancode = KeyNameMapper::nameToScancode(targetName);
-
-                    if (!keyScancode) {
-                        std::cerr << "[Config] ERROR: Unknown key '" << keyName << "'\n";
-                        return false;
-                    }
-
-                    if (!targetScancode) {
-                        std::cerr << "[Config] ERROR: Unknown target '" << targetName << "'\n";
-                        return false;
-                    }
-
-                    // Add combo for each trigger
-                    for (const auto& trigger : layer.triggers) {
-                        // First try standard modifier names
-                        uint32_t modBit = static_cast<uint32_t>(modifierNameToBit(trigger));
-
-                        // If not found, check custom modifiers
-                        if (modBit == 0 && modTracker) {
-                            modBit =
-                                static_cast<uint32_t>(modTracker->resolveCustomModifier(trigger));
-                        }
-
-                        if (modBit == 0) {
-                            std::cerr << "[Config] ERROR: Unknown trigger modifier '" << trigger
-                                      << "'\n";
-                            return false;
-                        }
-
-                        combo->addCombo(modBit, *keyScancode, *targetScancode, true);
-                    }
-
-                    if (verbose) {
-                        std::cout << "    " << keyName << " → " << targetName << "\n";
-                    }
+                if (!appendLayerMappings(*combo, layer, modTracker, verbose)) {
+                    return false;
                 }
-
-                // Add shift mappings
-                for (const auto& shiftMapping : layer.shiftMappings) {
-                    auto keyScancode = KeyNameMapper::nameToScancode(shiftMapping.key);
-                    auto outputScancode = KeyNameMapper::nameToScancode(shiftMapping.output);
-
-                    if (!keyScancode) {
-                        std::cerr << "[Config] ERROR: Unknown key '" << shiftMapping.key << "'\n";
-                        return false;
-                    }
-
-                    if (!outputScancode) {
-                        std::cerr << "[Config] ERROR: Unknown output '" << shiftMapping.output
-                                  << "'\n";
-                        return false;
-                    }
-
-                    // Add shift combo for each trigger
-                    for (const auto& trigger : layer.triggers) {
-                        // First try standard modifier names
-                        uint32_t modBit = static_cast<uint32_t>(modifierNameToBit(trigger));
-
-                        // If not found, check custom modifiers
-                        if (modBit == 0 && modTracker) {
-                            modBit =
-                                static_cast<uint32_t>(modTracker->resolveCustomModifier(trigger));
-                        }
-
-                        if (modBit == 0) {
-                            std::cerr << "[Config] ERROR: Unknown trigger modifier '" << trigger
-                                      << "'\n";
-                            return false;
-                        }
-
-                        // shiftMappings inject Shift with output, but don't require Shift input
-                        // This allows Layer+Key → Shift+Output (e.g., RALT+J → +)
-                        VERBOSE_LOG("[ConfigBuilder] Registering shift combo: modBit=0x"
-                                    << std::hex << modBit << " triggerKey=0x" << *keyScancode
-                                    << " outputKey=0x" << *outputScancode << std::dec
-                                    << " (trigger=" << trigger << " key=" << shiftMapping.key
-                                    << " output=" << shiftMapping.output << ")\n");
-                        combo->addComboWithShift(modBit, *keyScancode, *outputScancode, true);
-                    }
-
-                    if (verbose) {
-                        std::cout << "    " << shiftMapping.key << " → Shift+"
-                                  << shiftMapping.output;
-                        if (!shiftMapping.description.empty()) {
-                            std::cout << "  # " << shiftMapping.description;
-                        }
-                        std::cout << "\n";
-                    }
+                if (!appendLayerShiftMappings(*combo, layer, modTracker, verbose)) {
+                    return false;
                 }
-
                 if (verbose) {
                     std::cout << "\n";
                 }
