@@ -29,6 +29,13 @@ target_include_directories(keyflow_tests
     ${CMAKE_SOURCE_DIR}/tests
 )
 
+# Expose the live keyboard config path so integration tests can load it
+# directly. The config is the test spec: edit src/config.json and the
+# remapping test surface automatically tracks.
+target_compile_definitions(keyflow_tests PRIVATE
+    KEYFLOW_CONFIG_PATH="${CMAKE_SOURCE_DIR}/src/config.json"
+)
+
 # Set C++17 standard (matching main project)
 target_compile_features(keyflow_tests PRIVATE cxx_std_17)
 

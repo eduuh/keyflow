@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "name": "Key ~ Flow Default layout",
+  "name": "Eduuh-DH",
   "strictMode": false,
   "disableCapsLock": true,
   "remapping": {
@@ -93,7 +93,8 @@
       "shiftMappings": [
         {"key": "N", "output": "4", "shift": true, "description": "$ symbol"},
         {"key": "M", "output": "5", "shift": true, "description": "% symbol"},
-        {"key": "Comma", "output": "3", "shift": true, "description": "# symbol"}
+        {"key": "Comma", "output": "3", "shift": true, "description": "# symbol"},
+        {"key": "U", "output": "Equals", "shift": true, "description": "+ symbol (physical U = Colemak J, numpad operator)"}
       ]
     },
     {
@@ -113,7 +114,7 @@
       "shiftMappings": [
         {"key": "E", "output": "Comma", "shift": true, "description": "< symbol"},
         {"key": "R", "output": "Period", "shift": true, "description": "> symbol"},
-        {"key": "J", "output": "Equals", "shift": true, "description": "+ symbol"},
+        {"key": "U", "output": "Equals", "shift": true, "description": "+ symbol (physical U = logical J in Colemak-DH)"},
         {"key": "Q", "output": "2", "shift": true, "description": "@ symbol"},
         {"key": "W", "output": "Grave", "shift": true, "description": "~ symbol"},
         {"key": "T", "output": "6", "shift": true, "description": "^ symbol"},

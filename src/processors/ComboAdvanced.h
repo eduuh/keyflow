@@ -71,10 +71,26 @@ class ComboAdvanced : public IProcessor {
     }
 
     bool process(Context& ctx) override {
+        if (ctx.isDown) {
+            VERBOSE_LOG("[Combo] scancode=0x" << std::hex << ctx.scancode << " output=0x"
+                                              << ctx.outputScancode << " mods=0x" << ctx.modifiers
+                                              << std::dec << "\n");
+        }
         if (matchAndApply(ctx, physicalCombos_, ctx.scancode)) {
+            if (ctx.isDown) {
+                VERBOSE_LOG("[Combo] MATCH (physical) -> output=0x"
+                            << std::hex << ctx.outputScancode << std::dec
+                            << " injectShift=" << ctx.injectShift << "\n");
+            }
             return true;
         }
-        matchAndApply(ctx, remappedCombos_, ctx.outputScancode);
+        if (matchAndApply(ctx, remappedCombos_, ctx.outputScancode)) {
+            if (ctx.isDown) {
+                VERBOSE_LOG("[Combo] MATCH (remapped) -> output=0x"
+                            << std::hex << ctx.outputScancode << std::dec
+                            << " injectShift=" << ctx.injectShift << "\n");
+            }
+        }
         return true;
     }
 
