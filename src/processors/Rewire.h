@@ -4,74 +4,71 @@
 
 #include <array>
 #include <cstdint>
+#include <unordered_map>
 
 namespace keyflow {
 
 /**
  * @brief Simple 1:1 key remapping processor
  *
- * Maps scancodes to other scancodes using a lookup table.
+ * Maps scancodes to other scancodes via a two-tier lookup:
+ *  - Standard scancodes (0x00-0xFF) use a flat 256-entry array (1 cache line
+ *    pair, hot in L1 during typing).
+ *  - Extended scancodes (0xE0__ / 0xE1__ — RCtrl, RAlt, arrows, etc.) live in
+ *    a small unordered_map. These are rare in a typing hot loop but must still
+ *    be remappable.
  *
- * Example: CapsLock (0x3A) → LeftCtrl (0x1D)
- *
- * Target: ~60 lines
+ * Compared to a flat 65536-entry array (~128 KB) this is <1 KB at rest, and
+ * standard-key lookup is the same instruction sequence: one bounds-implicit
+ * array index. The integration test exercises both paths through src/config.json.
  */
 class Rewire : public IProcessor {
   public:
-    // Sentinel value indicating no mapping is defined for this scancode
     static constexpr uint16_t NO_MAPPING = 0xFFFF;
+    static constexpr uint16_t STANDARD_MAX = 0x100;
 
-    Rewire() {
-        // Initialize to identity mapping (no changes)
-        map_.fill(NO_MAPPING);
-    }
+    Rewire() noexcept { standardMap_.fill(NO_MAPPING); }
 
-    /**
-     * @brief Set a mapping from one scancode to another
-     * @param from Source scancode
-     * @param to Destination scancode
-     */
     void setMapping(uint16_t from, uint16_t to) noexcept {
-        if (from < map_.size()) {
-            map_[from] = to;
+        if (isStandard(from)) {
+            standardMap_[from] = to;
+        } else {
+            extendedMap_[from] = to;
         }
     }
 
-    /**
-     * @brief Clear a mapping (restore to no-op)
-     */
     void clearMapping(uint16_t scancode) noexcept {
-        if (scancode < map_.size()) {
-            map_[scancode] = NO_MAPPING;
+        if (isStandard(scancode)) {
+            standardMap_[scancode] = NO_MAPPING;
+        } else {
+            extendedMap_.erase(scancode);
         }
     }
 
-    /**
-     * @brief Process keystroke - apply remapping if defined
-     */
     bool process(Context& ctx) override {
-        if (ctx.scancode >= map_.size()) {
-            return true; // Out of range, continue
-        }
-
-        uint16_t mapped = map_[ctx.scancode];
-
+        uint16_t mapped = lookup(ctx.scancode);
         if (mapped != NO_MAPPING) {
-            // Mapping defined - apply it
             ctx.outputScancode = mapped;
             ctx.action = Action::Replace;
         }
-
-        return true; // Continue to next processor
+        return true;
     }
 
     [[nodiscard]] const char* name() const noexcept override { return "Rewire"; }
 
   private:
-    // Simple lookup table: scancode → mapped scancode
-    // NO_MAPPING = no mapping defined
-    // Size 65536 to support all possible uint16_t scancodes including extended keys (0xE000+)
-    std::array<uint16_t, 65536> map_;
+    static constexpr bool isStandard(uint16_t scancode) noexcept { return scancode < STANDARD_MAX; }
+
+    [[nodiscard]] uint16_t lookup(uint16_t scancode) const noexcept {
+        if (isStandard(scancode)) {
+            return standardMap_[scancode];
+        }
+        auto it = extendedMap_.find(scancode);
+        return it != extendedMap_.end() ? it->second : NO_MAPPING;
+    }
+
+    std::array<uint16_t, STANDARD_MAX> standardMap_;
+    std::unordered_map<uint16_t, uint16_t> extendedMap_;
 };
 
 } // namespace keyflow
