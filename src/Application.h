@@ -8,8 +8,12 @@
 
 #include <atomic>
 #include <memory>
+#include <windows.h>
 
 namespace keyflow {
+
+// Forward declaration
+class ModifierTracker;
 
 /**
  * @brief Main application encapsulating keyflow runtime state
@@ -32,13 +36,39 @@ namespace keyflow {
 class Application {
   public:
     Application() = default;
-    ~Application() noexcept { cleanup(); }
+    ~Application() noexcept {
+        cleanup();
+        releaseSingleInstanceLock();
+    }
 
     // Move-only semantics: Application owns unique hardware resources
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
     Application(Application&&) = delete;            // Hardware state not movable
     Application& operator=(Application&&) = delete; // Hardware state not movable
+
+    /**
+     * @brief Check if another instance is already running
+     * @return true if this is the only instance, false if another instance exists
+     */
+    [[nodiscard]] bool acquireSingleInstanceLock() noexcept {
+        // Create a named mutex that persists across the system
+        // Use "Global\\" prefix to work across user sessions
+        singleInstanceMutex_ = CreateMutexA(nullptr, TRUE, "Global\\KeyflowSingleInstanceMutex");
+
+        if (singleInstanceMutex_ == nullptr) {
+            return false; // Failed to create mutex
+        }
+
+        // Check if mutex already existed (another instance is running)
+        if (GetLastError() == ERROR_ALREADY_EXISTS) {
+            CloseHandle(singleInstanceMutex_);
+            singleInstanceMutex_ = nullptr;
+            return false; // Another instance is already running
+        }
+
+        return true; // Successfully acquired single-instance lock
+    }
 
     /**
      * @brief Initialize the application
@@ -92,6 +122,16 @@ class Application {
     SystemTray& sysTray() noexcept { return sysTray_; }
 
     /**
+     * @brief Get modifier tracker
+     */
+    ModifierTracker& modifierTracker() noexcept { return *modifierTracker_; }
+
+    /**
+     * @brief Set modifier tracker pointer (called during pipeline build)
+     */
+    void setModifierTracker(ModifierTracker* tracker) noexcept { modifierTracker_ = tracker; }
+
+    /**
      * @brief Release all held modifier keys
      *
      * Called during shutdown or emergency cleanup to ensure
@@ -116,11 +156,21 @@ class Application {
         }
     }
 
+    void releaseSingleInstanceLock() noexcept {
+        if (singleInstanceMutex_ != nullptr) {
+            ReleaseMutex(singleInstanceMutex_);
+            CloseHandle(singleInstanceMutex_);
+            singleInstanceMutex_ = nullptr;
+        }
+    }
+
     Config config_;
     HardwareIO hardware_;
     SystemTray sysTray_;
     Pipeline pipeline_;
     bool running_{true};
+    ModifierTracker* modifierTracker_ = nullptr; // Pointer to ModifierTracker in pipeline
+    HANDLE singleInstanceMutex_ = nullptr;       // Mutex for single-instance enforcement
 };
 
 } // namespace keyflow

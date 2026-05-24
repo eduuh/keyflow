@@ -101,10 +101,26 @@ class ModifierTracker : public IProcessor {
         return customModifierNames_.find(modifierName) != customModifierNames_.end();
     }
 
+    /**
+     * @brief Set injected shift state
+     */
+    void setInjectedShift(bool state) noexcept { injectedShift_ = state; }
+
+    /**
+     * @brief Check if shift was injected by combo processor
+     */
+    [[nodiscard]] bool hasInjectedShift() const noexcept { return injectedShift_; }
+
+    /**
+     * @brief Clear all injected modifier state
+     */
+    void clearInjectedModifiers() noexcept { injectedShift_ = false; }
+
   private:
     uint32_t activeModifiers_ = 0;                              // Bitmask of active modifiers
     std::unordered_map<uint16_t, ModifierBit> customModifiers_; // scancode → custom modifier bit
     std::unordered_map<std::string, ModifierBit> customModifierNames_; // name → custom modifier bit
+    bool injectedShift_ = false;                                       // Track if we injected Shift
 };
 
 } // namespace keyflow

@@ -130,6 +130,14 @@ int main(int argc, char* argv[]) {
     SetConsoleCtrlHandler(consoleHandler, TRUE);
     std::atexit(emergencyCleanup);
 
+    // Check for single instance (must be done before hardware initialization)
+    if (!app.acquireSingleInstanceLock()) {
+        std::cerr << "[Main] Another instance of Keyflow is already running\n";
+        std::cerr << "[Main] Only one instance can run at a time\n";
+        g_app = nullptr;
+        return 1;
+    }
+
     if (!app.initialize("Keyflow - Keyboard Remapper")) {
         std::cerr << "[Main] Failed to initialize hardware\n";
         std::cerr << "[Main] Make sure:\n";
@@ -140,10 +148,16 @@ int main(int argc, char* argv[]) {
     }
 
     bool verbose = !app.config().debugMode;
-    if (!ConfigBuilder::buildPipeline(jsonConfig, app.pipeline(), verbose)) {
+    ModifierTracker* modTracker = nullptr;
+    if (!ConfigBuilder::buildPipeline(jsonConfig, app.pipeline(), verbose, &modTracker)) {
         std::cerr << "[Main] Failed to build pipeline from config\n";
         g_app = nullptr;
         return 1;
+    }
+
+    // Store ModifierTracker pointer in Application
+    if (modTracker) {
+        app.setModifierTracker(modTracker);
     }
 
 #ifdef DEBUG_BUILD
@@ -169,6 +183,13 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
+        // Cleanup injected shift from previous event (if needed)
+        if (app.pipeline().needsShiftCleanup() && modTracker) {
+            app.hardware().sendKey(SC_LSHIFT, false);
+            modTracker->clearInjectedModifiers();
+            app.pipeline().clearShiftCleanup();
+        }
+
         auto result = app.pipeline().process(*event);
 
         if (event->isDown && event->scancode == SC_ESCAPE &&
@@ -187,9 +208,14 @@ int main(int argc, char* argv[]) {
                     if (event->isDown) {
                         app.hardware().sendKey(SC_LSHIFT, true);
                         app.hardware().sendKey(result.outputScancode, true);
+                        if (modTracker) {
+                            modTracker->setInjectedShift(true); // Track injection
+                        }
                     } else {
                         app.hardware().sendKey(result.outputScancode, false);
                         app.hardware().sendKey(SC_LSHIFT, false);
+                        // Mark for cleanup BEFORE next event
+                        app.pipeline().markShiftCleanupNeeded(result.cleanupInjectedShift);
                     }
                 } else {
                     app.hardware().sendKey(result.outputScancode, event->isDown);
