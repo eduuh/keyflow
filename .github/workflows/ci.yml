@@ -1,0 +1,33 @@
+name: CI
+
+# PR validation: only fires for PRs targeting main.
+# Push to main runs the same checks post-merge so the main branch always has
+# a verified green signal.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure (Debug, tests on)
+        shell: pwsh
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Debug -DENABLE_TESTS=ON
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Debug
+
+      - name: Run tests
+        shell: pwsh
+        run: |
+          cd build
+          ctest -C Debug --output-on-failure

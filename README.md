@@ -1,5 +1,9 @@
 # keyflow
 
+[![CI](https://github.com/eduuh/keyflow/actions/workflows/ci.yml/badge.svg)](https://github.com/eduuh/keyflow/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/eduuh/keyflow?include_prereleases)](https://github.com/eduuh/keyflow/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Privacy-first keyboard remapper for Windows. Zero data collection, driver-level interception, JSON config.
 
 ## Quick start
@@ -55,7 +59,7 @@ Requirements: CMake 3.15+, MSVC or any C++17 compiler. Details in [BUILD.md](BUI
 
 ## Docs
 
-- [Config reference](docs/CONFIG_USAGE.md) · [Custom modifiers](docs/CUSTOM_MODIFIERS.md) · [Privacy](docs/PRIVACY.md)
-- [Contributing](CONTRIBUTING.md) · [Build](BUILD.md)
+- [Config reference](docs/CONFIG_USAGE.md) · [Eduuh-DH layout](docs/EDUUH_DH.md) · [Custom modifiers](docs/CUSTOM_MODIFIERS.md) · [Privacy](docs/PRIVACY.md)
+- [Contributing](CONTRIBUTING.md) · [Build](BUILD.md) · [Changelog](CHANGELOG.md)
 
-MIT License.
+Released under the [MIT License](LICENSE).
