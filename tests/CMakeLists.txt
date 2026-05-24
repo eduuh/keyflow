@@ -11,7 +11,7 @@ file(GLOB_RECURSE TEST_SOURCES
 # Create test executable (include DebugLog.cpp for gVerboseLogging symbol)
 add_executable(keyflow_tests
     ${TEST_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/DebugLog.cpp
+    ${CMAKE_SOURCE_DIR}/src/app/DebugLog.cpp
 )
 
 # Link against Google Test and keyflow headers

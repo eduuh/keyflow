@@ -5,7 +5,7 @@ Privacy-first keyboard remapper for Windows. Zero data collection, driver-level 
 ## Quick start
 
 1. Install the [Interception driver](https://github.com/oblitum/Interception/releases) and reboot.
-2. Create `config.json` next to `keyflow.exe` (see [example](examples/custom-modifiers-example.json)).
+2. The bundled `config.json` ships the Eduuh-DH layout — see [`docs/EDUUH_DH.md`](docs/EDUUH_DH.md) for the full spec.
 3. Run `keyflow.exe` as Administrator.
 
 Press `Ctrl+Escape` to exit.

@@ -97,7 +97,6 @@ if command -v clang-tidy &> /dev/null; then
             CHECKS_FAILED=1
             echo ""
             echo "⚠ clang-tidy found issues in your code"
-            echo "  Run './src/scripts/lint-code.sh' to see all issues"
             echo "  You can bypass this check with: git commit --no-verify"
         fi
     else

@@ -1,6 +1,6 @@
 #include "WindowsHardwareIO.h"
 
-#include "DebugLog.h"
+#include "app/DebugLog.h"
 #include "interception.h"
 
 #include <iostream>

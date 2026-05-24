@@ -59,7 +59,7 @@ if(KEYFLOW_HAS_PLATFORM_BACKEND)
 
     set(SOURCES
         src/app/main.cpp
-        src/DebugLog.cpp
+        src/app/DebugLog.cpp
         ${PLATFORM_SOURCES}
     )
 
@@ -114,11 +114,9 @@ if(KEYFLOW_HAS_PLATFORM_BACKEND)
 endif()
 
 # === Testing (cross-platform - unit tests work on all platforms) ===
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    option(ENABLE_TESTS "Enable testing" ON)
-else()
-    option(ENABLE_TESTS "Enable testing (use -DENABLE_TESTS=ON to enable)" OFF)
-endif()
+# Tests are opt-in regardless of build type. Run `./build.ps1 -Tests` (or pass
+# `-DENABLE_TESTS=ON` to cmake) to build and register them.
+option(ENABLE_TESTS "Enable testing (use -DENABLE_TESTS=ON to enable)" OFF)
 
 if(ENABLE_TESTS)
     enable_testing()

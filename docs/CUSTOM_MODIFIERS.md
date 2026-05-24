@@ -222,6 +222,5 @@ Error messages clearly indicate which field has the problem.
 
 ## See Also
 
-- [Configuration Guide](CONFIGURATION.md) - General config documentation
-- [Layer System](LAYERS.md) - How layers work
-- [Examples](../examples/) - More configuration examples
+- [Configuration Guide](CONFIG_USAGE.md) - How config.json is loaded
+- [Eduuh-DH Layout](EDUUH_DH.md) - The bundled layout (uses standard, not custom, modifiers)

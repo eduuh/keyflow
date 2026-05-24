@@ -63,7 +63,6 @@ if ($clangTidy) {
 Write-Host ""
 Write-Host "✓ Setup complete!" -ForegroundColor Green
 Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. Format code: .\scripts\format-code.ps1" -ForegroundColor Gray
-Write-Host "  2. Run linter: .\scripts\lint-code.sh" -ForegroundColor Gray
-Write-Host "  3. Setup git hooks: .\scripts\setup-git-hooks.ps1" -ForegroundColor Gray
+Write-Host "Next step:" -ForegroundColor Cyan
+Write-Host "  Install the pre-commit hook: .\scripts\setup-git-hooks.ps1" -ForegroundColor Gray
+Write-Host "  (Formatting/linting runs automatically on every commit.)" -ForegroundColor Gray

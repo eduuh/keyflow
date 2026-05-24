@@ -57,8 +57,7 @@ void printValidationErrors(const ValidationResult& result) {
     }
     std::cerr << "\nTips:\n"
                  "  - Check key names in docs/CONFIG_USAGE.md\n"
-                 "  - Key names are case-sensitive (e.g., 'CapsLock' not 'capslock')\n"
-                 "  - See examples/ directory for working configs\n\n";
+                 "  - Key names are case-sensitive (e.g., 'CapsLock' not 'capslock')\n\n";
 }
 
 void printLoadFailure(const std::string& configPath, const std::exception& e) {
@@ -68,14 +67,13 @@ void printLoadFailure(const std::string& configPath, const std::exception& e) {
     std::ifstream test(configPath);
     if (!test.good()) {
         std::cerr << "File not found! Make sure config.json exists.\n\n"
-                     "Quick start:\n"
-                     "  1. Copy an example: cp examples/custom-modifiers-example.json config.json\n"
-                     "  2. Or create config.json with:\n"
+                     "Quick start — create config.json with:\n"
                      "     {\n"
                      "       \"version\": \"1.0\",\n"
                      "       \"name\": \"My Config\",\n"
                      "       \"remapping\": { \"CapsLock\": \"LeftCtrl\" }\n"
-                     "     }\n\n";
+                     "     }\n\n"
+                     "See docs/EDUUH_DH.md for the bundled layout's full spec.\n\n";
     } else {
         std::cerr << "Common issues:\n"
                      "  - Check JSON syntax (missing commas, brackets)\n"

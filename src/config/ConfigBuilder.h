@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../DebugLog.h"
+#include "../app/DebugLog.h"
 #include "../pipeline/Pipeline.h"
 #include "../processors/CapsLockBlocker.h"
 #include "../processors/ComboAdvanced.h"
