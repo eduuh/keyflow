@@ -1,0 +1,30 @@
+{
+    "version": "2.0",
+    "name": "Complex Test Config",
+    "remapping": {
+        "CapsLock": "Escape",
+        "A": "B",
+        "B": "A"
+    },
+    "layers": [
+        {
+            "name": "nav",
+            "trigger": "Space",
+            "modifiers": ["LeftCtrl"],
+            "mappings": {
+                "H": "Left",
+                "J": "Down",
+                "K": "Up",
+                "L": "Right"
+            }
+        }
+    ],
+    "noModCombos": [
+        {
+            "key": "1",
+            "output": "Exclaim",
+            "shift": true,
+            "description": "! symbol"
+        }
+    ]
+}

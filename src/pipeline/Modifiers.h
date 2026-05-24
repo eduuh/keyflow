@@ -3,6 +3,7 @@
 #include "../hardware/Scancodes.h"
 
 #include <cstdint>
+#include <string_view>
 
 namespace keyflow {
 
@@ -105,8 +106,6 @@ constexpr ModifierBit getModifierBit(uint16_t scancode) noexcept {
  * Using string_view for compile-time string handling where possible.
  * This replaces C-string strcmp() with type-safe comparison.
  */
-#include <string_view>
-
 constexpr ModifierBit modifierNameToBit(std::string_view modName) noexcept {
     // Check common names
     if (modName == "LALT" || modName == "MOD12")

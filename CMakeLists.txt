@@ -5,6 +5,9 @@ project(keyflow VERSION 2.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Export compile commands for clang-tidy
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Build type
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -61,28 +64,26 @@ set_target_properties(keyflow PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
 )
 
-# Copy interception.dll to output directory
+# Copy files to output directory (handles multi-config generators like Visual Studio)
 add_custom_command(TARGET keyflow POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/interception.dll"
-        "${OUTPUT_DIR}/interception.dll"
-    COMMENT "Copying interception.dll to ${CMAKE_BUILD_TYPE} output directory"
+        "$<TARGET_FILE_DIR:keyflow>/interception.dll"
+    COMMENT "Copying interception.dll"
 )
 
-# Copy config.json to output directory
 add_custom_command(TARGET keyflow POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/src/config.json"
-        "${OUTPUT_DIR}/config.json"
-    COMMENT "Copying config.json to ${CMAKE_BUILD_TYPE} output directory"
+        "$<TARGET_FILE_DIR:keyflow>/config.json"
+    COMMENT "Copying config.json"
 )
 
-# Copy keyboard-icon.ico to output directory
 add_custom_command(TARGET keyflow POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/src/keyboard-icon.ico"
-        "${OUTPUT_DIR}/keyboard-icon.ico"
-    COMMENT "Copying keyboard-icon.ico to ${CMAKE_BUILD_TYPE} output directory"
+        "$<TARGET_FILE_DIR:keyflow>/keyboard-icon.ico"
+    COMMENT "Copying keyboard-icon.ico"
 )
 
 # Installation
@@ -100,6 +101,26 @@ endif()
 
 if(ENABLE_TESTS)
     enable_testing()
+
+    # === Google Test Setup ===
+    # Download Google Test via FetchContent
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.14.0  # Latest stable as of 2024
+        GIT_SHALLOW TRUE
+        FIND_PACKAGE_ARGS NAMES GTest
+    )
+
+    # Prevent Google Test from overriding compiler flags
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+    # Make Google Test available
+    FetchContent_MakeAvailable(googletest)
+
+    # Add tests subdirectory
+    add_subdirectory(tests)
 endif()
 
 if(ENABLE_TESTS)

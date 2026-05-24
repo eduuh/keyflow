@@ -1,0 +1,6 @@
+{
+    "version": "2.0",
+    "remapping": {
+        "INVALID_KEY_NAME_123": "A"
+    }
+}
