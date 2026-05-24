@@ -10,6 +10,7 @@ import { useConfigStore } from "@/lib/store";
 import { CategoryExport } from "./Export/CategoryExport";
 import { CommunityLayoutsButton } from "./CommunityLayouts";
 import { JsonEditor } from "./JsonEditor";
+import { ShareButton } from "./Share";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { startTour } from "./Tour";
@@ -80,6 +81,7 @@ export function Header() {
             <Upload className="h-4 w-4" />
             <span className="hidden md:inline ml-2">Import</span>
           </Button>
+          <ShareButton />
           <Button
             variant="outline"
             size="sm"
