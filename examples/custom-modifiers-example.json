@@ -1,7 +1,6 @@
 {
   "version": "1.0",
   "name": "Custom Modifiers Example - Advanced Layout",
-  "strictMode": false,
 
   "remapping": {
     "CapsLock": "LeftShift",

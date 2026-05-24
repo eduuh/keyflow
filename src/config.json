@@ -1,7 +1,6 @@
 {
   "version": "1.0",
   "name": "Eduuh-DH",
-  "strictMode": false,
   "disableCapsLock": true,
   "remapping": {
     "_comment": "Modifier remapping",

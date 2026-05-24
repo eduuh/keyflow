@@ -260,11 +260,6 @@ class ConfigLoader {
             parseLayers(j["layers"], config.layers);
         }
 
-        // Strict mode (optional, defaults to false)
-        if (j.contains("strictMode")) {
-            config.strictMode = j["strictMode"].get<bool>();
-        }
-
         // Disable caps lock (optional, defaults to false)
         if (j.contains("disableCapsLock")) {
             config.disableCapsLock = j["disableCapsLock"].get<bool>();

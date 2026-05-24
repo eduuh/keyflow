@@ -19,11 +19,15 @@ ctest -C Debug --output-on-failure
 
 ```
 tests/unit/
-├── config/        # ConfigLoader, JsonConfig, KeyNameMapper
-├── pipeline/      # Context, Modifiers, Pipeline
-└── processors/    # Rewire, ModifierTracker, ComboAdvanced, StrictModeFilter,
-                  # CapsLockBlocker, LayerTriggerBlocker, bug regressions
-tests/fixtures/    # MockProcessor for processor tests
+├── config/        # ConfigLoader, KeyNameMapper (targeted invariants only)
+├── pipeline/      # Modifiers parsing, Pipeline boundary
+├── processors/    # ModifierTracker, ComboAdvanced, CapsLockBlocker,
+│                  # LayerTriggerBlocker, bug_fixes, phantom_caps_fix
+└── integration/   # test_config_coverage.cpp — drives every behavior in
+                   # src/config.json through the real pipeline (88 mappings)
+tests/fixtures/    # MockProcessor, PipelineHarness
 ```
 
-Tests use inline JSON strings rather than file fixtures. Adding a new test: drop a `test_*.cpp` under the right `unit/` folder; CMake picks it up automatically.
+The integration test treats src/config.json as the spec — edit the config, the
+test surface updates automatically. Adding a new unit test: drop a `test_*.cpp`
+under the right `unit/` folder; CMake picks it up automatically.

@@ -75,9 +75,6 @@ struct JsonConfig {
     std::vector<CustomModifier> customModifiers;
     std::vector<Layer> layers;
 
-    // Strict mode: Only mapped keys produce output, all others blocked
-    bool strictMode = false;
-
     // Disable caps lock: Block CapsLock key from reaching OS (prevents accidental toggle)
     bool disableCapsLock = false;
 

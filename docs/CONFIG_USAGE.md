@@ -71,7 +71,6 @@ See `config.json` for full example. Basic structure:
 {
   "version": "1.0",
   "name": "My Layout",
-  "strictMode": false,
   "disableCapsLock": true,
 
   "remapping": {
@@ -97,9 +96,6 @@ See `config.json` for full example. Basic structure:
 ```
 
 ### Configuration Options
-
-#### `strictMode` (optional, default: false)
-When enabled, only explicitly mapped keys produce output. All unmapped keys are blocked. Useful for full keyboard remappings to prevent unmapped keys from leaking through.
 
 #### `disableCapsLock` (optional, default: false)
 When enabled, blocks the CapsLock key from reaching the OS, preventing accidental caps lock toggle. Useful when remapping CapsLock to another key (like Shift or Ctrl) to ensure the caps lock LED never activates.

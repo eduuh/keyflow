@@ -154,7 +154,6 @@ You can use custom modifiers alongside standard modifiers:
 2. **No tap-hold detection yet** - `blockOutput: false` doesn't work perfectly
 3. **Custom modifier names must be unique** across all custom modifiers
 4. **Custom modifiers cannot be remapped** - they use the physical scancode before remapping
-5. **StrictMode compatible** - Custom modifier keys are automatically added to allowed keys
 
 ## How It Works
 
@@ -196,8 +195,6 @@ Physical Key Press
 3. ComboAdvanced (applies layer mappings based on active modifiers)
     ↓
 4. LayerTriggerBlocker (blocks modifier keys with blockOutput=true)
-    ↓
-5. StrictModeFilter (if enabled)
     ↓
 Output to OS
 ```

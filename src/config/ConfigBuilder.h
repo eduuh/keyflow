@@ -7,7 +7,6 @@
 #include "../processors/LayerTriggerBlocker.h"
 #include "../processors/ModifierTracker.h"
 #include "../processors/Rewire.h"
-#include "../processors/StrictModeFilter.h"
 #include "JsonConfig.h"
 #include "KeyNameMapper.h"
 
@@ -87,13 +86,6 @@ class ConfigBuilder {
             pipeline.addProcessor(std::move(blocker));
             if (verbose) {
                 std::cout << "[Config] CapsLock blocking enabled\n";
-            }
-        }
-
-        // Step 5: Add StrictModeFilter if enabled (must be LAST in pipeline)
-        if (config.strictMode) {
-            if (!addStrictModeFilter(config, pipeline, verbose)) {
-                return false;
             }
         }
 
@@ -403,82 +395,6 @@ class ConfigBuilder {
         }
 
         pipeline.addProcessor(std::move(blocker));
-        return true;
-    }
-
-    /**
-     * @brief Add StrictModeFilter to block all unmapped keys
-     *
-     * Collects all explicitly mapped INPUT keys from config and creates a filter
-     * that blocks everything else. This ensures only the keys you press (inputs)
-     * are allowed, and all OUTPUT keys (what they map to) are blocked.
-     */
-    static bool addStrictModeFilter(const JsonConfig& config, Pipeline& pipeline, bool verbose) {
-        auto filter = std::make_unique<StrictModeFilter>();
-
-        // Collect all allowed INPUT keys from remappings (only keyName, NOT targetName)
-        for (const auto& [keyName, targetName] : config.remapping) {
-            auto keyScancode = KeyNameMapper::nameToScancode(keyName);
-
-            if (keyScancode) {
-                filter->addAllowedKey(*keyScancode);
-            }
-        }
-
-        // Collect all allowed INPUT keys from noModCombos (only key, NOT output)
-        for (const auto& combo : config.noModCombos) {
-            auto keyScancode = KeyNameMapper::nameToScancode(combo.key);
-
-            if (keyScancode) {
-                filter->addAllowedKey(*keyScancode);
-            }
-        }
-
-        // Collect all allowed INPUT keys from layers (only keyName, NOT targetName)
-        for (const auto& layer : config.layers) {
-            // Add layer trigger keys (these are INPUT keys the user presses)
-            for (const auto& trigger : layer.triggers) {
-                auto triggerScancode = KeyNameMapper::nameToScancode(trigger);
-                if (triggerScancode) {
-                    filter->addAllowedKey(*triggerScancode);
-                }
-            }
-
-            // Regular mappings - only add INPUT keys
-            for (const auto& [keyName, targetName] : layer.mappings) {
-                auto keyScancode = KeyNameMapper::nameToScancode(keyName);
-
-                if (keyScancode) {
-                    filter->addAllowedKey(*keyScancode);
-                }
-            }
-
-            // Shift mappings - only add INPUT keys
-            for (const auto& shiftMapping : layer.shiftMappings) {
-                auto keyScancode = KeyNameMapper::nameToScancode(shiftMapping.key);
-
-                if (keyScancode) {
-                    filter->addAllowedKey(*keyScancode);
-                }
-            }
-        }
-
-        // Collect all allowed INPUT keys from custom modifiers
-        for (const auto& customMod : config.customModifiers) {
-            auto keyScancode = KeyNameMapper::nameToScancode(customMod.key);
-
-            if (keyScancode) {
-                filter->addAllowedKey(*keyScancode);
-            }
-        }
-
-        if (verbose) {
-            std::cout << "[Config] Strict Mode: Enabled (" << filter->allowedKeyCount()
-                      << " allowed keys)\n";
-            std::cout << "  All unmapped keys will be blocked\n";
-        }
-
-        pipeline.addProcessor(std::move(filter));
         return true;
     }
 };

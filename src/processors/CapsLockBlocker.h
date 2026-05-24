@@ -13,7 +13,7 @@ namespace keyflow {
  * events that make it through the pipeline. This ensures the caps lock
  * LED never toggles, even if CapsLock is pressed.
  *
- * Pipeline position: Should run late (after Rewire, before StrictModeFilter)
+ * Pipeline position: Should run late (after Rewire and layer processors)
  *
  * Use case: When CapsLock is remapped to another key (e.g., Shift or Ctrl),
  * you may still want to ensure the actual CapsLock toggle never happens.
