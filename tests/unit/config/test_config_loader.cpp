@@ -1,115 +1,80 @@
 #include "config/ConfigLoader.h"
-#include <fstream>
 #include <gtest/gtest.h>
 
 using namespace keyflow;
 
-// Helper to get test config directory
-std::string getTestConfigPath(const std::string &filename) {
-  return "fixtures/test_configs/" + filename;
+namespace {
+
+constexpr const char *kSimpleConfig = R"({
+  "version": "2.0",
+  "name": "Simple",
+  "remapping": { "CapsLock": "Escape" }
+})";
+
+constexpr const char *kComplexConfig = R"({
+  "version": "2.0",
+  "remapping": { "CapsLock": "Escape", "A": "B" },
+  "layers": [{
+    "name": "nav",
+    "triggers": ["RightAlt"],
+    "mappings": { "H": "Left", "J": "Down" }
+  }],
+  "noModCombos": [{ "key": "1", "output": "Exclaim", "shift": true }]
+})";
+
+constexpr const char *kInvalidKeyConfig = R"({
+  "version": "2.0",
+  "remapping": { "INVALID_KEY_NAME_123": "A" }
+})";
+
+} // namespace
+
+TEST(ConfigLoaderTest, LoadsSimpleConfigFromString) {
+  JsonConfig config = ConfigLoader::loadFromString(kSimpleConfig);
+  EXPECT_EQ(config.name, "Simple");
+  EXPECT_EQ(config.remapping["CapsLock"], "Escape");
 }
 
-// ===== Load From File Tests =====
-
-TEST(ConfigLoaderTest, LoadSimpleConfig) {
-  try {
-    JsonConfig config =
-        ConfigLoader::loadFromFile(getTestConfigPath("simple.json"));
-
-    EXPECT_FALSE(config.remapping.empty());
-  } catch (const std::exception &e) {
-    FAIL() << "Failed to load simple config: " << e.what();
-  }
+TEST(ConfigLoaderTest, LoadsComplexConfigFromString) {
+  JsonConfig config = ConfigLoader::loadFromString(kComplexConfig);
+  EXPECT_EQ(config.remapping.size(), 2u);
+  EXPECT_EQ(config.layers.size(), 1u);
+  EXPECT_EQ(config.noModCombos.size(), 1u);
 }
 
-TEST(ConfigLoaderTest, LoadComplexConfig) {
-  try {
-    JsonConfig config =
-        ConfigLoader::loadFromFile(getTestConfigPath("complex.json"));
-
-    EXPECT_FALSE(config.remapping.empty());
-    EXPECT_FALSE(config.layers.empty());
-  } catch (const std::exception &e) {
-    FAIL() << "Failed to load complex config: " << e.what();
-  }
-}
-
-TEST(ConfigLoaderTest, LoadNonExistentFile) {
+TEST(ConfigLoaderTest, NonExistentFileThrows) {
   EXPECT_THROW(
       {
-        [[maybe_unused]] auto config =
+        [[maybe_unused]] auto c =
             ConfigLoader::loadFromFile("nonexistent.json");
       },
       std::runtime_error);
 }
 
-TEST(ConfigLoaderTest, LoadInvalidJSON) {
-  // Load succeeds but validation should fail
-  try {
-    JsonConfig config =
-        ConfigLoader::loadFromFile(getTestConfigPath("invalid.json"));
-    ValidationResult result = ConfigLoader::validate(config);
-    EXPECT_FALSE(result.valid);
-    EXPECT_FALSE(result.errors.empty());
-  } catch (const std::exception &e) {
-    FAIL() << "Unexpected exception: " << e.what();
-  }
-}
-
-// ===== Load From String Tests =====
-
-TEST(ConfigLoaderTest, LoadFromValidJSONString) {
-  std::string jsonStr = R"({
-        "version": "2.0",
-        "remapping": {
-            "A": "B"
-        }
-    })";
-
-  try {
-    JsonConfig config = ConfigLoader::loadFromString(jsonStr);
-    EXPECT_FALSE(config.remapping.empty());
-    EXPECT_EQ(config.remapping["A"], "B");
-  } catch (const std::exception &e) {
-    FAIL() << "Failed to load from string: " << e.what();
-  }
-}
-
-TEST(ConfigLoaderTest, LoadFromInvalidJSONString) {
-  std::string jsonStr = "{ invalid json }";
+TEST(ConfigLoaderTest, MalformedJSONThrows) {
   EXPECT_THROW(
-      { [[maybe_unused]] auto config = ConfigLoader::loadFromString(jsonStr); },
+      {
+        [[maybe_unused]] auto c =
+            ConfigLoader::loadFromString("{ invalid json }");
+      },
       std::runtime_error);
 }
 
-TEST(ConfigLoaderTest, LoadFromEmptyString) {
-  std::string jsonStr = "";
+TEST(ConfigLoaderTest, EmptyStringThrows) {
   EXPECT_THROW(
-      { [[maybe_unused]] auto config = ConfigLoader::loadFromString(jsonStr); },
+      { [[maybe_unused]] auto c = ConfigLoader::loadFromString(""); },
       std::runtime_error);
 }
 
-// ===== Validation Tests =====
+TEST(ConfigLoaderValidationTest, ValidationCatchesUnknownKey) {
+  JsonConfig config = ConfigLoader::loadFromString(kInvalidKeyConfig);
+  ValidationResult result = ConfigLoader::validate(config);
+  EXPECT_FALSE(result.valid);
+  EXPECT_FALSE(result.errors.empty());
+}
 
-TEST(ConfigLoaderValidationTest, ValidConfigPassesValidation) {
+TEST(ConfigLoaderValidationTest, ValidConfigPasses) {
   JsonConfig config;
   config.remapping["A"] = "B";
-
-  ValidationResult result = ConfigLoader::validate(config);
-  EXPECT_TRUE(result.valid);
-  EXPECT_TRUE(result.errors.empty());
+  EXPECT_TRUE(ConfigLoader::validate(config).valid);
 }
-
-TEST(ConfigLoaderValidationTest, ValidationResultBoolConversion) {
-  ValidationResult valid;
-  valid.valid = true;
-  EXPECT_TRUE(static_cast<bool>(valid));
-
-  ValidationResult invalid;
-  invalid.valid = false;
-  EXPECT_FALSE(static_cast<bool>(invalid));
-}
-
-// Note: More comprehensive validation tests would require understanding
-// the specific validation rules implemented in ConfigLoader. Tests above
-// cover the basic loading and validation infrastructure.

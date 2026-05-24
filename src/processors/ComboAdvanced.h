@@ -5,7 +5,6 @@
 #include "../pipeline/Modifiers.h"
 
 #include <cstdint>
-#include <unordered_map>
 #include <vector>
 
 namespace keyflow {
@@ -13,13 +12,15 @@ namespace keyflow {
 /**
  * @brief Advanced combo processor with key sequence output
  *
- * Can output single keys OR sequences (e.g., Shift+1 for !)
+ * Can output single keys OR sequences (e.g., Shift+1 for !).
+ *
+ * Storage is two flat vectors (physical-key combos and remapped-key combos),
+ * scanned linearly per event. Typical configs have <50 combos total; a
+ * contiguous scan is cache-friendlier and faster than the previous
+ * unordered_map<scancode, vector<...>> bucketing.
  */
 class ComboAdvanced : public IProcessor {
   public:
-    /**
-     * @brief Key event in a sequence
-     */
     struct KeyAction {
         uint16_t scancode;
         bool withShift;
@@ -27,179 +28,100 @@ class ComboAdvanced : public IProcessor {
         KeyAction(uint16_t sc, bool shift = false) : scancode(sc), withShift(shift) {}
     };
 
-    /**
-     * @brief Combo mapping with sequence output
-     */
     struct ComboMapping {
         uint32_t requiredModifiers;    // Modifiers that must be held
         uint32_t blockedModifiers;     // Modifiers that must NOT be held
         uint16_t triggerKey;           // Key that triggers
         std::vector<KeyAction> output; // Output sequence
-        bool matchPhysicalKey;         // Match against physical key (true for layers)
 
-        ComboMapping(uint32_t reqMods, uint32_t blockMods, uint16_t trigger,
-                     bool matchPhysical = false)
-            : requiredModifiers(reqMods), blockedModifiers(blockMods), triggerKey(trigger),
-              matchPhysicalKey(matchPhysical) {}
+        ComboMapping(uint32_t reqMods, uint32_t blockMods, uint16_t trigger)
+            : requiredModifiers(reqMods), blockedModifiers(blockMods), triggerKey(trigger) {}
     };
 
-    /**
-     * @brief Add a simple combo (single output key)
-     * @param matchPhysical If true, match against physical key (before remapping)
-     */
     void addCombo(uint32_t modifiers, uint16_t triggerKey, uint16_t outputKey,
                   bool matchPhysical = false) {
-        ComboMapping combo(modifiers, 0, triggerKey, matchPhysical);
+        ComboMapping combo(modifiers, 0, triggerKey);
         combo.output.emplace_back(outputKey, false);
-
-        // Add to appropriate hash map based on matchPhysical flag
-        auto& targetMap = matchPhysical ? physicalKeyCombos_ : remappedKeyCombos_;
-        targetMap[triggerKey].push_back(combo);
+        bucket(matchPhysical).push_back(std::move(combo));
     }
 
-    /**
-     * @brief Add a combo with Shift+key output
-     * @param matchPhysical If true, match against physical key (before remapping)
-     */
     void addComboWithShift(uint32_t modifiers, uint16_t triggerKey, uint16_t outputKey,
                            bool matchPhysical = false) {
-        ComboMapping combo(modifiers, 0, triggerKey, matchPhysical);
-        combo.output.emplace_back(outputKey, true); // Output with Shift
-
-        // Add to appropriate hash map based on matchPhysical flag
-        auto& targetMap = matchPhysical ? physicalKeyCombos_ : remappedKeyCombos_;
-        targetMap[triggerKey].push_back(combo);
+        ComboMapping combo(modifiers, 0, triggerKey);
+        combo.output.emplace_back(outputKey, true);
+        bucket(matchPhysical).push_back(std::move(combo));
     }
 
-    /**
-     * @brief Add combo with no modifiers required (for top-row remapping)
-     */
+    // NoModCombos match the physical key to avoid double-transformation when a
+    // remap targets a key with a noModCombo defined.
     void addNoModCombo(uint16_t triggerKey, uint16_t outputKey, bool withShift = false) {
-        ComboMapping combo(0, 0xFFFFFFFF, triggerKey, true); // Match physical key
+        ComboMapping combo(0, 0xFFFFFFFF, triggerKey);
         combo.output.emplace_back(outputKey, withShift);
-
-        // BUG FIX: NoModCombos should match physical keys to avoid double-transformation
-        // when a key is remapped to a key that has a noModCombo defined
-        physicalKeyCombos_[triggerKey].push_back(combo);
+        physicalCombos_.push_back(std::move(combo));
     }
 
-    /**
-     * @brief Add combo using modifier names (helper for layers)
-     */
     void addCombo(std::string_view modName, uint16_t triggerKey, uint16_t outputKey) {
         uint32_t modBit = static_cast<uint32_t>(modifierNameToBit(modName));
-        addCombo(modBit, triggerKey, outputKey, true); // Layers match physical keys
+        addCombo(modBit, triggerKey, outputKey, true);
     }
 
     void addComboWithShift(std::string_view modName, uint16_t triggerKey, uint16_t outputKey) {
         uint32_t modBit = static_cast<uint32_t>(modifierNameToBit(modName));
-        addComboWithShift(modBit, triggerKey, outputKey, true); // Layers match physical keys
+        addComboWithShift(modBit, triggerKey, outputKey, true);
     }
 
     bool process(Context& ctx) override {
-        VERBOSE_LOG("[ComboAdvanced] Processing: physical=0x"
-                    << std::hex << ctx.scancode << " output=0x" << ctx.outputScancode
-                    << " modifiers=0x" << ctx.modifiers << std::dec << "\n");
-
-        // Check physical key combos first (layers)
-        auto physicalIt = physicalKeyCombos_.find(ctx.scancode);
-        if (physicalIt != physicalKeyCombos_.end()) {
-            VERBOSE_LOG("[ComboAdvanced] Found " << physicalIt->second.size()
-                                                 << " physical key combos for scancode 0x"
-                                                 << std::hex << ctx.scancode << std::dec << "\n");
-            for (const auto& combo : physicalIt->second) {
-                if (matchesCombo(ctx, combo)) {
-                    VERBOSE_LOG("[ComboAdvanced] *** COMBO MATCHED *** physical key combo\n");
-                    applyCombo(ctx, combo);
-                    return true; // Combo handled
-                }
-            }
-            VERBOSE_LOG("[ComboAdvanced] No physical key combo matched\n");
+        if (matchAndApply(ctx, physicalCombos_, ctx.scancode)) {
+            return true;
         }
-
-        // Then check remapped key combos (noModCombos)
-        auto remappedIt = remappedKeyCombos_.find(ctx.outputScancode);
-        if (remappedIt != remappedKeyCombos_.end()) {
-            VERBOSE_LOG("[ComboAdvanced] Found "
-                        << remappedIt->second.size() << " remapped key combos for scancode 0x"
-                        << std::hex << ctx.outputScancode << std::dec << "\n");
-            for (const auto& combo : remappedIt->second) {
-                if (matchesCombo(ctx, combo)) {
-                    VERBOSE_LOG("[ComboAdvanced] *** COMBO MATCHED *** remapped key combo\n");
-                    applyCombo(ctx, combo);
-                    return true; // Combo handled
-                }
-            }
-            VERBOSE_LOG("[ComboAdvanced] No remapped key combo matched\n");
-        }
-
-        return true; // Continue
+        matchAndApply(ctx, remappedCombos_, ctx.outputScancode);
+        return true;
     }
 
     [[nodiscard]] const char* name() const noexcept override { return "ComboAdvanced"; }
 
     [[nodiscard]] size_t comboCount() const noexcept {
-        size_t count = 0;
-        for (const auto& [key, combos] : physicalKeyCombos_) {
-            count += combos.size();
-        }
-        for (const auto& [key, combos] : remappedKeyCombos_) {
-            count += combos.size();
-        }
-        return count;
+        return physicalCombos_.size() + remappedCombos_.size();
     }
 
   private:
-    // Hash maps for O(1) trigger key lookup
-    // physicalKeyCombos: indexed by physical scancode (for layers)
-    // remappedKeyCombos: indexed by remapped scancode (for noModCombos)
-    std::unordered_map<uint16_t, std::vector<ComboMapping>> physicalKeyCombos_;
-    std::unordered_map<uint16_t, std::vector<ComboMapping>> remappedKeyCombos_;
+    std::vector<ComboMapping> physicalCombos_;
+    std::vector<ComboMapping> remappedCombos_;
 
-    void applyCombo(Context& ctx, const ComboMapping& combo) const noexcept {
-        // Output first key in sequence
-        if (!combo.output.empty()) {
-            const auto& action = combo.output[0];
-
-            VERBOSE_LOG("[ComboAdvanced] Applying combo: outputScancode=0x"
-                        << std::hex << action.scancode << std::dec
-                        << " withShift=" << action.withShift << "\n");
-
-            // Set output key
-            ctx.outputScancode = action.scancode;
-            ctx.action = Action::Replace;
-
-            // Set shift injection flag if needed
-            ctx.injectShift = action.withShift;
-            ctx.cleanupInjectedShift = action.withShift; // Signal cleanup needed
-        }
+    std::vector<ComboMapping>& bucket(bool matchPhysical) noexcept {
+        return matchPhysical ? physicalCombos_ : remappedCombos_;
     }
 
-    bool matchesCombo(const Context& ctx, const ComboMapping& combo) const noexcept {
-        // Note: Trigger key check is now handled by hash map lookup in process()
-        // Only need to verify modifier requirements
-
-        VERBOSE_LOG("[ComboAdvanced] Checking combo: required=0x"
-                    << std::hex << combo.requiredModifiers << " blocked=0x"
-                    << combo.blockedModifiers << " ctx.modifiers=0x" << ctx.modifiers << std::dec
-                    << "\n");
-
-        // Check required modifiers are held
+    static bool matchesCombo(const Context& ctx, const ComboMapping& combo) noexcept {
         if ((ctx.modifiers & combo.requiredModifiers) != combo.requiredModifiers) {
-            VERBOSE_LOG("[ComboAdvanced] Required modifiers not held\n");
             return false;
         }
+        if (combo.blockedModifiers != 0 && (ctx.modifiers & combo.blockedModifiers) != 0) {
+            return false;
+        }
+        return true;
+    }
 
-        // Check blocked modifiers are NOT held
-        if (combo.blockedModifiers != 0) {
-            if ((ctx.modifiers & combo.blockedModifiers) != 0) {
-                VERBOSE_LOG("[ComboAdvanced] Blocked modifiers are held\n");
-                return false;
+    static void applyCombo(Context& ctx, const ComboMapping& combo) noexcept {
+        if (combo.output.empty()) {
+            return;
+        }
+        const auto& action = combo.output[0];
+        ctx.outputScancode = action.scancode;
+        ctx.action = Action::Replace;
+        ctx.injectShift = action.withShift;
+        ctx.cleanupInjectedShift = action.withShift;
+    }
+
+    static bool matchAndApply(Context& ctx, const std::vector<ComboMapping>& combos,
+                              uint16_t key) noexcept {
+        for (const auto& combo : combos) {
+            if (combo.triggerKey == key && matchesCombo(ctx, combo)) {
+                applyCombo(ctx, combo);
+                return true;
             }
         }
-
-        VERBOSE_LOG("[ComboAdvanced] Combo matches!\n");
-        return true;
+        return false;
     }
 };
 

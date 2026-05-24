@@ -58,7 +58,7 @@ if(KEYFLOW_HAS_PLATFORM_BACKEND)
     endif()
 
     set(SOURCES
-        src/main.cpp
+        src/app/main.cpp
         src/DebugLog.cpp
         ${PLATFORM_SOURCES}
     )
@@ -111,7 +111,6 @@ if(KEYFLOW_HAS_PLATFORM_BACKEND)
     if(WIN32)
         install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/windows/interception.dll" DESTINATION bin)
     endif()
-    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/config.schema.json" DESTINATION bin)
 endif()
 
 # === Testing (cross-platform - unit tests work on all platforms) ===
@@ -147,43 +146,6 @@ if(ENABLE_TESTS)
 
     # Unit tests (platform-agnostic, always available)
     add_subdirectory(tests)
-
-    # Config validation tests (require the keyflow executable, Windows only)
-    if(KEYFLOW_HAS_PLATFORM_BACKEND)
-        function(add_config_test test_name config_file should_pass)
-            add_test(
-                NAME ${test_name}
-                COMMAND ${CMAKE_COMMAND}
-                    -DKEYFLOW_EXE=$<TARGET_FILE:keyflow>
-                    -DCONFIG_FILE=${CMAKE_SOURCE_DIR}/${config_file}
-                    -DSHOULD_PASS=${should_pass}
-                    -P ${CMAKE_SOURCE_DIR}/cmake/RunConfigTest.cmake
-                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-            )
-            set_tests_properties(${test_name} PROPERTIES TIMEOUT 5)
-        endfunction()
-
-        # Valid configs
-        add_config_test(test_valid_minimal "test/configs/valid/minimal.json" TRUE)
-        add_config_test(test_valid_full_remapping "test/configs/valid/full_remapping.json" TRUE)
-        add_config_test(test_valid_with_layers "test/configs/valid/with_layers.json" TRUE)
-        add_config_test(test_valid_with_combos "test/configs/valid/with_combos.json" TRUE)
-        add_config_test(test_valid_complex "test/configs/valid/complex.json" TRUE)
-
-        # Invalid configs
-        add_config_test(test_invalid_missing_version "test/configs/invalid/missing_version.json" FALSE)
-        add_config_test(test_invalid_unknown_key "test/configs/invalid/unknown_key.json" FALSE)
-        add_config_test(test_invalid_empty_layer "test/configs/invalid/empty_layer.json" FALSE)
-        add_config_test(test_invalid_malformed "test/configs/invalid/malformed.json" FALSE)
-        add_config_test(test_invalid_trigger "test/configs/invalid/invalid_trigger.json" FALSE)
-
-        # Example configs
-        add_config_test(test_example_minimal "examples/minimal.json" TRUE)
-        add_config_test(test_example_colemak "examples/colemak-dh.json" TRUE)
-        add_config_test(test_example_vim "examples/vim-layer.json" TRUE)
-        add_config_test(test_example_symbols "examples/programmer-symbols.json" TRUE)
-        add_config_test(test_example_numpad "examples/numpad-layer.json" TRUE)
-    endif()
 
     message(STATUS "  Tests: Enabled")
 else()

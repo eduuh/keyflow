@@ -18,27 +18,32 @@
         } while (0)
 #endif
 
-// Verbose logging - always enabled, writes to file
-// Global flag to control verbose logging
 namespace keyflow {
-extern bool g_verbose_logging;
-}
 
+// Toggled by `--verbose` / `-v`.
+extern bool gVerboseLogging;
+
+// Persistent log handle. First call opens keyflow_debug.log; subsequent
+// calls reuse the open stream.
+std::ofstream& verboseLogStream();
+
+// Write `HH:MM:SS.mmm ` to the verbose log stream.
+void writeVerboseTimestamp(std::ofstream& out);
+
+} // namespace keyflow
+
+// `x` is intentionally not parenthesized: callers pass chained stream
+// expressions like `"foo" << var << bar`, which must compose with the
+// outer `<<` rather than be evaluated standalone.
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define VERBOSE_LOG(x)                                                                             \
     do {                                                                                           \
-        if (keyflow::g_verbose_logging) {                                                          \
-            std::ofstream logFile("keyflow_debug.log", std::ios::app);                             \
-            if (logFile.is_open()) {                                                               \
-                auto now = std::chrono::system_clock::now();                                       \
-                auto time = std::chrono::system_clock::to_time_t(now);                             \
-                auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(                   \
-                              now.time_since_epoch()) %                                            \
-                          1000;                                                                    \
-                std::tm tm_buf;                                                                    \
-                localtime_s(&tm_buf, &time);                                                       \
-                logFile << std::put_time(&tm_buf, "%H:%M:%S") << "." << std::setfill('0')          \
-                        << std::setw(3) << ms.count() << " " << x;                                 \
-                logFile.flush();                                                                   \
+        if (keyflow::gVerboseLogging) {                                                            \
+            auto& kfLog = keyflow::verboseLogStream();                                             \
+            if (kfLog.is_open()) {                                                                 \
+                keyflow::writeVerboseTimestamp(kfLog);                                             \
+                kfLog << x;                                                                        \
             }                                                                                      \
         }                                                                                          \
     } while (0)
+// NOLINTEND(bugprone-macro-parentheses)

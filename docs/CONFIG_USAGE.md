@@ -10,7 +10,7 @@ keyflow loads `config.json` **at runtime** from the filesystem. The configuratio
 ```
 keyflow/
 ├── config.json              ← Edit this during development
-└── build/bin/Release/
+└── builds/Release/Release/bin/Release/
     ├── keyflow.exe
     └── config.json          ← Auto-copied by CMake on build
 ```

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Config.h"
+#include "app/Config.h"
 #include "hardware/Scancodes.h"
 #include "pipeline/Pipeline.h"
 #include "platform/IPlatform.h"

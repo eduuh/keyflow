@@ -8,7 +8,7 @@ echo "Running clang-tidy analysis..."
 # Find all .cpp files in src/
 find src -type f -name "*.cpp" | while read file; do
     echo "  Analyzing: $file"
-    clang-tidy "$file" -- -Isrc -Iexternal -Isrc/platform || true
+    clang-tidy "$file" -- -Isrc -Isrc/external -Isrc/platform -std=c++17 || true
 done
 
 echo "✓ Static analysis complete!"

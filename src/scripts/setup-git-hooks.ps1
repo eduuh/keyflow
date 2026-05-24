@@ -79,7 +79,7 @@ if command -v clang-tidy &> /dev/null; then
                 echo "  → Analyzing: $file"
 
                 # Run clang-tidy and capture output
-                TIDY_OUTPUT=$(clang-tidy "$file" -- -Isrc -Iexternal -Isrc/platform 2>&1)
+                TIDY_OUTPUT=$(clang-tidy "$file" -- -Isrc -Isrc/external -Isrc/platform -std=c++17 2>&1)
                 TIDY_RESULT=$?
 
                 # Check for errors or warnings

@@ -109,7 +109,6 @@ We guarantee that **no future version** will add:
 ## Questions?
 
 - Read the source: `src/`
-- Check architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Ask on GitHub: Issues/Discussions
 
 **Your keystrokes are yours. Period.**

@@ -1,35 +1,16 @@
 # keyflow
 
-**Privacy-first keyboard remapper for Windows**
+Privacy-first keyboard remapper for Windows. Zero data collection, driver-level interception, JSON config.
 
-Zero data collection • Driver-level interception • JSON configuration
+## Quick start
 
----
+1. Install the [Interception driver](https://github.com/oblitum/Interception/releases) and reboot.
+2. Create `config.json` next to `keyflow.exe` (see [example](examples/custom-modifiers-example.json)).
+3. Run `keyflow.exe` as Administrator.
 
-## Quick Start
+Press `Ctrl+Escape` to exit.
 
-```bash
-# 1. Install Interception driver (one-time)
-# Download: https://github.com/oblitum/Interception
-# Reboot after install
-
-# 2. Create config.json
-cp examples\simple.json config.json
-
-# 3. Run as administrator
-.\keyflow.exe
-```
-
-## Features
-
-- **1:1 key remapping** - CapsLock → Ctrl
-- **Layer system** - Vim navigation, symbols, numpad
-- **Custom modifiers** - Any key as a modifier (Space Cadet navigation)
-- **JSON config** - Simple, human-readable
-- **<2ms latency** - Driver-level capture
-- **Zero logging** - No data collection, no network
-
-## Configuration
+## Example config
 
 ```json
 {
@@ -40,7 +21,7 @@ cp examples\simple.json config.json
   "layers": [
     {
       "name": "Vim Nav",
-      "trigger": ["RightAlt"],
+      "triggers": ["RightAlt"],
       "mappings": {
         "H": "LeftArrow",
         "J": "DownArrow",
@@ -52,66 +33,29 @@ cp examples\simple.json config.json
 }
 ```
 
-See [JSON_CONFIG.md](JSON_CONFIG.md) for complete reference.
+See [docs/CONFIG_USAGE.md](docs/CONFIG_USAGE.md) for the full reference.
 
-## Runtime Controls
+## Build from source
 
-| Key | Action |
-|-----|--------|
-| Ctrl+Escape | Exit KeyFlow |
-
-## Build
-
-**Requirements:** CMake 3.15+, MinGW-w64 (or any C++17 compiler)
-
-```bash
-# Debug build (includes logging with cout)
-cmake -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
-
-# Release build (no logging)
-cmake -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+```powershell
+.\build.ps1            # Release
+.\build.ps1 -Tests     # Debug + tests
 ```
 
-Install MinGW-w64: https://www.msys2.org/
+Requirements: CMake 3.15+, MSVC or any C++17 compiler. Details in [BUILD.md](BUILD.md).
 
-## Requirements
+## CLI flags
 
-- Windows 10/11
-- Administrator privileges
-- Interception driver
+| Flag | Effect |
+|---|---|
+| `--validate` | Validate config and exit |
+| `-d`, `--debug` | Verbose config-load logging |
+| `-v`, `--verbose` | Write per-event log to `keyflow_debug.log` |
+| `[file.json]` | Use a non-default config |
 
-## Privacy
+## Docs
 
-- ✅ No data collection
-- ✅ No network calls
-- ✅ No disk logging
-- ✅ Open source
+- [Config reference](docs/CONFIG_USAGE.md) · [Custom modifiers](docs/CUSTOM_MODIFIERS.md) · [Privacy](docs/PRIVACY.md)
+- [Contributing](CONTRIBUTING.md) · [Build](BUILD.md)
 
----
-
-## Documentation
-
-- **[Installation Guide](docs/INSTALLATION.md)** - Setup instructions
-- **[Configuration Usage](docs/CONFIG_USAGE.md)** - How to use config files
-- **[Custom Modifiers](docs/CUSTOM_MODIFIERS.md)** - Advanced layer triggers (Space Cadet, etc.)
-- **[Architecture](docs/ARCHITECTURE.md)** - Technical details
-- **[Development Guide](docs/DEVELOPMENT.md)** - Build and development
-- **[Privacy Policy](docs/PRIVACY.md)** - Privacy guarantees
-
----
-
-## Acknowledgments
-
-Development assisted by [Claude Code](https://claude.com/claude-code) - Anthropic's AI-powered coding assistant.
-
----
-
-## License
-
-MIT License - See LICENSE file
-
----
-
-**keyflow** - Take control of your keyboard, keep control of your privacy.
+MIT License.
