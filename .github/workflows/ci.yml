@@ -2,12 +2,14 @@ name: CI
 
 # PR validation: only fires for PRs targeting main.
 # Push to main runs the same checks post-merge so the main branch always has
-# a verified green signal.
+# a verified green signal. workflow_dispatch allows manual re-run from the
+# Actions tab (useful when infra issues blocked a previous run).
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build-and-test:
