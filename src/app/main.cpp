@@ -308,10 +308,16 @@ int main(int argc, char* argv[]) {
     }
 
     if (!app.initialize("Keyflow - Keyboard Remapper")) {
-        std::cerr << "[Main] Failed to initialize hardware\n"
-                     "[Main] Make sure:\n"
-                     "  1. Running as Administrator\n"
-                     "  2. Interception driver is installed\n";
+        std::cerr
+            << "\n[Main] Hardware init failed — the Interception driver couldn't be opened.\n\n"
+               "How to fix:\n"
+               "  1. Download Interception from\n"
+               "     https://github.com/oblitum/Interception/releases\n"
+               "  2. Run install-interception.exe /install (one-time setup)\n"
+               "  3. Reboot\n"
+               "  4. Re-run keyflow.exe\n\n"
+               "If the driver is already installed, check that interception.dll\n"
+               "is sitting next to keyflow.exe in the same folder.\n\n";
         gApp = nullptr;
         return 1;
     }

@@ -34,7 +34,6 @@ Steps:
 - Keyflow version (or commit):
 - Windows version:
 - Interception driver version:
-- Running as Administrator? yes / no
 
 ## Logs
 
