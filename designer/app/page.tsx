@@ -6,6 +6,8 @@ import { LayerTabs } from "@/components/Keyboard/LayerTabs";
 import { KeyPicker } from "@/components/KeyPicker/KeyPicker";
 import { BaseModifierSetup } from "@/components/BaseModifierSetup";
 import { Advanced } from "@/components/Advanced";
+import { CommunityLayoutsSection } from "@/components/CommunityLayouts";
+import { TourAutoStart } from "@/components/Tour";
 
 export default function Home() {
   return (
@@ -17,7 +19,9 @@ export default function Home() {
         <Keyboard />
         <KeyPicker />
         <Advanced />
+        <CommunityLayoutsSection />
       </main>
+      <TourAutoStart />
     </div>
   );
 }

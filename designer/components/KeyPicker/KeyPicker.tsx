@@ -137,7 +137,7 @@ export function KeyPicker() {
   };
 
   return (
-    <Card className="w-full">
+    <Card data-tour="picker" className="w-full">
       <CardHeader className="flex-row items-center justify-between space-y-0 pb-4 border-b">
         <div className="flex items-center gap-3 text-base flex-wrap">
           <span className="text-muted-foreground text-sm uppercase tracking-wider">Editing</span>
@@ -179,7 +179,7 @@ export function KeyPicker() {
             <TabsTrigger value="basic" className="text-sm">A-Z</TabsTrigger>
             <TabsTrigger value="numbers" className="text-sm">0-9</TabsTrigger>
             <TabsTrigger value="symbols" className="text-sm">Sym</TabsTrigger>
-            <TabsTrigger value="shifted" disabled={!inLayer} className="text-sm">
+            <TabsTrigger value="shifted" disabled={!inLayer} className="text-sm" data-tour="picker-shift">
               Shift+
             </TabsTrigger>
             <TabsTrigger value="modifiers" className="text-sm">Mod</TabsTrigger>

@@ -1,3 +1,6 @@
+/* driver.js — overlay styles for the onboarding tour (must precede @tailwind per CSS @import rules) */
+@import "../node_modules/driver.js/dist/driver.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

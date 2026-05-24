@@ -25,7 +25,7 @@ export function Advanced() {
   const total = comboCount + modCount;
 
   return (
-    <Card className="w-full">
+    <Card data-tour="advanced" className="w-full">
       <Button
         variant="ghost"
         onClick={() => setOpen(!open)}

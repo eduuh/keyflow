@@ -41,9 +41,12 @@ test.describe("import → export round-trip", () => {
     const exported = JSON.parse(await fs.readFile(tmpPath, "utf-8"));
 
     // Strip C++-only metadata that the designer normalizes:
-    //   - `_comment*` keys (the C++ parser ignores them)
+    //   - `_comment*` keys (the C++ parser ignores them; the designer preserves
+    //     them on round-trip as opaque pass-through). Strip from BOTH sides so
+    //     the equality check is about real schema fields.
     //   - `trigger: "LALT"` becomes `triggers: ["LALT"]` (canonical)
     stripComments(source.remapping);
+    stripComments(exported.remapping);
     normalizeLayers(source);
     expect(exported.version).toBe(source.version);
     expect(exported.name).toBe(source.name);

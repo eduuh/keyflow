@@ -35,6 +35,27 @@ npm install
 npm run dev          # http://localhost:3000
 ```
 
+## Deploy (GitHub Pages)
+
+The `.github/workflows/deploy-designer.yml` workflow runs on every push to
+`main` that touches `designer/`. It produces a static export and publishes
+it to GitHub Pages at **https://eduuh.github.io/keyflow/**.
+
+One-time setup (in repo settings):
+1. Settings → Pages → Source: **GitHub Actions**
+2. Push any change under `designer/` to trigger the first deploy
+
+Local production build for testing:
+
+```bash
+npm run build              # produces designer/out/ at root path
+GITHUB_PAGES=1 npm run build   # production-equivalent build at /keyflow/ basePath
+```
+
+`next.config.ts` only applies the `/keyflow` basePath when `GITHUB_PAGES=1`,
+so local `npm run dev` keeps serving at the root (matters for the
+Playwright tests, which hard-code `/`).
+
 ## Test
 
 ```bash

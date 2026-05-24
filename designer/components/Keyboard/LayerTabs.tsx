@@ -59,7 +59,7 @@ export function LayerTabs() {
   };
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto">
+    <div data-tour="layer-tabs" className="flex items-center gap-2 overflow-x-auto">
       <LayerTab
         active={currentLayerIndex === -1}
         title="BASE"

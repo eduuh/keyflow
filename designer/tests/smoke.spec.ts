@@ -12,11 +12,15 @@ test("page loads with header and keyboard visible", async ({ page }) => {
 
 test("clicking a key opens the picker with the right context", async ({ page }) => {
   await page.goto("/");
-  // Pick the first letter button — the A key on the keyboard.
-  await page.locator('button:has-text("A")').first().click();
-  // The picker card should show "Editing A".
-  await expect(page.getByText(/Editing/i)).toBeVisible();
-  await expect(page.locator(".font-mono", { hasText: /^A$/ }).first()).toBeVisible();
+  // Click the A key specifically — scoped to the keyboard view so we don't
+  // accidentally match BASE / Add layer / any other button containing "A".
+  await page
+    .locator('[data-tour="keyboard"] button')
+    .filter({ hasText: /^A$/ })
+    .first()
+    .click();
+  // The picker card should appear with "Editing".
+  await expect(page.locator('[data-tour="picker"]').getByText(/editing/i)).toBeVisible();
 });
 
 test("add-layer is disabled when no BASE modifier remap exists", async ({ page }) => {

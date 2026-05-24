@@ -45,7 +45,7 @@ export function Keyboard() {
   const height = KEYBOARD_UNITS_TALL * scale;
 
   return (
-    <Card ref={containerRef} className="p-4 w-full overflow-hidden">
+    <Card ref={containerRef} data-tour="keyboard" className="p-4 w-full overflow-hidden">
       <div className="flex justify-center">
         <div className="relative" style={{ width: `${width}px`, height: `${height}px` }}>
           {ansiLayout.map((keyData) => (
