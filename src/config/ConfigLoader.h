@@ -1,10 +1,12 @@
 #pragma once
 
 #include "JsonConfig.h"
+#include "KeyNameMapper.h"
 
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <unordered_set>
 
 // For JSON parsing, we'll use nlohmann/json (single header library)
 // Download from: https://github.com/nlohmann/json/releases
@@ -16,7 +18,17 @@ namespace keyflow {
 using json = nlohmann::json;
 
 /**
- * @brief Loads JSON configuration files
+ * @brief Validation result
+ */
+struct ValidationResult {
+    bool valid = true;
+    std::vector<std::pair<std::string, std::string>> errors; // field, message
+
+    operator bool() const { return valid; }
+};
+
+/**
+ * @brief Loads and validates JSON configuration files
  */
 class ConfigLoader {
   public:
@@ -26,7 +38,7 @@ class ConfigLoader {
      * @return JsonConfig structure
      * @throws std::runtime_error if file cannot be loaded or parsed
      */
-    static JsonConfig loadFromFile(const std::string& filepath) {
+    [[nodiscard]] static JsonConfig loadFromFile(const std::string& filepath) {
         // Read file
         std::ifstream file(filepath);
         if (!file.is_open()) {
@@ -50,7 +62,7 @@ class ConfigLoader {
      * @param jsonStr JSON string
      * @return JsonConfig structure
      */
-    static JsonConfig loadFromString(const std::string& jsonStr) {
+    [[nodiscard]] static JsonConfig loadFromString(const std::string& jsonStr) {
         json j;
         try {
             j = json::parse(jsonStr);
@@ -59,6 +71,120 @@ class ConfigLoader {
         }
 
         return parseConfig(j);
+    }
+
+    /**
+     * @brief Validate configuration
+     * @param config The configuration to validate
+     * @return ValidationResult with clear error messages
+     */
+    [[nodiscard]] static ValidationResult validate(const JsonConfig& config) {
+        ValidationResult result;
+        result.valid = true;
+
+        // Validate remappings
+        std::unordered_set<std::string> seenFrom;
+        for (const auto& [from, to] : config.remapping) {
+            // Skip comment fields
+            if (from.find("_comment") == 0)
+                continue;
+
+            // Check for duplicates
+            if (seenFrom.count(from)) {
+                result.errors.emplace_back("remapping",
+                                           "Duplicate mapping for key: '" + from + "'");
+                result.valid = false;
+            }
+            seenFrom.insert(from);
+
+            // Validate key names
+            if (!KeyNameMapper::nameToScancode(from)) {
+                result.errors.emplace_back("remapping." + from, "Unknown key name: '" + from + "'");
+                result.valid = false;
+            }
+            if (!KeyNameMapper::nameToScancode(to)) {
+                result.errors.emplace_back("remapping." + from, "Unknown target key: '" + to + "'");
+                result.valid = false;
+            }
+        }
+
+        // Validate noModCombos
+        for (size_t i = 0; i < config.noModCombos.size(); ++i) {
+            const auto& combo = config.noModCombos[i];
+            std::string context = "noModCombos[" + std::to_string(i) + "]";
+
+            if (!KeyNameMapper::nameToScancode(combo.key)) {
+                result.errors.emplace_back(context + ".key",
+                                           "Unknown key name: '" + combo.key + "'");
+                result.valid = false;
+            }
+            if (!KeyNameMapper::nameToScancode(combo.output)) {
+                result.errors.emplace_back(context + ".output",
+                                           "Unknown key name: '" + combo.output + "'");
+                result.valid = false;
+            }
+        }
+
+        // Validate layers
+        for (size_t i = 0; i < config.layers.size(); ++i) {
+            const auto& layer = config.layers[i];
+            std::string layerContext = "layers[" + std::to_string(i) + "]";
+
+            // Validate layer has a name
+            if (layer.name.empty()) {
+                result.errors.emplace_back(layerContext + ".name", "Layer name cannot be empty");
+                result.valid = false;
+            }
+
+            // Validate layer has triggers
+            if (layer.triggers.empty()) {
+                result.errors.emplace_back(layerContext + ".triggers",
+                                           "Layer must have at least one trigger");
+                result.valid = false;
+            }
+
+            // Validate trigger keys
+            for (const auto& trigger : layer.triggers) {
+                if (!KeyNameMapper::nameToScancode(trigger)) {
+                    result.errors.emplace_back(layerContext + ".trigger",
+                                               "Unknown key name: '" + trigger + "'");
+                    result.valid = false;
+                }
+            }
+
+            // Validate mappings
+            for (const auto& [from, to] : layer.mappings) {
+                if (!KeyNameMapper::nameToScancode(from)) {
+                    result.errors.emplace_back(layerContext + ".mappings." + from,
+                                               "Unknown key name: '" + from + "'");
+                    result.valid = false;
+                }
+                if (!KeyNameMapper::nameToScancode(to)) {
+                    result.errors.emplace_back(layerContext + ".mappings." + from,
+                                               "Unknown target key: '" + to + "'");
+                    result.valid = false;
+                }
+            }
+
+            // Validate shift mappings
+            for (size_t j = 0; j < layer.shiftMappings.size(); ++j) {
+                const auto& shiftMapping = layer.shiftMappings[j];
+                std::string context = layerContext + ".shiftMappings[" + std::to_string(j) + "]";
+
+                if (!KeyNameMapper::nameToScancode(shiftMapping.key)) {
+                    result.errors.emplace_back(context + ".key",
+                                               "Unknown key name: '" + shiftMapping.key + "'");
+                    result.valid = false;
+                }
+                if (!KeyNameMapper::nameToScancode(shiftMapping.output)) {
+                    result.errors.emplace_back(context + ".output",
+                                               "Unknown key name: '" + shiftMapping.output + "'");
+                    result.valid = false;
+                }
+            }
+        }
+
+        return result;
     }
 
   private:

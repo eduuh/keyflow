@@ -1,9 +1,8 @@
 #pragma once
 
-#include "../hardware/Scancodes.h"
 #include "../pipeline/IProcessor.h"
+#include "../pipeline/Modifiers.h"
 
-#include <cstring>
 #include <vector>
 
 namespace keyflow {
@@ -28,10 +27,13 @@ class LayerTriggerBlocker : public IProcessor {
     /**
      * @brief Add trigger by name (e.g., "LALT", "RALT")
      */
-    void addTrigger(const char* name) {
-        uint16_t scancode = getScancodeFromName(name);
-        if (scancode != 0) {
-            triggers_.push_back(scancode);
+    void addTrigger(std::string_view name) {
+        ModifierBit modBit = modifierNameToBit(name);
+        if (modBit != ModifierBit::None) {
+            uint16_t scancode = getScancodeFromModifier(modBit);
+            if (scancode != 0) {
+                triggers_.push_back(scancode);
+            }
         }
     }
 
@@ -53,33 +55,36 @@ class LayerTriggerBlocker : public IProcessor {
         return true; // Continue pipeline
     }
 
-    const char* name() const noexcept override { return "LayerTriggerBlocker"; }
+    [[nodiscard]] const char* name() const noexcept override { return "LayerTriggerBlocker"; }
 
-    size_t triggerCount() const noexcept { return triggers_.size(); }
+    [[nodiscard]] size_t triggerCount() const noexcept { return triggers_.size(); }
 
   private:
     std::vector<uint16_t> triggers_;
 
-    uint16_t getScancodeFromName(const char* name) const noexcept {
-        if (strcmp(name, "LALT") == 0)
-            return SC_LALT;
-        if (strcmp(name, "RALT") == 0)
-            return SC_RALT;
-        if (strcmp(name, "LCTRL") == 0)
-            return SC_LCTRL;
-        if (strcmp(name, "RCTRL") == 0)
-            return SC_RCTRL;
-        if (strcmp(name, "LSHIFT") == 0)
-            return SC_LSHIFT;
-        if (strcmp(name, "RSHIFT") == 0)
-            return SC_RSHIFT;
-        if (strcmp(name, "LWIN") == 0)
-            return SC_LWIN;
-        if (strcmp(name, "RWIN") == 0)
-            return SC_RWIN;
-        if (strcmp(name, "PRINT") == 0)
-            return SC_PRINTSCREEN;
-        return 0;
+    constexpr uint16_t getScancodeFromModifier(ModifierBit modBit) const noexcept {
+        switch (modBit) {
+            case ModifierBit::LeftAlt:
+                return SC_LALT;
+            case ModifierBit::RightAlt:
+                return SC_RALT;
+            case ModifierBit::LeftCtrl:
+                return SC_LCTRL;
+            case ModifierBit::RightCtrl:
+                return SC_RCTRL;
+            case ModifierBit::LeftShift:
+                return SC_LSHIFT;
+            case ModifierBit::RightShift:
+                return SC_RSHIFT;
+            case ModifierBit::LeftWin:
+                return SC_LWIN;
+            case ModifierBit::RightWin:
+                return SC_RWIN;
+            case ModifierBit::PrintScreen:
+                return SC_PRINTSCREEN;
+            default:
+                return 0;
+        }
     }
 };
 
