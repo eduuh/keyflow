@@ -1,0 +1,147 @@
+name: Release
+
+# Builds keyflow.exe + interception.dll + config.json into a self-contained
+# zip and publishes a GitHub Release. Runs only on v* tag push, or manually
+# via workflow_dispatch (e.g. to re-run a release after fixing infra).
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build from (e.g. v2.0.2). Required."
+        required: true
+        type: string
+
+concurrency:
+  # One release at a time per ref. Don't cancel an in-flight release if
+  # another fires — last-wins on assets is worse than a queue.
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Resolve release tag
+        id: tag
+        shell: pwsh
+        run: |
+          $tag = if ("${{ inputs.tag }}") { "${{ inputs.tag }}" } else { "${{ github.ref_name }}" }
+          $version = $tag.TrimStart('v')
+          # SemVer pre-release identifiers (e.g. 2.0.0-rc1) ship as prereleases.
+          $isPrerelease = $version.Contains('-')
+          Write-Host "tag=$tag, version=$version, prerelease=$isPrerelease"
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "prerelease=$isPrerelease" >> $env:GITHUB_OUTPUT
+
+      - name: Set up MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build (Release + tests)
+        shell: pwsh
+        run: |
+          cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=ON
+          cmake --build build --config Release
+
+      - name: Run tests
+        shell: pwsh
+        run: |
+          cd build
+          ctest -C Release --output-on-failure
+
+      - name: Locate release folder
+        id: locate
+        shell: pwsh
+        run: |
+          # Visual Studio multi-config emits to slightly different paths depending
+          # on CMake's OUTPUT_DIR resolution. Probe both common shapes.
+          $candidates = @(
+            "build/release/bin/Release",
+            "build/Release",
+            "build/release/bin",
+            "build/bin/Release"
+          )
+          $folder = $candidates | Where-Object { Test-Path (Join-Path $_ "keyflow.exe") } | Select-Object -First 1
+          if (-not $folder) {
+            Write-Error "Release folder containing keyflow.exe not found. Probed: $($candidates -join ', ')"
+            exit 1
+          }
+          Write-Host "Found release folder at: $folder"
+          "folder=$folder" >> $env:GITHUB_OUTPUT
+
+      - name: Stage release artifacts (binary + DLL + config + LICENSE + README)
+        shell: pwsh
+        run: |
+          $folder = "${{ steps.locate.outputs.folder }}"
+
+          # Required bundled files. Fail fast if anything is missing — a release
+          # missing interception.dll won't run on the user's machine.
+          $required = @("keyflow.exe", "interception.dll", "config.json")
+          foreach ($file in $required) {
+            if (-not (Test-Path (Join-Path $folder $file))) {
+              Write-Error "Required file missing in release folder: $file"
+              exit 1
+            }
+          }
+
+          # Include LICENSE + README so the zip is self-contained for users
+          # who download and never visit the repo.
+          Copy-Item "LICENSE" $folder
+          Copy-Item "README.md" $folder
+
+          Compress-Archive -Path "$folder/*" -DestinationPath keyflow-release.zip
+          Write-Host "Zip contents:"
+          Get-ChildItem $folder | ForEach-Object { Write-Host "  $($_.Name)" }
+
+      - name: Compute SHA256 checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 keyflow-release.zip).Hash.ToLower()
+          "$hash  keyflow-release.zip" | Out-File -Encoding ASCII keyflow-release.zip.sha256
+          Write-Host "SHA256: $hash"
+
+      - name: Extract CHANGELOG entry for this version
+        shell: pwsh
+        run: |
+          # For a tag like v2.0.3, look for "## [2.0.3]" in CHANGELOG.md.
+          # Fall back to [Unreleased] if no matching section exists yet.
+          $version = "${{ steps.tag.outputs.version }}"
+          $content = Get-Content CHANGELOG.md -Raw
+          $pattern = "(?s)## \[$version\].*?(?=\r?\n## |\z)"
+          $match = [regex]::Match($content, $pattern)
+          if (-not $match.Success) {
+            Write-Host "No CHANGELOG entry for $version, falling back to [Unreleased]"
+            $pattern = "(?s)## \[Unreleased\].*?(?=\r?\n## |\z)"
+            $match = [regex]::Match($content, $pattern)
+          }
+          if ($match.Success) {
+            $match.Value | Out-File -Encoding utf8 release_notes.md
+          } else {
+            "(no changelog entry found for $version)" | Out-File -Encoding utf8 release_notes.md
+          }
+          Write-Host "--- release_notes.md ---"
+          Get-Content release_notes.md
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: KeyFlow ${{ steps.tag.outputs.tag }}
+          body_path: release_notes.md
+          files: |
+            keyflow-release.zip
+            keyflow-release.zip.sha256
+          prerelease: ${{ steps.tag.outputs.prerelease }}
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
