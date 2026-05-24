@@ -2,160 +2,134 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { useConfigStore } from "@/lib/store";
-import { cn } from "@/lib/utils";
-import { CollapsiblePanel } from "./CollapsiblePanel";
-import { KeySelect } from "./KeySelect";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { KEY_GROUPS } from "@/lib/allKeys";
 
-// Editor for `noModCombos` — fires only when no modifier is held. The C++
-// side blocks the combo from firing if any modifier bit is set
-// (blockedModifiers = 0xFFFFFFFF), so e.g. `1 → !` only happens for a bare
-// "1" press, not Shift+1. UI rules mirror this implicit-no-modifier behavior.
-//
+// Editor for `noModCombos` — number row → symbols without holding Shift.
 // Each combo: { key, output, shift?, description? }
-//   - key:    the physical key the user presses
-//   - output: the scancode that gets emitted
-//   - shift:  if true, also inject Shift (so "1" → "!" uses output:1 + shift)
-//   - description: free-form note ("1 → !")
+// The C++ side requires zero modifiers held for these to fire.
 
 export function CombosEditor() {
   const { config, setNoModCombo, removeNoModCombo } = useConfigStore();
   const combos = config.noModCombos ?? [];
 
   const handleAdd = () => {
-    // Pick a key that isn't already a combo source so we don't shadow
-    // an existing entry by mistake.
     const used = new Set(combos.map((c) => c.key));
-    const allCandidates = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
-    const next = allCandidates.find((k) => !used.has(k)) ?? "Grave";
+    const candidates = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+    const next = candidates.find((k) => !used.has(k)) ?? "Grave";
     setNoModCombo({ key: next, output: next, shift: false, description: "" });
   };
 
   return (
-    <CollapsiblePanel title="No-modifier combos" count={combos.length}>
-      <div className="space-y-2">
-        {combos.length === 0 && (
-          <p className="text-xs text-muted-foreground italic font-mono px-1">
-            No combos defined. Use these to remap the number row to symbols (e.g. 2 → [)
-            without holding Shift.
-          </p>
-        )}
-
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">No-modifier combos</CardTitle>
+        <CardDescription>
+          Remap the number row (or any key) to a symbol without holding Shift. Fires only when
+          no modifier is held.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
         {combos.map((combo, i) => (
-          <ComboRow
+          <div
             key={`${combo.key}-${i}`}
-            comboKey={combo.key}
-            output={combo.output}
-            shift={combo.shift ?? false}
-            description={combo.description ?? ""}
-            onChange={(updated) => setNoModCombo(updated)}
-            onDelete={() => removeNoModCombo(combo.key)}
-          />
+            className="grid grid-cols-[1fr_auto_auto_1fr_2fr_auto] items-center gap-2"
+          >
+            <KeyDropdown
+              value={combo.key}
+              onChange={(v) =>
+                setNoModCombo({ ...combo, key: v, shift: combo.shift ?? false })
+              }
+            />
+            <span className="text-muted-foreground text-sm">→</span>
+            <div className="flex items-center gap-1.5">
+              <Switch
+                id={`shift-${i}`}
+                checked={combo.shift ?? false}
+                onCheckedChange={(checked) =>
+                  setNoModCombo({ ...combo, shift: checked })
+                }
+              />
+              <Label htmlFor={`shift-${i}`} className="text-xs cursor-pointer">
+                ⇧
+              </Label>
+            </div>
+            <KeyDropdown
+              value={combo.output}
+              onChange={(v) =>
+                setNoModCombo({ ...combo, output: v, shift: combo.shift ?? false })
+              }
+            />
+            <Input
+              value={combo.description ?? ""}
+              onChange={(e) =>
+                setNoModCombo({
+                  ...combo,
+                  description: e.target.value,
+                  shift: combo.shift ?? false,
+                })
+              }
+              placeholder="Description (optional)"
+              className="text-sm"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-destructive"
+              onClick={() => removeNoModCombo(combo.key)}
+              aria-label="Remove combo"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         ))}
 
-        <button
-          type="button"
-          onClick={handleAdd}
-          className={cn(
-            "inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[11px] uppercase tracking-wider font-mono font-semibold",
-            "border border-dashed border-border text-muted-foreground",
-            "hover:border-primary/60 hover:text-foreground hover:bg-accent/40 transition-colors",
-          )}
-        >
-          <Plus size={12} />
+        <Button variant="outline" size="sm" onClick={handleAdd}>
+          <Plus className="h-4 w-4 mr-1" />
           Add combo
-        </button>
-      </div>
-    </CollapsiblePanel>
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
-type ComboRowProps = {
-  comboKey: string;
-  output: string;
-  shift: boolean;
-  description: string;
-  onChange: (updated: {
-    key: string;
-    output: string;
-    shift: boolean;
-    description: string;
-  }) => void;
-  onDelete: () => void;
-};
-
-function ComboRow({
-  comboKey,
-  output,
-  shift,
-  description,
-  onChange,
-  onDelete,
-}: ComboRowProps) {
-  const update = (patch: Partial<ComboRowProps>) =>
-    onChange({
-      key: patch.comboKey ?? comboKey,
-      output: patch.output ?? output,
-      shift: patch.shift ?? shift,
-      description: patch.description ?? description,
-    });
-
+function KeyDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-background border border-border">
-      {/* Source */}
-      <KeySelect
-        value={comboKey}
-        onChange={(v) => update({ comboKey: v })}
-        className="min-w-[7rem]"
-      />
-
-      <span className="text-muted-foreground font-mono text-xs">→</span>
-
-      {/* Shift prefix indicator + output */}
-      <button
-        type="button"
-        onClick={() => update({ shift: !shift })}
-        title="Inject Shift with output"
-        className={cn(
-          "h-8 px-2 rounded-md text-xs font-mono font-semibold uppercase tracking-wider transition-colors",
-          shift
-            ? "bg-primary/15 text-primary border border-primary/40"
-            : "bg-muted/40 text-muted-foreground border border-border hover:bg-accent/40",
-        )}
-      >
-        ⇧
-      </button>
-
-      <KeySelect
-        value={output}
-        onChange={(v) => update({ output: v })}
-        className="min-w-[7rem]"
-      />
-
-      {/* Description (free-form note) */}
-      <input
-        type="text"
-        value={description}
-        onChange={(e) => update({ description: e.target.value })}
-        placeholder="Description (optional)"
-        className={cn(
-          "flex-1 min-w-0 h-8 px-2 rounded-md bg-background border border-input",
-          "text-xs",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        )}
-      />
-
-      <button
-        type="button"
-        onClick={onDelete}
-        className={cn(
-          "h-8 w-8 inline-flex items-center justify-center rounded-md",
-          "text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors",
-        )}
-        title="Remove combo"
-        aria-label="Remove combo"
-      >
-        <Trash2 size={14} />
-      </button>
-    </div>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-9 font-mono text-sm">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {KEY_GROUPS.map((group) => (
+          <SelectGroup key={group.group}>
+            <SelectLabel>{group.group}</SelectLabel>
+            {group.keys.map((k) => (
+              <SelectItem key={k.code} value={k.code} className="font-mono">
+                {k.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

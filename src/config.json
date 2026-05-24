@@ -67,7 +67,8 @@
     {"key": "8", "output": "Slash", "shift": false, "description": "8 → /"},
     {"key": "9", "output": "Apostrophe", "shift": false, "description": "9 → '"},
     {"key": "0", "output": "0", "shift": true, "description": "0 → )"},
-    {"key": "Equals", "output": "Equals", "shift": true, "description": "= → +"},
+    {"key": "Minus", "output": "9", "shift": true, "description": "- → ("},
+    {"key": "Equals", "output": "Backslash", "shift": false, "description": "= → \\"},
     {"key": "RightBracket", "output": "Semicolon", "shift": true, "description": "] → :"},
     {"key": "Tab", "output": "Tab", "shift": false, "description": "Shift+Tab passthrough"}
   ],

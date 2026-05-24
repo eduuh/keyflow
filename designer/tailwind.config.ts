@@ -44,9 +44,10 @@ const config: Config = {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
-        // Cyan/teal "configured" LED tint
-        mapped: {
-          DEFAULT: "hsl(var(--mapped))",
+        // Two-tone keycap surfaces: alpha keys use card, modifier keys use this.
+        modifier: {
+          DEFAULT: "hsl(var(--modifier))",
+          foreground: "hsl(var(--modifier-foreground))",
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -57,13 +58,9 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      // Subtle drop-shadow for keyboard chassis card
-      boxShadow: {
-        chassis: "0 2px 0 hsl(var(--key-shadow)), 0 16px 32px -8px hsl(var(--key-shadow) / 0.4)",
-      },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 };
 
 export default config;

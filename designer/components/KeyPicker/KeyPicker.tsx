@@ -3,17 +3,18 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useConfigStore } from "@/lib/store";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { getKeyType, KEY_TYPE_STYLES } from "@/lib/keyTypes";
 import { cn } from "@/lib/utils";
 
 type KeyCategory = "basic" | "modifiers" | "navigation" | "numbers" | "symbols" | "shifted";
 
-type PickerKey = {
-  label: string;
-  code: string;
-  isShifted?: boolean;
-};
+type PickerKey = { label: string; code: string; isShifted?: boolean };
 
-const KEYS_BY_CATEGORY: Record<KeyCategory, PickerKey[]> = {
+const KEYS: Record<KeyCategory, PickerKey[]> = {
   basic: "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((c) => ({ label: c, code: c })),
   modifiers: [
     { label: "LCtrl", code: "LeftCtrl" },
@@ -82,15 +83,6 @@ const KEYS_BY_CATEGORY: Record<KeyCategory, PickerKey[]> = {
   ],
 };
 
-const CATEGORIES: { id: KeyCategory; label: string }[] = [
-  { id: "basic", label: "A-Z" },
-  { id: "numbers", label: "0-9" },
-  { id: "symbols", label: "Sym" },
-  { id: "shifted", label: "Shift+" },
-  { id: "modifiers", label: "Mod" },
-  { id: "navigation", label: "Nav" },
-];
-
 export function KeyPicker() {
   const [category, setCategory] = useState<KeyCategory>("basic");
   const {
@@ -105,18 +97,18 @@ export function KeyPicker() {
 
   if (!selectedKey) {
     return (
-      <div className="rounded-lg border border-dashed border-border bg-card/30 px-6 py-8 text-center font-mono">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">
-          Click a key above to assign a mapping
-        </p>
-      </div>
+      <Card className="w-full">
+        <CardContent className="py-12 text-center">
+          <p className="text-base text-muted-foreground">
+            Click any key on the keyboard above to assign a mapping.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   const inLayer = currentLayerIndex >= 0;
   const layer = inLayer ? config.layers?.[currentLayerIndex] : undefined;
-
-  // What's bound to the selected key right now?
   const currentBase = config.remapping?.[selectedKey];
   const currentLayer = layer?.mappings?.[selectedKey];
   const currentShift = layer?.shiftMappings?.find((m) => m.key === selectedKey);
@@ -130,13 +122,13 @@ export function KeyPicker() {
     }
   };
 
-  const handleClearAll = () => {
+  const handleClear = () => {
     if (!currentTarget && !currentShift) return;
     if (
       !confirm(
-        `Clear mappings for ${selectedKey}?\n\n` +
-          (currentTarget ? `• ${selectedKey} → ${currentTarget}\n` : "") +
-          (currentShift ? `• ${selectedKey} → Shift+${currentShift.output}\n` : ""),
+        `Clear mappings for ${selectedKey}?` +
+          (currentTarget ? `\n• → ${currentTarget}` : "") +
+          (currentShift ? `\n• → Shift+${currentShift.output}` : ""),
       )
     )
       return;
@@ -145,104 +137,90 @@ export function KeyPicker() {
   };
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden font-mono">
-      {/* Status strip — what we're editing right now */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30 text-xs">
-        <div className="flex items-center gap-3">
-          <span className="uppercase tracking-widest text-muted-foreground">
-            Editing
-          </span>
-          <span className="font-semibold text-primary text-sm">{selectedKey}</span>
+    <Card className="w-full">
+      <CardHeader className="flex-row items-center justify-between space-y-0 pb-4 border-b">
+        <div className="flex items-center gap-3 text-base flex-wrap">
+          <span className="text-muted-foreground text-sm uppercase tracking-wider">Editing</span>
+          <Badge variant="secondary" className="font-mono text-base px-3 py-1">
+            {selectedKey}
+          </Badge>
           <span className="text-muted-foreground">·</span>
-          <span className="uppercase tracking-wider text-muted-foreground">
-            {inLayer ? layer?.name || `Layer ${currentLayerIndex + 1}` : "Base"}
+          <span className="font-medium">
+            {inLayer ? layer?.name || `Layer ${currentLayerIndex + 1}` : "BASE"}
           </span>
           {currentTarget && (
             <>
-              <span className="text-muted-foreground">→</span>
-              <span className="text-mapped font-semibold">{currentTarget}</span>
+              <span className="text-muted-foreground text-xl">→</span>
+              <Badge variant="default" className="font-mono text-base px-3 py-1">
+                {currentTarget}
+              </Badge>
             </>
           )}
           {currentShift && (
-            <span className="text-mapped font-semibold">
-              <span className="text-muted-foreground">+ ⇧</span> {currentShift.output}
-            </span>
+            <Badge variant="default" className="font-mono text-base px-3 py-1">
+              ⇧ {currentShift.output}
+            </Badge>
           )}
         </div>
-        <button
-          onClick={handleClearAll}
+        <Button
+          variant="ghost"
+          size="default"
+          onClick={handleClear}
           disabled={!currentTarget && !currentShift}
-          className={cn(
-            "inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs uppercase tracking-wider",
-            "border border-destructive/40 text-destructive",
-            currentTarget || currentShift
-              ? "hover:bg-destructive hover:text-destructive-foreground transition-colors"
-              : "opacity-30 cursor-not-allowed",
-          )}
+          className="text-destructive hover:text-destructive"
         >
-          <Trash2 size={12} />
+          <Trash2 className="h-4 w-4 mr-1.5" />
           Clear
-        </button>
-      </div>
+        </Button>
+      </CardHeader>
+      <CardContent className="pt-6">
+        <Tabs value={category} onValueChange={(v) => setCategory(v as KeyCategory)}>
+          <TabsList className="grid grid-cols-6 w-full mb-4 h-11">
+            <TabsTrigger value="basic" className="text-sm">A-Z</TabsTrigger>
+            <TabsTrigger value="numbers" className="text-sm">0-9</TabsTrigger>
+            <TabsTrigger value="symbols" className="text-sm">Sym</TabsTrigger>
+            <TabsTrigger value="shifted" disabled={!inLayer} className="text-sm">
+              Shift+
+            </TabsTrigger>
+            <TabsTrigger value="modifiers" className="text-sm">Mod</TabsTrigger>
+            <TabsTrigger value="navigation" className="text-sm">Nav</TabsTrigger>
+          </TabsList>
 
-      {/* Category tabs */}
-      <div className="flex items-center gap-0.5 px-2 pt-2">
-        {CATEGORIES.map((cat) => {
-          const isShiftCat = cat.id === "shifted";
-          const disabled = isShiftCat && !inLayer;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => !disabled && setCategory(cat.id)}
-              disabled={disabled}
-              title={disabled ? "Shift mappings only available in layers" : undefined}
-              className={cn(
-                "h-7 px-3 rounded-t-md text-[11px] uppercase tracking-wider font-semibold",
-                "border border-b-0 transition-colors",
-                disabled && "opacity-30 cursor-not-allowed",
-                category === cat.id
-                  ? "border-border bg-background text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/40",
-              )}
-            >
-              {cat.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Key grid */}
-      <div
-        className={cn(
-          "p-3 grid gap-1.5 bg-background border-t border-border",
-          category === "modifiers"
-            ? "grid-cols-[repeat(auto-fill,minmax(72px,1fr))]"
-            : category === "navigation"
-            ? "grid-cols-[repeat(auto-fill,minmax(58px,1fr))]"
-            : "grid-cols-[repeat(auto-fill,minmax(44px,1fr))]",
-        )}
-      >
-        {KEYS_BY_CATEGORY[category].map((k) => {
-          const isCurrent =
-            (k.isShifted ? currentShift?.output : currentTarget) === k.code &&
-            (k.isShifted ? !!currentShift : !!currentTarget);
-          return (
-            <button
-              key={`${k.code}-${k.isShifted ? "s" : "n"}`}
-              onClick={() => handleAssign(k.code, k.isShifted)}
-              className={cn(
-                "key-face h-9 inline-flex items-center justify-center rounded-md",
-                "text-sm font-semibold",
-                category === "modifiers" && "px-2",
-              )}
-              data-mapped={isCurrent || undefined}
-              data-selected={isCurrent || undefined}
-            >
-              <span className={cn(k.isShifted && "key-legend-mapped")}>{k.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
+          <div
+            className={cn(
+              "grid gap-2",
+              category === "modifiers"
+                ? "grid-cols-[repeat(auto-fill,minmax(96px,1fr))]"
+                : category === "navigation"
+                ? "grid-cols-[repeat(auto-fill,minmax(76px,1fr))]"
+                : "grid-cols-[repeat(auto-fill,minmax(60px,1fr))]",
+            )}
+          >
+            {KEYS[category].map((k) => {
+              const isCurrent =
+                (k.isShifted ? currentShift?.output : currentTarget) === k.code &&
+                (k.isShifted ? !!currentShift : !!currentTarget);
+              const typeStyle = KEY_TYPE_STYLES[getKeyType(k.code)];
+              return (
+                <button
+                  key={`${k.code}-${k.isShifted ? "s" : "n"}`}
+                  onClick={() => handleAssign(k.code, k.isShifted)}
+                  className={cn(
+                    "h-12 inline-flex items-center justify-center rounded-md border-2 font-mono text-base font-medium",
+                    "transition-colors active:scale-95",
+                    typeStyle.tint,
+                    isCurrent && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                    k.isShifted && "italic",
+                  )}
+                >
+                  {k.isShifted && <span className="opacity-60 mr-0.5 text-sm">⇧</span>}
+                  {k.label}
+                </button>
+              );
+            })}
+          </div>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 }

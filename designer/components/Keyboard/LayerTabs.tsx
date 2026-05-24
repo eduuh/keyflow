@@ -3,12 +3,10 @@
 import { useState } from "react";
 import { Plus, Settings2 } from "lucide-react";
 import { useConfigStore } from "@/lib/store";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { LayerEditor } from "./LayerEditor";
-
-// Layer tabs row. Visual: each tab is a small "keycap" matching the keyboard
-// chassis below. Active tab gets the amber LED accent. No artificial layer
-// cap (the previous 4-layer warning is gone — C++ supports unlimited).
 
 const MODIFIER_NAMES = [
   "RALT",
@@ -35,8 +33,6 @@ export function LayerTabs() {
   const layers = config.layers || [];
   const canAddLayer = hasBaseModifiers();
 
-  // Pick a default trigger for a new layer: first BASE-remapped modifier
-  // that's not already used as a trigger.
   const getDefaultTrigger = () => {
     const baseRemapping = config.remapping || {};
     const availableModifiers = Object.values(baseRemapping).filter((target) =>
@@ -51,29 +47,23 @@ export function LayerTabs() {
 
   const handleAddLayer = () => {
     if (!canAddLayer) {
-      alert(
-        "Cannot add layer: No modifiers mapped in BASE layer.\n\n" +
-          "Please map at least one modifier key (Ctrl, Alt, Shift, Win, or Caps) " +
-          "in the BASE layer first.",
-      );
+      alert("Map a modifier in BASE first — layers need a trigger.");
       return;
     }
-
-    const defaultTrigger = getDefaultTrigger();
     addLayer({
       name: `Layer ${layers.length + 1}`,
-      triggers: [defaultTrigger],
+      triggers: [getDefaultTrigger()],
       mappings: {},
     });
     setCurrentLayer(layers.length);
   };
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto py-1">
+    <div className="flex items-center gap-2 overflow-x-auto">
       <LayerTab
         active={currentLayerIndex === -1}
         title="BASE"
-        triggerLabel="Always active"
+        subtitle="Always active"
         count={Object.keys(config.remapping || {}).length}
         onClick={() => setCurrentLayer(-1)}
       />
@@ -83,48 +73,39 @@ export function LayerTabs() {
           <LayerTab
             active={currentLayerIndex === index}
             title={formatTriggers(layer.triggers)}
-            triggerLabel={layer.name}
+            subtitle={layer.name}
             count={Object.keys(layer.mappings || {}).length}
             onClick={() => setCurrentLayer(index)}
           />
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
             onClick={(e) => {
               e.stopPropagation();
               setEditingLayer(index);
             }}
-            className={cn(
-              "absolute top-1.5 right-1.5 h-6 w-6 inline-flex items-center justify-center rounded-md",
-              "text-muted-foreground hover:text-foreground hover:bg-accent",
-              "opacity-0 group-hover:opacity-100 transition-opacity",
-            )}
-            title="Edit layer"
             aria-label="Edit layer"
           >
-            <Settings2 size={12} />
-          </button>
+            <Settings2 className="h-3 w-3" />
+          </Button>
         </div>
       ))}
 
-      <button
+      <Button
+        variant="outline"
         onClick={handleAddLayer}
         disabled={!canAddLayer}
-        className={cn(
-          "shrink-0 inline-flex items-center gap-1.5 h-12 px-3 rounded-md font-mono text-xs",
-          "border border-dashed border-border text-muted-foreground",
-          canAddLayer
-            ? "hover:border-primary/60 hover:text-foreground hover:bg-accent/40 cursor-pointer transition-colors"
-            : "opacity-40 cursor-not-allowed",
-        )}
-        title={canAddLayer ? "Add new layer" : "Map a modifier in BASE first"}
+        className="border-dashed shrink-0"
       >
-        <Plus size={14} />
-        <span className="uppercase tracking-wider">Add layer</span>
-      </button>
+        <Plus className="h-4 w-4 mr-1" />
+        Add layer
+      </Button>
 
       {!canAddLayer && (
-        <div className="shrink-0 text-xs font-mono uppercase tracking-wider text-destructive/80 px-2">
-          ⚠ Map a modifier in BASE first
-        </div>
+        <span className="text-xs text-muted-foreground shrink-0">
+          Map a modifier in BASE first
+        </span>
       )}
 
       {editingLayer !== null && (
@@ -137,32 +118,32 @@ export function LayerTabs() {
 type LayerTabProps = {
   active: boolean;
   title: string;
-  triggerLabel: string;
+  subtitle: string;
   count: number;
   onClick: () => void;
 };
 
-// One layer button styled like a small keycap. Active = amber LED border.
-function LayerTab({ active, title, triggerLabel, count, onClick }: LayerTabProps) {
+function LayerTab({ active, title, subtitle, count, onClick }: LayerTabProps) {
   return (
     <button
       type="button"
       onClick={onClick}
-      data-selected={active || undefined}
       className={cn(
-        "key-face shrink-0 inline-flex flex-col items-start justify-center",
-        "h-12 px-3 rounded-md min-w-[5.5rem]",
-        "transition-colors",
+        "shrink-0 flex flex-col items-start rounded-md border px-3 py-1.5 text-left transition-colors",
+        "min-w-[7rem]",
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border bg-card hover:bg-accent",
       )}
     >
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-xs font-semibold tracking-wider uppercase">
-          {title}
-        </span>
-        <span className="font-mono text-[10px] text-muted-foreground">{count}</span>
+      <div className="flex items-center gap-2 w-full">
+        <span className="text-sm font-semibold">{title}</span>
+        <Badge variant={active ? "secondary" : "outline"} className="ml-auto text-[10px] py-0">
+          {count}
+        </Badge>
       </div>
-      <span className="text-[10px] text-muted-foreground truncate max-w-[12rem]">
-        {triggerLabel}
+      <span className={cn("text-xs truncate max-w-full", active ? "text-primary-foreground/80" : "text-muted-foreground")}>
+        {subtitle}
       </span>
     </button>
   );

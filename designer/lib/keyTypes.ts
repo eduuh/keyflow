@@ -1,76 +1,101 @@
-// Key type definitions and color schemes
+// Categorize a key code into a visual type. Used to tint keys on the
+// keyboard view and in the picker so the eye can quickly tell modifier
+// from letter from number from symbol.
+//
+// The palette below follows the GMK Olivia keycap-set convention:
+//   - ALPHA keys (letters, numbers, symbols) sit on a CREAM card surface
+//     with dark legends — this is the dominant visual.
+//   - MODIFIER keys (Shift, Ctrl, Alt, etc. + Tab, Enter, Space, Backspace)
+//     sit on a DARK MOCHA surface with cream legends — the "accent" color
+//     block on a real Olivia keyboard.
+//   - NAVIGATION and FUNCTION get DUSTY PINK and BURGUNDY tints respectively
+//     (the real set uses pink/burgundy for special keys).
+//
+// The actual hex values come from CSS variables in globals.css; this file
+// just selects which token to apply.
 
-export type KeyType = "letter" | "number" | "modifier" | "navigation" | "symbol" | "function" | "other";
+export type KeyType = "modifier" | "letter" | "number" | "symbol" | "navigation" | "function" | "other";
+
+const MODIFIERS = new Set([
+  "LeftShift", "RightShift",
+  "LeftCtrl", "RightCtrl",
+  "LeftAlt", "RightAlt",
+  "LeftWin", "RightWin",
+  "CapsLock",
+  "PrintScreen",
+]);
+
+const SYMBOLS = new Set([
+  "Grave", "Minus", "Equals",
+  "LeftBracket", "RightBracket", "Backslash",
+  "Semicolon", "Apostrophe",
+  "Comma", "Period", "Slash",
+]);
+
+const NAVIGATION = new Set([
+  "Up", "Down", "Left", "Right",
+  "Home", "End", "PageUp", "PageDown",
+  "Insert", "Delete",
+]);
+
+const OTHER_KEYS = new Set([
+  "Escape", "Tab", "Enter", "Space", "Backspace", "Menu",
+]);
 
 export function getKeyType(keyCode: string): KeyType {
-  // Modifiers
-  if (keyCode.includes("Ctrl") || keyCode.includes("Shift") || keyCode.includes("Alt") || keyCode.includes("Win") || keyCode === "CapsLock") {
-    return "modifier";
-  }
-
-  // Navigation
-  if (["Up", "Down", "Left", "Right", "Home", "End", "PageUp", "PageDown", "Insert", "Delete"].includes(keyCode)) {
-    return "navigation";
-  }
-
-  // Letters
-  if (/^[A-Z]$/.test(keyCode)) {
-    return "letter";
-  }
-
-  // Numbers
-  if (/^[0-9]$/.test(keyCode)) {
-    return "number";
-  }
-
-  // Function keys
-  if (/^F[0-9]+$/.test(keyCode)) {
-    return "function";
-  }
-
-  // Symbols
-  if (["Grave", "Minus", "Equals", "LeftBracket", "RightBracket", "Backslash", "Semicolon", "Apostrophe", "Comma", "Period", "Slash"].includes(keyCode)) {
-    return "symbol";
-  }
-
+  if (MODIFIERS.has(keyCode)) return "modifier";
+  if (SYMBOLS.has(keyCode)) return "symbol";
+  if (NAVIGATION.has(keyCode)) return "navigation";
+  if (OTHER_KEYS.has(keyCode)) return "other";
+  if (/^F\d+$/.test(keyCode)) return "function";
+  if (/^[A-Z]$/.test(keyCode)) return "letter";
+  if (/^\d$/.test(keyCode)) return "number";
   return "other";
 }
 
-export function getKeyTypeColor(keyType: KeyType): string {
-  switch (keyType) {
-    case "modifier":
-      return "orange";
-    case "navigation":
-      return "blue";
-    case "number":
-      return "emerald";
-    case "symbol":
-      return "violet";
-    case "function":
-      return "rose";
-    default:
-      return "slate";
-  }
-}
-
-export function getKeyTypeClasses(keyType: KeyType, isSelected: boolean, hasMappings: boolean): string {
-  const color = getKeyTypeColor(keyType);
-
-  if (isSelected) {
-    return `border-${color}-500 bg-${color}-50 dark:bg-${color}-950 ring-2 ring-${color}-500/20 text-${color}-900 dark:text-${color}-100`;
-  }
-
-  if (hasMappings) {
-    return `border-${color}-300 bg-${color}-50 dark:border-${color}-700 dark:bg-${color}-950/50 text-${color}-700 dark:text-${color}-300`;
-  }
-
-  if (keyType === "modifier") {
-    return `border-${color}-200 dark:border-${color}-800/30 text-${color}-700 dark:text-${color}-400 hover:border-${color}-300 dark:hover:border-${color}-700`;
-  }
-
-  if (keyType === "navigation") {
-    return `border-${color}-200 dark:border-${color}-800/30 text-${color}-700 dark:text-${color}-400 hover:border-${color}-300 dark:hover:border-${color}-700`;
-  }
-
-  return "border-border text-foreground hover:border-primary/50";
-}
+// Tailwind class fragments for each type. Two main blocks: alphas on cream,
+// modifiers on mocha. Navigation gets a pink wash; function gets a burgundy
+// tint. Picked from the theme's CSS variables so they follow light/dark.
+export const KEY_TYPE_STYLES: Record<KeyType, { tint: string; dot: string; label: string }> = {
+  modifier: {
+    // Dark mocha surface with cream legends — the GMK Olivia accent block.
+    tint: "bg-modifier text-modifier-foreground border-modifier hover:bg-modifier/90",
+    dot: "bg-[hsl(var(--modifier))]",
+    label: "Modifier",
+  },
+  letter: {
+    // Cream surface, dark legends.
+    tint: "bg-card text-foreground border-border hover:bg-accent/40",
+    dot: "bg-[hsl(var(--card))] border border-[hsl(var(--border))]",
+    label: "Letter",
+  },
+  number: {
+    tint: "bg-card text-foreground border-border hover:bg-accent/40",
+    dot: "bg-[hsl(var(--card))] border border-[hsl(var(--border))]",
+    label: "Number",
+  },
+  symbol: {
+    // Slightly tinted cream — distinguish symbol keys from pure alphas.
+    tint: "bg-muted text-foreground border-border hover:bg-accent/40",
+    dot: "bg-[hsl(var(--muted))] border border-[hsl(var(--border))]",
+    label: "Symbol",
+  },
+  navigation: {
+    // Dusty pink wash — the GMK Olivia "novelty" tone.
+    tint: "bg-accent text-accent-foreground border-accent hover:bg-accent/80",
+    dot: "bg-[hsl(var(--accent))]",
+    label: "Navigation",
+  },
+  function: {
+    // Burgundy tint — used for layer triggers and F-row.
+    tint: "bg-primary/15 text-primary border-primary/40 hover:bg-primary/25",
+    dot: "bg-[hsl(var(--primary))]",
+    label: "Function",
+  },
+  other: {
+    // Tab, Enter, Space, Backspace — these are functional too, treat as modifier-y.
+    tint: "bg-modifier/90 text-modifier-foreground border-modifier hover:bg-modifier",
+    dot: "bg-[hsl(var(--modifier))]",
+    label: "Other",
+  },
+};

@@ -1,134 +1,116 @@
-# KeyFlow Designer
+# Keyflow Designer
 
-Visual keyboard configuration designer for KeyFlow - a privacy-first keyboard remapper for Windows.
+Visual editor for Keyflow's `config.json`. Click-to-remap keys, manage layers,
+edit number-row symbol combos, define custom modifiers, and export the layout
+as category-filtered PNG images.
 
-## Features
+The designer's TypeScript types mirror `src/config/JsonConfig.h` exactly — a
+round-trip (import → export) preserves every C++ schema field.
 
-- 🎨 **Visual Keyboard Editor** - Click keys to remap them
-- 🌓 **Dark/Light Theme** - Both themes fully supported with Tailwind CSS
-- 📐 **Quad View** - See up to 4 layers per key simultaneously
-- 🔄 **Layer Management** - Create and manage multiple layers (up to 4 recommended)
-- 📤 **Export/Import** - Save and load `config.json` files
-- 🎯 **Schema Compliant** - Follows KeyFlow's configuration schema exactly
+## What's in it
 
-## Getting Started
+- **Color-coded keyboard view**: each key tints by the category of its output
+  (modifier / letter / number / symbol / navigation / function / other) so
+  scanning a layer tells you at a glance what kind of keys it produces.
+- **Layer system**: unlimited layers, each with one or more trigger modifiers
+  (multi-trigger layers OR'd together). Click the pencil icon on a layer tab
+  to edit name and triggers.
+- **Inline key mapping**: select a key on the board → the picker card below
+  shows the current binding and tabs for `A-Z / 0-9 / Sym / Shift+ / Mod / Nav`.
+  Click a target to assign. Shift mappings only work inside layers.
+- **No-modifier combos**: editor card at the bottom for `noModCombos` —
+  remap the number row to symbols without holding Shift (the C++ side blocks
+  the combo from firing if any modifier is held).
+- **Custom modifiers**: editor card for `customModifiers` — promote any key
+  (Space, Tab, etc.) to a layer trigger by name. Space-Cadet style.
+- **Category-filtered PNG export**: click Export to open the export dialog.
+  Categories: Layout / Letters / Numbers / Symbols / Directional / Functional
+  / Return. Each renders the full keyboard with the matching keys highlighted
+  in cyan. "Download all (.zip)" bundles every category in one go.
 
-### Development
+## Run
 
 ```bash
-# Install dependencies
 npm install
-
-# Run development server
-npm run dev
-
-# Open http://localhost:3000
+npm run dev          # http://localhost:3000
 ```
 
-### Build
+## Test
 
 ```bash
-# Build for production
-npm run build
-
-# Start production server
-npm start
+npm test             # Playwright headless
+npm run test:ui      # Playwright with UI mode
 ```
 
-## Design
+The tests live in `designer/tests/`:
+- `round-trip.spec.ts` — imports `src/config.json` and confirms re-exporting
+  preserves every field (the contract this whole rewrite is built around).
+- `smoke.spec.ts` — page loads, key click opens picker, add-layer is gated
+  on a BASE modifier remap.
 
-The designer features a VIA-inspired interface with:
-
-- **Single Layer View** - Edit one layer at a time with focused UI
-- **All Layers View** - See all 4 layers on each key (cheat sheet mode)
-- **Layer Tabs** - Quick switching between BASE and L1-L3
-- **Key Picker** - Visual grid organized by category (Basic, Modifiers, Navigation, Numbers, Symbols)
-
-### Theme Support
-
-Both light and dark themes are fully supported using Tailwind CSS:
-- Dark theme (default): VIA-inspired color scheme
-- Light theme: Clean, accessible alternative
-- Toggle via sun/moon icon in header
-
-## Tech Stack
-
-- **Framework**: Next.js 15 (App Router)
-- **Styling**: Tailwind CSS with custom dark/light themes
-- **State**: Zustand (lightweight global state)
-- **Icons**: Lucide React
-- **TypeScript**: Full type safety
-
-## Project Structure
+## Architecture
 
 ```
 designer/
 ├── app/
-│   ├── page.tsx          # Main designer page
-│   ├── layout.tsx        # Root layout with theme
-│   └── globals.css       # Global styles
+│   ├── layout.tsx        Root with fonts and theme provider
+│   ├── page.tsx          Composes Header + LayerTabs + Keyboard + KeyPicker + editors
+│   └── globals.css       shadcn neutral theme tokens (light + dark)
 ├── components/
-│   ├── Header.tsx        # Top bar with theme toggle
-│   ├── ThemeProvider.tsx # Theme context
-│   ├── ViewModeToggle.tsx
+│   ├── ui/               shadcn primitives (button, card, dialog, ...)
+│   ├── Header.tsx        Brand + Import/Export/JSON/theme buttons
+│   ├── ThemeProvider.tsx Theme context (light/dark/system)
+│   ├── BaseModifierSetup.tsx  Quick-start banner shown until ≥1 modifier remapped
 │   ├── Keyboard/
-│   │   ├── Keyboard.tsx  # Main keyboard container
-│   │   ├── Key.tsx       # Individual key with quad view
-│   │   └── LayerTabs.tsx # Layer switching tabs
-│   └── KeyPicker/
-│       └── KeyPicker.tsx # Key selection panel
-├── lib/
-│   ├── store.ts          # Zustand state management
-│   ├── types.ts          # TypeScript types
-│   ├── utils.ts          # Utility functions
-│   └── keyboardLayout.ts # ANSI keyboard layout data
-└── tailwind.config.ts    # Tailwind with custom theme
+│   │   ├── Keyboard.tsx  ANSI 104-key layout + KeyTypeLegend
+│   │   ├── Key.tsx       One key — color-coded by output type
+│   │   ├── KeyTypeLegend.tsx  Color swatches with category names
+│   │   ├── LayerTabs.tsx Layer selector with multi-trigger label
+│   │   └── LayerEditor.tsx  Dialog for layer name and triggers[]
+│   ├── KeyPicker/
+│   │   └── KeyPicker.tsx Tabbed grid of mapping targets (color-coded)
+│   ├── Editors/
+│   │   ├── CombosEditor.tsx          noModCombos table
+│   │   └── CustomModifiersEditor.tsx customModifiers table
+│   └── Export/
+│       └── CategoryExport.tsx  PNG export with category highlighting
+└── lib/
+    ├── types.ts          KeyFlowConfig / Layer / NoModCombo / CustomModifier / ShiftMapping
+    ├── store.ts          Zustand store; preserves all schema fields on round-trip
+    ├── keyTypes.ts       Categorize a key code; expose Tailwind class fragments
+    ├── allKeys.ts        Flat list of all valid C++ key names (used in Select dropdowns)
+    ├── keyboardLayout.ts ANSI 104-key positions and labels
+    └── utils.ts          cn() utility (clsx + tailwind-merge)
 ```
 
-## Configuration
+## Schema contract
 
-The designer generates standard KeyFlow `config.json` files:
+Whenever `src/config/JsonConfig.h` changes, `designer/lib/types.ts` must too.
+The contract:
 
-```json
-{
-  "version": "1.0",
-  "name": "My Custom Layout",
-  "disableCapsLock": true,
-  "remapping": {
-    "CapsLock": "LeftCtrl"
-  },
-  "layers": [
-    {
-      "name": "Numpad Layer",
-      "triggers": ["RightAlt"],
-      "mappings": {
-        "K": "1",
-        "L": "2"
-      }
-    }
-  ]
-}
-```
+| C++ field | TS field | Notes |
+|---|---|---|
+| `version`           | `version`        | `"X.Y"` string |
+| `name`              | `name`           | optional |
+| `disableCapsLock`   | `disableCapsLock`| optional bool |
+| `remapping`         | `remapping`      | `Record<string,string>`; `_comment*` keys are stripped by the C++ parser |
+| `noModCombos`       | `noModCombos`    | array of `{key, output, shift?, description?}` |
+| `customModifiers`   | `customModifiers`| array of `{key, modifierName, blockOutput?}` |
+| `layers[].triggers` | `triggers: string[]` | canonical form; legacy `trigger: string \| string[]` is coerced on import |
+| `layers[].mappings` | `mappings`       | `Record<string,string>` |
+| `layers[].shiftMappings` | `shiftMappings` | `{key, output, shift?, description?}[]` |
 
-## Usage Flow
+Obsolete (dropped on import): `strictMode`, `debug`.
 
-1. **Open Designer** → See blank keyboard with BASE layer
-2. **Click a key** → Select it (purple highlight)
-3. **Click target key** → Mapping created instantly
-4. **Switch layers** → Use tabs to edit different layers
-5. **Toggle view mode** → See all layers at once (cheat sheet)
-6. **Export** → Download `config.json` for KeyFlow
+## Tech stack
 
-## Layer Limits
-
-- **Recommended**: 4 layers (BASE + 3 modifier layers)
-- **Expandable**: Can add more with warning prompt
-- **Physical limit**: ~7-8 practical modifier keys available
-
-## Contributing
-
-This is part of the KeyFlow project. See main repository for contribution guidelines.
+- Next.js 16 (App Router)
+- Tailwind CSS + [shadcn/ui](https://ui.shadcn.com/) (Radix primitives)
+- Zustand (state) with localStorage persistence (key: `keyflow-config-storage`, version `2`)
+- `html-to-image` + `jszip` for PNG export
+- Playwright for end-to-end tests
+- TypeScript strict mode
 
 ## License
 
-MIT - Same as KeyFlow
+MIT — same as Keyflow.

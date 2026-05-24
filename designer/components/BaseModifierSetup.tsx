@@ -1,85 +1,79 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { Zap, X } from "lucide-react";
 import { useConfigStore } from "@/lib/store";
-import { cn } from "@/lib/utils";
-import { Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
+type Preset = {
+  label: string;
+  description: string;
+  remapping: Record<string, string>;
+};
+
+const PRESETS: Preset[] = [
+  {
+    label: "CapsLock → Ctrl",
+    description: "Classic ergonomic swap",
+    remapping: { CapsLock: "LeftCtrl" },
+  },
+  {
+    label: "CapsLock → Alt",
+    description: "Use CapsLock for layers via LAlt",
+    remapping: { CapsLock: "LeftAlt" },
+  },
+  {
+    label: "CapsLock → Shift",
+    description: "Frees real Shift for other uses",
+    remapping: { CapsLock: "LeftShift" },
+  },
+];
+
+// Slim onboarding strip — only shown when no modifier remap exists yet.
+// Once the user picks a preset (or maps a modifier manually), this disappears
+// for good. Dismissible via the × button.
 export function BaseModifierSetup() {
   const { config, setConfig, hasBaseModifiers } = useConfigStore();
   const [mounted, setMounted] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Prevent hydration mismatch by only rendering after mount
+  useEffect(() => setMounted(true), []);
   if (!mounted) return null;
+  if (hasBaseModifiers() || dismissed) return null;
 
-  if (hasBaseModifiers()) return null;
-
-  const quickSetups = [
-    {
-      name: "CapsLock → Ctrl",
-      description: "Most popular for programmers",
-      remapping: { CapsLock: "LCTRL" },
-    },
-    {
-      name: "CapsLock → Alt",
-      description: "Good for symbol layers",
-      remapping: { CapsLock: "RALT" },
-    },
-    {
-      name: "Both",
-      description: "CapsLock → Ctrl, RightAlt → Alt",
-      remapping: { CapsLock: "LCTRL", RightAlt: "RALT" },
-    },
-  ];
-
-  const handleQuickSetup = (remapping: Record<string, string>) => {
+  const apply = (preset: Preset) => {
     setConfig({
       ...config,
-      remapping: {
-        ...config.remapping,
-        ...remapping,
-      },
+      remapping: { ...(config.remapping ?? {}), ...preset.remapping },
     });
   };
 
   return (
-    <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 mt-0.5">
-          <Zap className="h-5 w-5 text-primary" />
-        </div>
-        <div className="flex-1">
-          <h3 className="text-sm font-semibold text-foreground mb-1">
-            Quick Start: Set Up Modifiers
-          </h3>
-          <p className="text-xs text-muted-foreground mb-3">
-            Map at least one modifier in BASE layer to enable layers. Choose a quick setup or manually map keys.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {quickSetups.map((setup) => (
-              <button
-                key={setup.name}
-                onClick={() => handleQuickSetup(setup.remapping)}
-                className={cn(
-                  "inline-flex flex-col items-start rounded-md text-left transition-colors",
-                  "border border-input bg-background hover:bg-accent px-3 py-2 text-xs"
-                )}
-              >
-                <div className="font-semibold">{setup.name}</div>
-                <div className="text-muted-foreground text-[10px]">
-                  {setup.description}
-                </div>
-              </button>
-            ))}
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-2">
-            Or click any modifier key on the keyboard to map it manually
-          </p>
-        </div>
+    <div className="flex items-center gap-3 flex-wrap px-4 py-2.5 rounded-md border border-primary/30 bg-primary/5">
+      <Zap className="h-4 w-4 text-primary shrink-0" />
+      <span className="text-sm font-medium">Map a modifier to unlock layers</span>
+      <div className="flex flex-wrap gap-1.5 ml-auto">
+        {PRESETS.map((p) => (
+          <Button
+            key={p.label}
+            variant="outline"
+            size="sm"
+            onClick={() => apply(p)}
+            title={p.description}
+            className="h-7 text-xs"
+          >
+            {p.label}
+          </Button>
+        ))}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setDismissed(true)}
+          className="h-7 w-7 p-0"
+          aria-label="Dismiss"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
       </div>
     </div>
   );

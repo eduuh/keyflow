@@ -1,67 +1,61 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import { Card } from "@/components/ui/card";
 import { ansiLayout } from "@/lib/keyboardLayout";
-import { useConfigStore } from "@/lib/store";
 import { Key } from "./Key";
+import { KeyTypeLegend } from "./KeyTypeLegend";
 
-// The visible "chassis" wrapping the keys. Mimics a keyboard case: dark base,
-// subtle drop shadow, an indicator strip up top showing the active layer.
-// The strip is the only place layer status surfaces inside the chassis (the
-// surrounding LayerTabs handle the controls).
+// Responsive ANSI 104-key view. Measures the container with a ResizeObserver
+// and picks the largest scale that fits without horizontal scroll. Always
+// centered, always fills the available width.
+//
+// Keyboard is 15u wide; key width in pixels = scale; we leave 32px of card
+// padding on each side. Clamp scale to a sensible range so it doesn't go
+// microscopic on phones or absurdly large on ultra-wide monitors.
+
+const MIN_SCALE = 44;
+const MAX_SCALE = 110;
+const KEYBOARD_UNITS_WIDE = 15;
+const KEYBOARD_UNITS_TALL = 5;
+const CARD_PADDING_PX = 32;
+
 export function Keyboard() {
-  const { config, currentLayerIndex } = useConfigStore();
-  const scale = 85;
-  const width = 15 * scale;
-  const height = 5 * scale;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(72);
 
-  const layers = config.layers ?? [];
-  const activeLayerName =
-    currentLayerIndex === -1
-      ? "BASE"
-      : layers[currentLayerIndex]?.name ?? `Layer ${currentLayerIndex + 1}`;
-  const activeTriggers =
-    currentLayerIndex === -1 ? [] : layers[currentLayerIndex]?.triggers ?? [];
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const el = containerRef.current;
+
+    const recalc = () => {
+      const avail = el.clientWidth - CARD_PADDING_PX * 2;
+      const fit = avail / KEYBOARD_UNITS_WIDE;
+      const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.floor(fit)));
+      setScale(next);
+    };
+
+    recalc();
+    const ro = new ResizeObserver(recalc);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const width = KEYBOARD_UNITS_WIDE * scale;
+  const height = KEYBOARD_UNITS_TALL * scale;
 
   return (
-    <div className="w-full">
-      <div
-        className="relative rounded-xl bg-card shadow-chassis border border-border overflow-hidden"
-        style={{ width: "fit-content", maxWidth: "100%" }}
-      >
-        {/* Chassis info strip — model name on the left, layer indicator on the right.
-            On a real keyboard this would be the case bezel above the keys. */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
-          <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_6px_hsl(var(--primary))]" />
-            <span className="tracking-widest uppercase">
-              {config.name || "Keyflow"}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="text-muted-foreground">LAYER:</span>
-            <span className="text-primary font-semibold uppercase tracking-wider">
-              {activeLayerName}
-            </span>
-            {activeTriggers.length > 0 && (
-              <span className="text-muted-foreground">
-                ({activeTriggers.join(" / ")})
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Key bed */}
-        <div className="p-4">
-          <div
-            className="relative"
-            style={{ width: `${width}px`, height: `${height}px` }}
-          >
-            {ansiLayout.map((keyData) => (
-              <Key key={keyData.id} keyData={keyData} scale={scale} />
-            ))}
-          </div>
+    <Card ref={containerRef} className="p-4 w-full overflow-hidden">
+      <div className="flex justify-center">
+        <div className="relative" style={{ width: `${width}px`, height: `${height}px` }}>
+          {ansiLayout.map((keyData) => (
+            <Key key={keyData.id} keyData={keyData} scale={scale} />
+          ))}
         </div>
       </div>
-    </div>
+      <div className="mt-3 pt-3 border-t flex justify-center">
+        <KeyTypeLegend />
+      </div>
+    </Card>
   );
 }
