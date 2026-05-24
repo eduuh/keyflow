@@ -254,16 +254,11 @@ class ConfigBuilder {
     static bool addLayerTriggerBlocker(const JsonConfig& config, Pipeline& pipeline, bool verbose) {
         auto blocker = std::make_unique<LayerTriggerBlocker>();
 
-        // Collect all unique ALT trigger keys from all layers
-        // Only block ALT keys, not CTRL/SHIFT (they need to pass through to Windows)
+        // Collect all unique trigger keys from all layers
+        // Block ALL layer triggers so they don't reach Windows
         std::vector<std::string> allTriggers;
         for (const auto& layer : config.layers) {
             for (const auto& trigger : layer.triggers) {
-                // Only add ALT keys to the blocker
-                if (trigger != "LALT" && trigger != "RALT") {
-                    continue; // Skip non-ALT triggers
-                }
-
                 // Check if not already added
                 bool found = false;
                 for (const auto& existing : allTriggers) {
@@ -278,7 +273,7 @@ class ConfigBuilder {
             }
         }
 
-        // Add each ALT trigger to the blocker
+        // Add each trigger to the blocker
         for (const auto& trigger : allTriggers) {
             blocker->addTrigger(trigger);
         }
@@ -295,76 +290,59 @@ class ConfigBuilder {
     /**
      * @brief Add StrictModeFilter to block all unmapped keys
      *
-     * Collects all explicitly mapped keys from config and creates a filter
-     * that blocks everything else. This ensures only mapped keys produce output.
+     * Collects all explicitly mapped INPUT keys from config and creates a filter
+     * that blocks everything else. This ensures only the keys you press (inputs)
+     * are allowed, and all OUTPUT keys (what they map to) are blocked.
      */
     static bool addStrictModeFilter(const JsonConfig& config, Pipeline& pipeline, bool verbose) {
         auto filter = std::make_unique<StrictModeFilter>();
 
-        // Collect all allowed keys from remappings
+        // Collect all allowed INPUT keys from remappings (only keyName, NOT targetName)
         for (const auto& [keyName, targetName] : config.remapping) {
             auto keyScancode = KeyNameMapper::nameToScancode(keyName);
-            auto targetScancode = KeyNameMapper::nameToScancode(targetName);
 
             if (keyScancode) {
                 filter->addAllowedKey(*keyScancode);
             }
-            if (targetScancode) {
-                filter->addAllowedKey(*targetScancode);
-            }
         }
 
-        // Collect all allowed keys from noModCombos
+        // Collect all allowed INPUT keys from noModCombos (only key, NOT output)
         for (const auto& combo : config.noModCombos) {
             auto keyScancode = KeyNameMapper::nameToScancode(combo.key);
-            auto outputScancode = KeyNameMapper::nameToScancode(combo.output);
 
             if (keyScancode) {
                 filter->addAllowedKey(*keyScancode);
             }
-            if (outputScancode) {
-                filter->addAllowedKey(*outputScancode);
-            }
         }
 
-        // Collect all allowed keys from layers
+        // Collect all allowed INPUT keys from layers (only keyName, NOT targetName)
         for (const auto& layer : config.layers) {
-            // Regular mappings
+            // Add layer trigger keys (these are INPUT keys the user presses)
+            for (const auto& trigger : layer.triggers) {
+                auto triggerScancode = KeyNameMapper::nameToScancode(trigger);
+                if (triggerScancode) {
+                    filter->addAllowedKey(*triggerScancode);
+                }
+            }
+
+            // Regular mappings - only add INPUT keys
             for (const auto& [keyName, targetName] : layer.mappings) {
                 auto keyScancode = KeyNameMapper::nameToScancode(keyName);
-                auto targetScancode = KeyNameMapper::nameToScancode(targetName);
 
                 if (keyScancode) {
                     filter->addAllowedKey(*keyScancode);
-                }
-                if (targetScancode) {
-                    filter->addAllowedKey(*targetScancode);
                 }
             }
 
-            // Shift mappings
+            // Shift mappings - only add INPUT keys
             for (const auto& shiftMapping : layer.shiftMappings) {
                 auto keyScancode = KeyNameMapper::nameToScancode(shiftMapping.key);
-                auto outputScancode = KeyNameMapper::nameToScancode(shiftMapping.output);
 
                 if (keyScancode) {
                     filter->addAllowedKey(*keyScancode);
-                }
-                if (outputScancode) {
-                    filter->addAllowedKey(*outputScancode);
                 }
             }
         }
-
-        // Always allow modifier keys (they're needed for layers/combos)
-        filter->addAllowedKey(SC_LSHIFT);
-        filter->addAllowedKey(SC_RSHIFT);
-        filter->addAllowedKey(SC_LCTRL);
-        filter->addAllowedKey(SC_RCTRL);
-        filter->addAllowedKey(SC_LALT);
-        filter->addAllowedKey(SC_RALT);
-        filter->addAllowedKey(SC_LWIN);
-        filter->addAllowedKey(SC_RWIN);
 
         if (verbose) {
             std::cout << "[Config] Strict Mode: Enabled (" << filter->allowedKeyCount()

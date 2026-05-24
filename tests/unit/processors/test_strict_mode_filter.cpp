@@ -315,3 +315,166 @@ TEST(StrictModeFilterTest, WorksWithModifierTracking) {
   filter.process(ctx);
   EXPECT_EQ(ctx.action, Action::Consume);
 }
+
+// ===== Strict Mode Enhancement Tests =====
+
+TEST(StrictModeFilterTest, OutputKeysAreBlocked) {
+  StrictModeFilter filter;
+  // Simulate CapsLock -> Escape remapping
+  // Only add INPUT key (CapsLock), NOT output key (Escape)
+  filter.addAllowedKey(SC_CAPSLOCK);
+
+  Context ctx;
+  ctx.isDown = true;
+
+  // CapsLock (input) is allowed
+  ctx.scancode = SC_CAPSLOCK;
+  ctx.outputScancode = SC_CAPSLOCK;
+  ctx.action = Action::Forward;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Forward);
+
+  // Escape (output) is blocked when pressed directly
+  ctx.scancode = SC_ESCAPE;
+  ctx.outputScancode = SC_ESCAPE;
+  ctx.action = Action::Forward;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
+}
+
+TEST(StrictModeFilterTest, ModifiersNotInConfigAreBlocked) {
+  StrictModeFilter filter;
+  filter.addAllowedKey(SC_A);
+  filter.addAllowedKey(SC_LALT); // Only LALT is allowed
+
+  Context ctx;
+  ctx.isDown = true;
+  ctx.action = Action::Forward;
+
+  // LALT is allowed
+  ctx.scancode = SC_LALT;
+  ctx.outputScancode = SC_LALT;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Forward);
+
+  // LSHIFT is NOT allowed (not in config)
+  ctx.scancode = SC_LSHIFT;
+  ctx.outputScancode = SC_LSHIFT;
+  ctx.action = Action::Forward;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
+
+  // LCTRL is NOT allowed (not in config)
+  ctx.scancode = SC_LCTRL;
+  ctx.outputScancode = SC_LCTRL;
+  ctx.action = Action::Forward;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
+}
+
+TEST(StrictModeFilterTest, LayerTriggerWorkButAreConsumed) {
+  StrictModeFilter filter;
+  // Layer trigger (LALT) should be allowed as an input key
+  filter.addAllowedKey(SC_LALT);
+  filter.addAllowedKey(SC_J); // Layer mapping input
+
+  Context ctx;
+  ctx.isDown = true;
+  ctx.action = Action::Forward;
+
+  // LALT trigger is allowed through the filter
+  ctx.scancode = SC_LALT;
+  ctx.outputScancode = SC_LALT;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Forward);
+
+  // J (layer input key) is allowed
+  ctx.scancode = SC_J;
+  ctx.outputScancode = SC_J;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Forward);
+
+  // K (layer output key) is blocked
+  ctx.scancode = SC_K;
+  ctx.outputScancode = SC_K;
+  ctx.action = Action::Forward;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
+}
+
+TEST(StrictModeFilterTest, ModifierPlusUnmappedKeyIsBlocked) {
+  StrictModeFilter filter;
+  filter.addAllowedKey(SC_A);
+  // Note: LCTRL is NOT in the allowed list
+
+  Context ctx;
+  ctx.isDown = true;
+  ctx.modifiers = static_cast<uint32_t>(ModifierBit::LeftCtrl);
+
+  // A is allowed
+  ctx.scancode = SC_A;
+  ctx.outputScancode = SC_A;
+  ctx.action = Action::Forward;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Forward);
+
+  // Z is blocked (unmapped key)
+  ctx.scancode = SC_Z;
+  ctx.outputScancode = SC_Z;
+  ctx.action = Action::Forward;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
+
+  // LCTRL itself is blocked
+  ctx.scancode = SC_LCTRL;
+  ctx.outputScancode = SC_LCTRL;
+  ctx.action = Action::Forward;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
+}
+
+TEST(StrictModeFilterTest, RemappingScenarioInputVsOutput) {
+  StrictModeFilter filter;
+  // CapsLock -> LeftShift: Only add CapsLock (input), NOT LeftShift (output)
+  filter.addAllowedKey(SC_CAPSLOCK);
+
+  Context ctx;
+  ctx.isDown = true;
+  ctx.action = Action::Forward;
+
+  // CapsLock input is allowed
+  ctx.scancode = SC_CAPSLOCK;
+  ctx.outputScancode = SC_CAPSLOCK;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Forward);
+
+  // LeftShift output is blocked when pressed directly
+  ctx.scancode = SC_LSHIFT;
+  ctx.outputScancode = SC_LSHIFT;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
+}
+
+TEST(StrictModeFilterTest, EmptyConfigBlocksEverything) {
+  StrictModeFilter filter; // No keys added
+
+  Context ctx;
+  ctx.isDown = true;
+  ctx.action = Action::Forward;
+
+  // All keys blocked
+  ctx.scancode = SC_A;
+  ctx.outputScancode = SC_A;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
+
+  ctx.scancode = SC_LSHIFT;
+  ctx.outputScancode = SC_LSHIFT;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
+
+  ctx.scancode = SC_SPACE;
+  ctx.outputScancode = SC_SPACE;
+  filter.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
+}

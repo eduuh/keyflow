@@ -4,6 +4,7 @@
 #include "../pipeline/Modifiers.h"
 
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 namespace keyflow {
@@ -49,7 +50,10 @@ class ComboAdvanced : public IProcessor {
                   bool matchPhysical = false) {
         ComboMapping combo(modifiers, 0, triggerKey, matchPhysical);
         combo.output.emplace_back(outputKey, false);
-        combos_.push_back(combo);
+
+        // Add to appropriate hash map based on matchPhysical flag
+        auto& targetMap = matchPhysical ? physicalKeyCombos_ : remappedKeyCombos_;
+        targetMap[triggerKey].push_back(combo);
     }
 
     /**
@@ -60,7 +64,10 @@ class ComboAdvanced : public IProcessor {
                            bool matchPhysical = false) {
         ComboMapping combo(modifiers, 0, triggerKey, matchPhysical);
         combo.output.emplace_back(outputKey, true); // Output with Shift
-        combos_.push_back(combo);
+
+        // Add to appropriate hash map based on matchPhysical flag
+        auto& targetMap = matchPhysical ? physicalKeyCombos_ : remappedKeyCombos_;
+        targetMap[triggerKey].push_back(combo);
     }
 
     /**
@@ -69,7 +76,9 @@ class ComboAdvanced : public IProcessor {
     void addNoModCombo(uint16_t triggerKey, uint16_t outputKey, bool withShift = false) {
         ComboMapping combo(0, 0xFFFFFFFF, triggerKey, false); // Match remapped key
         combo.output.emplace_back(outputKey, withShift);
-        combos_.push_back(combo);
+
+        // NoModCombos always match remapped key (matchPhysical = false)
+        remappedKeyCombos_[triggerKey].push_back(combo);
     }
 
     /**
@@ -86,21 +95,25 @@ class ComboAdvanced : public IProcessor {
     }
 
     bool process(Context& ctx) override {
-        // Check each combo in order (first match wins)
-        for (const auto& combo : combos_) {
-            if (matchesCombo(ctx, combo)) {
-                // Output first key in sequence
-                if (!combo.output.empty()) {
-                    const auto& action = combo.output[0];
-
-                    // Set output key
-                    ctx.outputScancode = action.scancode;
-                    ctx.action = Action::Replace;
-
-                    // Set shift injection flag if needed
-                    ctx.injectShift = action.withShift;
+        // Check physical key combos first (layers)
+        auto physicalIt = physicalKeyCombos_.find(ctx.scancode);
+        if (physicalIt != physicalKeyCombos_.end()) {
+            for (const auto& combo : physicalIt->second) {
+                if (matchesCombo(ctx, combo)) {
+                    applyCombo(ctx, combo);
+                    return true; // Combo handled
                 }
-                return true; // Combo handled
+            }
+        }
+
+        // Then check remapped key combos (noModCombos)
+        auto remappedIt = remappedKeyCombos_.find(ctx.outputScancode);
+        if (remappedIt != remappedKeyCombos_.end()) {
+            for (const auto& combo : remappedIt->second) {
+                if (matchesCombo(ctx, combo)) {
+                    applyCombo(ctx, combo);
+                    return true; // Combo handled
+                }
             }
         }
 
@@ -109,19 +122,41 @@ class ComboAdvanced : public IProcessor {
 
     [[nodiscard]] const char* name() const noexcept override { return "ComboAdvanced"; }
 
-    [[nodiscard]] size_t comboCount() const noexcept { return combos_.size(); }
+    [[nodiscard]] size_t comboCount() const noexcept {
+        size_t count = 0;
+        for (const auto& [key, combos] : physicalKeyCombos_) {
+            count += combos.size();
+        }
+        for (const auto& [key, combos] : remappedKeyCombos_) {
+            count += combos.size();
+        }
+        return count;
+    }
 
   private:
-    std::vector<ComboMapping> combos_;
+    // Hash maps for O(1) trigger key lookup
+    // physicalKeyCombos: indexed by physical scancode (for layers)
+    // remappedKeyCombos: indexed by remapped scancode (for noModCombos)
+    std::unordered_map<uint16_t, std::vector<ComboMapping>> physicalKeyCombos_;
+    std::unordered_map<uint16_t, std::vector<ComboMapping>> remappedKeyCombos_;
+
+    void applyCombo(Context& ctx, const ComboMapping& combo) const noexcept {
+        // Output first key in sequence
+        if (!combo.output.empty()) {
+            const auto& action = combo.output[0];
+
+            // Set output key
+            ctx.outputScancode = action.scancode;
+            ctx.action = Action::Replace;
+
+            // Set shift injection flag if needed
+            ctx.injectShift = action.withShift;
+        }
+    }
 
     bool matchesCombo(const Context& ctx, const ComboMapping& combo) const noexcept {
-        // Check trigger key
-        // - Layers match against physical key (before remapping)
-        // - NoModCombos match against remapped key (after Rewire)
-        uint16_t keyToMatch = combo.matchPhysicalKey ? ctx.scancode : ctx.outputScancode;
-        if (keyToMatch != combo.triggerKey) {
-            return false;
-        }
+        // Note: Trigger key check is now handled by hash map lookup in process()
+        // Only need to verify modifier requirements
 
         // Check required modifiers are held
         if ((ctx.modifiers & combo.requiredModifiers) != combo.requiredModifiers) {
