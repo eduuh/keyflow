@@ -30,6 +30,8 @@ using namespace keyflow;
  * @brief Simulates the main event loop shift injection logic
  *
  * This replicates what happens in main.cpp without needing hardware.
+ * NOTE: With the synchronous cleanup fix, cleanup happens immediately on key
+ * release.
  */
 struct SimulatedEventResult {
   bool shiftDown = false;  // Shift key pressed?
@@ -41,16 +43,8 @@ struct SimulatedEventResult {
 
 SimulatedEventResult simulateKeyEvent(Pipeline &pipeline,
                                       ModifierTracker &tracker,
-                                      const KeyEvent &event,
-                                      bool &needsCleanup) {
+                                      const KeyEvent &event) {
   SimulatedEventResult result;
-
-  // CLEANUP PHASE (before processing event)
-  if (needsCleanup) {
-    result.shiftUp = true; // Send SHIFT UP
-    tracker.clearInjectedModifiers();
-    needsCleanup = false;
-  }
 
   // PROCESS PHASE
   auto processResult = pipeline.process(event);
@@ -66,7 +60,10 @@ SimulatedEventResult simulateKeyEvent(Pipeline &pipeline,
       result.keyUp = true;
       result.shiftUp = true;
       result.outputScancode = processResult.outputScancode;
-      needsCleanup = processResult.cleanupInjectedShift; // Mark for cleanup
+      // Clear injected modifiers IMMEDIATELY (synchronous cleanup)
+      if (processResult.cleanupInjectedShift) {
+        tracker.clearInjectedModifiers();
+      }
     }
   }
 
@@ -107,19 +104,7 @@ TEST(PhantomCapsFixTest, CleanupFlagNotSetForNoShift) {
   EXPECT_FALSE(ctx.cleanupInjectedShift) << "Cleanup flag should NOT be set";
 }
 
-// ===== Pipeline Cleanup State Tests =====
-
-TEST(PhantomCapsFixTest, PipelineTracksCleanupState) {
-  Pipeline pipeline;
-
-  EXPECT_FALSE(pipeline.needsShiftCleanup()) << "Initially no cleanup needed";
-
-  pipeline.markShiftCleanupNeeded(true);
-  EXPECT_TRUE(pipeline.needsShiftCleanup()) << "Cleanup should be marked";
-
-  pipeline.clearShiftCleanup();
-  EXPECT_FALSE(pipeline.needsShiftCleanup()) << "Cleanup should be cleared";
-}
+// ===== Processing Result Tests =====
 
 TEST(PhantomCapsFixTest, ProcessingResultIncludesCleanupFlag) {
   Pipeline pipeline;
@@ -161,33 +146,31 @@ TEST(PhantomCapsFixTest, FastTypingAfterShiftCombo) {
   combo->addNoModCombo(SC_GRAVE, SC_SLASH, true); // ` → ?
   pipeline.addProcessor(std::move(combo));
 
-  bool needsCleanup = false;
-
   // Event 1: Press backtick (should inject shift)
   KeyEvent event1{SC_GRAVE, true};
-  auto result1 = simulateKeyEvent(pipeline, *trackerPtr, event1, needsCleanup);
+  auto result1 = simulateKeyEvent(pipeline, *trackerPtr, event1);
 
   EXPECT_TRUE(result1.shiftDown) << "Shift should be pressed";
   EXPECT_TRUE(result1.keyDown) << "? key should be pressed";
   EXPECT_EQ(result1.outputScancode, SC_SLASH);
-  EXPECT_FALSE(needsCleanup) << "Cleanup not needed yet (key still down)";
+  EXPECT_TRUE(trackerPtr->hasInjectedShift()) << "Injected shift tracked";
 
-  // Event 2: Release backtick (should release shift and mark cleanup)
+  // Event 2: Release backtick (should release shift and cleanup immediately)
   KeyEvent event2{SC_GRAVE, false};
-  auto result2 = simulateKeyEvent(pipeline, *trackerPtr, event2, needsCleanup);
+  auto result2 = simulateKeyEvent(pipeline, *trackerPtr, event2);
 
   EXPECT_TRUE(result2.keyUp) << "? key should be released";
   EXPECT_TRUE(result2.shiftUp) << "Shift should be released";
-  EXPECT_TRUE(needsCleanup) << "Cleanup should be marked for next event";
+  EXPECT_FALSE(trackerPtr->hasInjectedShift())
+      << "Injected shift cleared immediately";
 
-  // Event 3: Press 'A' very fast (before OS processes shift up)
-  // THIS IS WHERE THE BUG WOULD OCCUR
+  // Event 3: Press 'A' very fast (injected shift already cleared)
+  // With synchronous cleanup, no phantom capitalization occurs
   KeyEvent event3{SC_A, true};
-  auto result3 = simulateKeyEvent(pipeline, *trackerPtr, event3, needsCleanup);
+  auto result3 = simulateKeyEvent(pipeline, *trackerPtr, event3);
 
-  EXPECT_TRUE(result3.shiftUp) << "CLEANUP: Shift UP should be sent BEFORE 'A'";
-  EXPECT_FALSE(needsCleanup) << "Cleanup flag should be cleared";
-  // Note: The shift cleanup happens BEFORE processing event3,
+  EXPECT_FALSE(trackerPtr->hasInjectedShift()) << "No injected shift for 'A'";
+  // Note: The shift cleanup happened synchronously in Event 2,
   // preventing phantom capitalization
 }
 
@@ -202,32 +185,29 @@ TEST(PhantomCapsFixTest, MultipleShiftCombosInSequence) {
   combo->addNoModCombo(SC_1, SC_1, true);         // 1 → !
   pipeline.addProcessor(std::move(combo));
 
-  bool needsCleanup = false;
-
   // Sequence: ` ↓ ` ↑ 1 ↓ 1 ↑ A ↓
 
   // Press and release backtick
-  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, true},
-                   needsCleanup);
-  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, false},
-                   needsCleanup);
-  EXPECT_TRUE(needsCleanup) << "Cleanup needed after backtick";
+  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, true});
+  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, false});
+  EXPECT_FALSE(trackerPtr->hasInjectedShift())
+      << "Cleanup done immediately after backtick";
 
-  // Press '1' (cleanup should happen first)
-  auto result1Down = simulateKeyEvent(pipeline, *trackerPtr,
-                                      KeyEvent{SC_1, true}, needsCleanup);
-  EXPECT_TRUE(result1Down.shiftUp) << "Cleanup: Shift UP before '1'";
-  EXPECT_FALSE(needsCleanup) << "Cleanup cleared";
+  // Press '1' (no cleanup needed, already done)
+  auto result1Down =
+      simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_1, true});
+  EXPECT_TRUE(result1Down.shiftDown) << "Shift injected for '1'";
+  EXPECT_TRUE(trackerPtr->hasInjectedShift()) << "Injected shift tracked";
 
   // Release '1'
-  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_1, false}, needsCleanup);
-  EXPECT_TRUE(needsCleanup) << "Cleanup needed after '1'";
+  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_1, false});
+  EXPECT_FALSE(trackerPtr->hasInjectedShift())
+      << "Cleanup done immediately after '1'";
 
-  // Press 'A' (cleanup should happen first)
-  auto resultA = simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_A, true},
-                                  needsCleanup);
-  EXPECT_TRUE(resultA.shiftUp) << "Cleanup: Shift UP before 'A'";
-  EXPECT_FALSE(needsCleanup) << "No phantom capitalization on 'A'";
+  // Press 'A' (no injected shift to worry about)
+  auto resultA = simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_A, true});
+  EXPECT_FALSE(trackerPtr->hasInjectedShift())
+      << "No phantom capitalization on 'A'";
 }
 
 TEST(PhantomCapsFixTest, PhysicalShiftNotAffectedByCleanup) {
@@ -240,8 +220,6 @@ TEST(PhantomCapsFixTest, PhysicalShiftNotAffectedByCleanup) {
   combo->addNoModCombo(SC_GRAVE, SC_SLASH, true); // ` → ?
   pipeline.addProcessor(std::move(combo));
 
-  bool needsCleanup = false;
-
   // Press physical shift (simulated by setting modifier bit manually)
   Context ctx;
   ctx.scancode = SC_LSHIFT;
@@ -253,15 +231,10 @@ TEST(PhantomCapsFixTest, PhysicalShiftNotAffectedByCleanup) {
       << "Physical shift should be tracked";
 
   // Use shift combo: ` → ?
-  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, true},
-                   needsCleanup);
-  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, false},
-                   needsCleanup);
+  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, true});
+  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, false});
 
-  // Clear injected modifiers (simulating cleanup)
-  trackerPtr->clearInjectedModifiers();
-
-  // Physical shift should still be tracked
+  // Physical shift should still be tracked after cleanup
   EXPECT_TRUE(trackerPtr->isModifierActive(ModifierBit::LeftShift))
       << "Physical shift should NOT be cleared by cleanup";
 }
@@ -272,7 +245,6 @@ TEST(PhantomCapsFixTest, NoCleanupForRegularKeys) {
   pipeline.addProcessor(std::move(modTracker));
 
   // No combos - just regular keys
-  bool needsCleanup = false;
 
   // Type regular 'A'
   KeyEvent eventDown{SC_A, true};
@@ -280,37 +252,38 @@ TEST(PhantomCapsFixTest, NoCleanupForRegularKeys) {
 
   EXPECT_FALSE(result.injectShift) << "No shift injection for regular key";
   EXPECT_FALSE(result.cleanupInjectedShift) << "No cleanup needed";
-  EXPECT_FALSE(needsCleanup) << "Cleanup flag should remain false";
 }
 
-TEST(PhantomCapsFixTest, CleanupOnlyOnKeyUp) {
+TEST(PhantomCapsFixTest, CleanupHappensOnKeyUp) {
   Pipeline pipeline;
   auto modTracker = std::make_unique<ModifierTracker>();
+  ModifierTracker *trackerPtr = modTracker.get();
   pipeline.addProcessor(std::move(modTracker));
 
   auto combo = std::make_unique<ComboAdvanced>();
   combo->addNoModCombo(SC_GRAVE, SC_SLASH, true); // ` → ?
   pipeline.addProcessor(std::move(combo));
 
-  bool needsCleanup = false;
-
-  // Press backtick (no cleanup yet)
+  // Press backtick (shift tracked but not cleaned up yet)
   auto resultDown = pipeline.process(KeyEvent{SC_GRAVE, true});
   EXPECT_TRUE(resultDown.injectShift) << "Shift injected on key down";
   EXPECT_TRUE(resultDown.cleanupInjectedShift) << "Cleanup flag set";
 
-  // Pipeline should NOT mark cleanup on key down
-  EXPECT_FALSE(pipeline.needsShiftCleanup())
-      << "Pipeline cleanup only marked on key UP";
+  // Simulate shift tracking
+  trackerPtr->setInjectedShift(true);
+  EXPECT_TRUE(trackerPtr->hasInjectedShift()) << "Shift tracked after key down";
 
-  // Simulate what main.cpp does on key UP
+  // Release backtick (cleanup happens immediately)
   auto resultUp = pipeline.process(KeyEvent{SC_GRAVE, false});
+  EXPECT_TRUE(resultUp.cleanupInjectedShift) << "Cleanup flag set on key up";
+
+  // Simulate synchronous cleanup
   if (resultUp.cleanupInjectedShift) {
-    pipeline.markShiftCleanupNeeded(true);
-    needsCleanup = true;
+    trackerPtr->clearInjectedModifiers();
   }
 
-  EXPECT_TRUE(needsCleanup) << "Cleanup marked after key release";
+  EXPECT_FALSE(trackerPtr->hasInjectedShift())
+      << "Cleanup done immediately on key release";
 }
 
 // ===== Edge Case Tests =====
@@ -325,22 +298,17 @@ TEST(PhantomCapsFixTest, CleanupClearedAfterExecution) {
   combo->addNoModCombo(SC_GRAVE, SC_SLASH, true);
   pipeline.addProcessor(std::move(combo));
 
-  bool needsCleanup = false;
-
   // Trigger shift combo
-  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, true},
-                   needsCleanup);
-  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, false},
-                   needsCleanup);
-  EXPECT_TRUE(needsCleanup);
+  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, true});
+  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, false});
+  EXPECT_FALSE(trackerPtr->hasInjectedShift()) << "Cleanup done synchronously";
 
-  // Process next event (cleanup should execute and clear)
-  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_A, true}, needsCleanup);
-  EXPECT_FALSE(needsCleanup) << "Cleanup should be cleared after execution";
+  // Process next event (no cleanup needed)
+  simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_A, true});
+  EXPECT_FALSE(trackerPtr->hasInjectedShift()) << "No injected shift for 'A'";
 
-  // Next event should NOT trigger cleanup again
-  auto result = simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_B, true},
-                                 needsCleanup);
+  // Next event should also have no cleanup
+  auto result = simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_B, true});
   EXPECT_FALSE(result.shiftUp) << "No shift cleanup on unrelated key";
 }
 
@@ -354,23 +322,20 @@ TEST(PhantomCapsFixTest, RapidRepeatedCombo) {
   combo->addNoModCombo(SC_GRAVE, SC_SLASH, true); // ` → ?
   pipeline.addProcessor(std::move(combo));
 
-  bool needsCleanup = false;
-
   // Type: ` ` ` (three times fast)
   for (int i = 0; i < 3; i++) {
     // Press
-    simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, true},
-                     needsCleanup);
+    simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, true});
+    EXPECT_TRUE(trackerPtr->hasInjectedShift())
+        << "Shift injected on press " << i;
 
-    // Release (marks cleanup)
-    simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, false},
-                     needsCleanup);
-    EXPECT_TRUE(needsCleanup) << "Cleanup should be marked after combo " << i;
+    // Release (cleanup happens immediately)
+    simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_GRAVE, false});
+    EXPECT_FALSE(trackerPtr->hasInjectedShift())
+        << "Cleanup done immediately after combo " << i;
   }
 
-  // Type 'A' - cleanup should prevent phantom caps
-  auto result = simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_A, true},
-                                 needsCleanup);
-  EXPECT_TRUE(result.shiftUp) << "Cleanup should execute before 'A'";
-  EXPECT_FALSE(needsCleanup) << "No phantom capitalization";
+  // Type 'A' - no phantom caps since cleanup already done
+  auto result = simulateKeyEvent(pipeline, *trackerPtr, KeyEvent{SC_A, true});
+  EXPECT_FALSE(trackerPtr->hasInjectedShift()) << "No phantom capitalization";
 }
