@@ -62,4 +62,6 @@ Requirements: CMake 3.15+, MSVC or any C++17 compiler. Details in [BUILD.md](BUI
 - [Config reference](docs/CONFIG_USAGE.md) · [Eduuh-DH layout](docs/EDUUH_DH.md) · [Custom modifiers](docs/CUSTOM_MODIFIERS.md) · [Privacy](docs/PRIVACY.md)
 - [Contributing](CONTRIBUTING.md) · [Build](BUILD.md) · [Changelog](CHANGELOG.md)
 
-Released under the [MIT License](LICENSE).
+Released under the [MIT License](LICENSE). Bundles the
+[Interception](https://github.com/oblitum/Interception) driver under
+LGPL-3.0 — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

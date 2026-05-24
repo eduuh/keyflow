@@ -94,10 +94,13 @@ jobs:
             }
           }
 
-          # Include LICENSE + README so the zip is self-contained for users
-          # who download and never visit the repo.
+          # Include LICENSE + README + THIRD_PARTY_NOTICES so the zip is self-
+          # contained for users who download and never visit the repo. The
+          # third-party notice is required for LGPL-3.0 compliance because the
+          # zip bundles interception.dll.
           Copy-Item "LICENSE" $folder
           Copy-Item "README.md" $folder
+          Copy-Item "THIRD_PARTY_NOTICES.md" $folder
 
           Compress-Archive -Path "$folder/*" -DestinationPath keyflow-release.zip
           Write-Host "Zip contents:"
