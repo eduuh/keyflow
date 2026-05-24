@@ -288,7 +288,7 @@ export function ExportPreviewModal({ isOpen, onClose }: ExportPreviewModalProps)
                   previewTheme === "dark" ? "text-gray-400" : "text-gray-600"
                 )}
               >
-                {config.strictMode ? "Strict Mode Enabled" : "Standard Mode"}
+                {(config.layers?.length ?? 0)} layer{(config.layers?.length ?? 0) === 1 ? "" : "s"}
               </p>
             </div>
 
@@ -446,7 +446,6 @@ type ExportKeyProps = {
 
 function ExportKey({ keyData, scale, layerIndex, theme }: ExportKeyProps) {
   const { config } = useConfigStore();
-  const strictMode = config.strictMode || false;
 
   // Get mappings
   const baseMapping = config.remapping?.[keyData.keyCode];
@@ -457,12 +456,7 @@ function ExportKey({ keyData, scale, layerIndex, theme }: ExportKeyProps) {
   let isShiftMapping = false;
 
   if (layerIndex === -1) {
-    // BASE layer
-    if (strictMode && !baseMapping) {
-      displayValue = "✕";
-    } else {
-      displayValue = baseMapping || keyData.label;
-    }
+    displayValue = baseMapping || keyData.label;
   } else if (layers[layerIndex]) {
     // Layer view - strict layer behavior
     const layer = layers[layerIndex];

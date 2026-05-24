@@ -2,50 +2,89 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Hardware-y palette — dark slate base, amber LED accents, monospace legends.
+   Looks like a mechanical-keyboard config panel. The intent: keys feel physical
+   (subtle gradient, top-edge highlight, bottom-edge shadow) and accent states
+   feel like LEDs (warm glow rather than flat color).
+   ───────────────────────────────────────────────────────────────────────────── */
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Surfaces */
+    --background: 220 14% 96%;
+    --foreground: 220 14% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 220 14% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --popover-foreground: 220 14% 12%;
+
+    /* Brand: amber LED */
+    --primary: 38 92% 50%;
+    --primary-foreground: 220 14% 8%;
+
+    /* Secondary surfaces */
+    --secondary: 220 14% 92%;
+    --secondary-foreground: 220 14% 20%;
+    --muted: 220 14% 90%;
+    --muted-foreground: 220 9% 40%;
+    --accent: 38 92% 92%;
+    --accent-foreground: 220 14% 12%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 14% 85%;
+    --input: 220 14% 88%;
+    --ring: 38 92% 50%;
+
+    /* Key faces (subtle gradient between these two) */
+    --key-face-top: 0 0% 100%;
+    --key-face-bottom: 220 14% 92%;
+    --key-edge-top: 0 0% 100%;
+    --key-edge-bottom: 220 14% 78%;
+    --key-shadow: 220 14% 70%;
+
+    /* Mapped-key tint (cyan/teal LED) */
+    --mapped: 190 80% 45%;
+
+    --radius: 0.375rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* Surfaces — deep slate, almost black */
+    --background: 220 16% 8%;
+    --foreground: 220 14% 92%;
+    --card: 220 16% 12%;
+    --card-foreground: 220 14% 92%;
+    --popover: 220 16% 11%;
+    --popover-foreground: 220 14% 92%;
+
+    /* Brand: amber LED (warmer in dark mode for that glow) */
+    --primary: 38 92% 58%;
+    --primary-foreground: 220 14% 8%;
+
+    --secondary: 220 14% 16%;
+    --secondary-foreground: 220 14% 88%;
+    --muted: 220 14% 14%;
+    --muted-foreground: 220 9% 60%;
+    --accent: 38 92% 22%;
+    --accent-foreground: 38 92% 88%;
+    --destructive: 0 60% 40%;
+    --destructive-foreground: 0 0% 95%;
+
+    --border: 220 14% 20%;
+    --input: 220 14% 18%;
+    --ring: 38 92% 58%;
+
+    /* Key faces — gradient from a lighter top to darker bottom (3D bevel) */
+    --key-face-top: 220 14% 18%;
+    --key-face-bottom: 220 14% 13%;
+    --key-edge-top: 220 14% 26%;
+    --key-edge-bottom: 220 14% 6%;
+    --key-shadow: 220 16% 4%;
+
+    /* Mapped-key tint */
+    --mapped: 190 80% 50%;
   }
 
   * {
@@ -54,7 +93,100 @@
 
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Key surface — the physical-feel face used by every key on the keyboard view.
+   .key-face         neutral
+   .key-face[data-active]   pressed-down look
+   .key-face[data-mapped]   subtle cyan tint indicating "configured"
+   .key-face[data-trigger]  amber LED glow for layer trigger
+   .key-face[data-selected] amber ring + glow for current selection
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@layer components {
+  .key-face {
+    background: linear-gradient(
+      to bottom,
+      hsl(var(--key-face-top)),
+      hsl(var(--key-face-bottom))
+    );
+    border: 1px solid hsl(var(--border));
+    border-top-color: hsl(var(--key-edge-top));
+    border-bottom: 2px solid hsl(var(--key-edge-bottom));
+    box-shadow:
+      0 1px 0 hsl(var(--key-shadow)),
+      inset 0 1px 0 hsl(var(--key-edge-top) / 0.4);
+    transition: transform 80ms ease, box-shadow 80ms ease, border-color 120ms ease;
+  }
+
+  .key-face:hover {
+    border-color: hsl(var(--primary) / 0.4);
+  }
+
+  .key-face:active {
+    transform: translateY(1px);
+    border-bottom-width: 1px;
+    box-shadow:
+      0 0 0 hsl(var(--key-shadow)),
+      inset 0 1px 2px hsl(var(--key-shadow) / 0.4);
+  }
+
+  /* Cyan/teal LED hint — this key has a mapping configured. */
+  .key-face[data-mapped="true"] {
+    border-color: hsl(var(--mapped) / 0.4);
+    box-shadow:
+      0 1px 0 hsl(var(--key-shadow)),
+      inset 0 1px 0 hsl(var(--key-edge-top) / 0.4),
+      inset 0 0 16px hsl(var(--mapped) / 0.12);
+  }
+
+  /* Amber LED — this key is the trigger for the currently-viewed layer. */
+  .key-face[data-trigger="true"] {
+    border-color: hsl(var(--primary));
+    border-bottom-color: hsl(var(--primary) / 0.7);
+    box-shadow:
+      0 0 12px hsl(var(--primary) / 0.4),
+      0 1px 0 hsl(var(--key-shadow)),
+      inset 0 1px 0 hsl(var(--primary) / 0.6);
+  }
+
+  /* Selected state takes priority — the brightest amber. */
+  .key-face[data-selected="true"] {
+    border-color: hsl(var(--primary));
+    border-bottom-color: hsl(var(--primary));
+    box-shadow:
+      0 0 0 2px hsl(var(--primary) / 0.5),
+      0 0 18px hsl(var(--primary) / 0.5),
+      inset 0 1px 0 hsl(var(--primary) / 0.7);
+  }
+
+  /* Legend (key label) styling */
+  .key-legend {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    color: hsl(var(--foreground));
+    text-shadow: 0 1px 0 hsl(var(--key-edge-top));
+    line-height: 1;
+  }
+
+  .dark .key-legend {
+    text-shadow: 0 1px 0 hsl(var(--key-edge-bottom));
+  }
+
+  /* Mapped value (the remapped target) uses a slightly different weight */
+  .key-legend-mapped {
+    color: hsl(var(--mapped));
+  }
+
+  /* LED indicator pip — used to show this key has mappings in other layers */
+  .key-led-pip {
+    width: 0.25rem;
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 4px hsl(var(--primary) / 0.6);
   }
 }
 

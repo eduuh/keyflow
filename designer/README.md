@@ -93,14 +93,14 @@ The designer generates standard KeyFlow `config.json` files:
 {
   "version": "1.0",
   "name": "My Custom Layout",
-  "strictMode": true,
+  "disableCapsLock": true,
   "remapping": {
     "CapsLock": "LeftCtrl"
   },
   "layers": [
     {
       "name": "Numpad Layer",
-      "trigger": "RightAlt",
+      "triggers": ["RightAlt"],
       "mappings": {
         "K": "1",
         "L": "2"

@@ -1,47 +1,76 @@
 "use client";
 
 import { useState } from "react";
-import { Edit2, Trash2, X, Check } from "lucide-react";
+import { Trash2, X, Check, Plus } from "lucide-react";
 import { useConfigStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+
+// Multi-trigger layer editor. The C++ schema supports a layer with multiple
+// trigger modifiers (OR-joined — any one activates the layer). UI shows the
+// current set of triggers as chips; users can add/remove individually.
+//
+// Validation rules (match the C++ side):
+//   - At least one trigger required
+//   - Each trigger must be a modifier currently mapped in the BASE layer
+//   - The same modifier can't trigger two different layers (would be ambiguous)
 
 type LayerEditorProps = {
   layerIndex: number;
   onClose: () => void;
 };
 
+const MODIFIER_LABELS: Record<string, string> = {
+  RALT: "Right Alt",
+  LALT: "Left Alt",
+  RCTRL: "Right Ctrl",
+  LCTRL: "Left Ctrl",
+  RSHIFT: "Right Shift",
+  LSHIFT: "Left Shift",
+  RWIN: "Right Win",
+  LWIN: "Left Win",
+  CAPS: "Caps Lock",
+};
+
+const MODIFIER_KEYS = Object.keys(MODIFIER_LABELS);
+
 export function LayerEditor({ layerIndex, onClose }: LayerEditorProps) {
   const { config, updateLayer, deleteLayer } = useConfigStore();
   const layer = config.layers?.[layerIndex];
 
   const [name, setName] = useState(layer?.name || "");
-  const [trigger, setTrigger] = useState(
-    Array.isArray(layer?.trigger) ? layer.trigger[0] : layer?.trigger || "RALT"
-  );
+  const [triggers, setTriggers] = useState<string[]>(layer?.triggers ?? []);
 
   if (!layer) return null;
 
+  // Modifiers available in this config (must be the *target* of a BASE remap).
+  const baseRemapping = config.remapping || {};
+  const availableModifiers = Array.from(
+    new Set(Object.values(baseRemapping).filter((t) => MODIFIER_KEYS.includes(t))),
+  );
+
+  // Triggers already claimed by *other* layers — can't reuse without ambiguity.
+  const layers = config.layers || [];
+  const usedByOthers = new Set<string>();
+  layers.forEach((l, i) => {
+    if (i === layerIndex) return;
+    (l.triggers || []).forEach((t) => usedByOthers.add(t));
+  });
+
+  // What can we still add to this layer's trigger set?
+  const addable = availableModifiers.filter(
+    (m) => !triggers.includes(m) && !usedByOthers.has(m),
+  );
+
+  const handleAddTrigger = (mod: string) => setTriggers([...triggers, mod]);
+  const handleRemoveTrigger = (mod: string) =>
+    setTriggers(triggers.filter((t) => t !== mod));
+
   const handleSave = () => {
-    // Don't save if no modifiers are available
-    if (triggerOptions.length === 0) {
-      if (availableModifiers.length === 0) {
-        alert("Cannot save layer: No modifiers mapped in BASE layer.");
-      } else {
-        alert("Cannot save layer: All available modifiers are already used by other layers.\n\nEach layer needs a unique trigger modifier.");
-      }
+    if (triggers.length === 0) {
+      alert("Layer needs at least one trigger modifier.");
       return;
     }
-
-    // Check if trying to use a trigger that's in use by another layer
-    const isCurrentTriggerAvailable = triggerOptions.some((opt) => opt.value === trigger);
-    if (!isCurrentTriggerAvailable) {
-      // Auto-select first available trigger
-      setTrigger(triggerOptions[0].value);
-      alert(`The selected trigger is now used by another layer. Changed to ${triggerOptions[0].label}.`);
-      return;
-    }
-
-    updateLayer(layerIndex, { name, trigger });
+    updateLayer(layerIndex, { name, triggers });
     onClose();
   };
 
@@ -52,163 +81,164 @@ export function LayerEditor({ layerIndex, onClose }: LayerEditorProps) {
     }
   };
 
-  // Get available triggers from BASE layer remapping
-  const baseRemapping = config.remapping || {};
-  const availableModifiers = Object.entries(baseRemapping)
-    .filter(([_, target]) =>
-      ["RALT", "LALT", "RCTRL", "LCTRL", "RSHIFT", "LSHIFT", "RWIN", "LWIN", "CAPS"].includes(target)
-    )
-    .map(([source, target]) => ({
-      source,
-      target,
-    }));
-
-  // Get triggers already used by other layers
-  const layers = config.layers || [];
-  const usedTriggers = layers
-    .map((l, idx) => {
-      const layerTrigger = Array.isArray(l.trigger) ? l.trigger[0] : l.trigger;
-      return { trigger: layerTrigger, layerIndex: idx, layerName: l.name };
-    })
-    .filter((t) => t.layerIndex !== layerIndex); // Exclude current layer
-
-  // Map modifier names to labels
-  const modifierLabels: Record<string, string> = {
-    RALT: "Right Alt (RALT)",
-    LALT: "Left Alt (LALT)",
-    RCTRL: "Right Ctrl (RCTRL)",
-    LCTRL: "Left Ctrl (LCTRL)",
-    RSHIFT: "Right Shift (RSHIFT)",
-    LSHIFT: "Left Shift (LSHIFT)",
-    RWIN: "Right Win (RWIN)",
-    LWIN: "Left Win (LWIN)",
-    CAPS: "Caps Lock (CAPS)",
-  };
-
-  // Only show modifiers that are available in BASE and not used by other layers
-  const triggerOptions = availableModifiers
-    .map(({ source, target }) => {
-      const usedBy = usedTriggers.find((t) => t.trigger === target);
-      return {
-        value: target,
-        label: `${modifierLabels[target]} ← ${source}`,
-        isUsed: !!usedBy,
-        usedByLayer: usedBy?.layerName,
-      };
-    })
-    .filter((opt) => !opt.isUsed); // Filter out already used triggers
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="relative w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
-        {/* Header */}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-md rounded-lg border border-border bg-card p-5 shadow-chassis font-mono"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Edit Layer</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wider">
+            Edit Layer
+          </h2>
           <button
             onClick={onClose}
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium hover:bg-accent h-8 w-8"
+            className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent"
+            aria-label="Close"
           >
-            <X size={16} />
+            <X size={14} />
           </button>
         </div>
 
-        {/* Form */}
         <div className="space-y-4">
           {/* Layer Name */}
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Layer Name</label>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
+              Name
+            </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Symbol Layer, Numpad Layer"
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              placeholder="e.g., Numpad, Arrows & Symbols"
+              className={cn(
+                "w-full h-9 px-3 rounded-md bg-background border border-input",
+                "text-sm font-sans",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              )}
             />
           </div>
 
-          {/* Trigger Key */}
+          {/* Triggers */}
           <div>
-            <label className="text-sm font-medium mb-1.5 block">
-              Trigger Modifier
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
+              Triggers (any one activates)
             </label>
-            {triggerOptions.length > 0 ? (
-              <>
-                <select
-                  value={trigger}
-                  onChange={(e) => setTrigger(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+
+            <div className="flex flex-wrap gap-1.5 min-h-[2.25rem] p-1.5 rounded-md bg-background border border-input">
+              {triggers.length === 0 && (
+                <span className="px-2 py-1 text-xs text-muted-foreground italic">
+                  No triggers — add at least one below
+                </span>
+              )}
+              {triggers.map((t) => (
+                <span
+                  key={t}
+                  className={cn(
+                    "inline-flex items-center gap-1 h-7 px-2 rounded text-xs font-semibold uppercase tracking-wider",
+                    "bg-primary/15 text-primary border border-primary/40",
+                  )}
                 >
-                  {triggerOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Hold this key to activate this layer (one modifier per layer)
-                </p>
-              </>
-            ) : availableModifiers.length === 0 ? (
-              <>
-                <div className="flex h-9 w-full items-center rounded-md border border-destructive/50 bg-destructive/10 px-3 py-1 text-sm text-destructive">
-                  No modifiers in BASE
-                </div>
-                <p className="text-xs text-destructive mt-1">
-                  ⚠️ Map at least one modifier in BASE layer first
-                </p>
-              </>
+                  {t}
+                  <button
+                    onClick={() => handleRemoveTrigger(t)}
+                    className="hover:text-foreground"
+                    aria-label={`Remove ${t}`}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+
+            {/* Add menu */}
+            {addable.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {addable.map((mod) => (
+                  <button
+                    key={mod}
+                    onClick={() => handleAddTrigger(mod)}
+                    className={cn(
+                      "inline-flex items-center gap-1 h-7 px-2 rounded text-xs font-semibold uppercase tracking-wider",
+                      "border border-dashed border-border text-muted-foreground",
+                      "hover:border-primary/60 hover:text-foreground hover:bg-accent/40 transition-colors",
+                    )}
+                  >
+                    <Plus size={11} />
+                    {mod}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Help */}
+            {availableModifiers.length === 0 ? (
+              <p className="text-xs text-destructive mt-2">
+                ⚠ Map a modifier in BASE first — layers need a trigger.
+              </p>
+            ) : addable.length === 0 && triggers.length === 0 ? (
+              <p className="text-xs text-destructive mt-2">
+                ⚠ All BASE modifiers are claimed by other layers.
+              </p>
             ) : (
-              <>
-                <div className="flex h-9 w-full items-center rounded-md border border-warning/50 bg-warning/10 px-3 py-1 text-sm text-warning">
-                  All modifiers in use
-                </div>
-                <p className="text-xs text-warning mt-1">
-                  ⚠️ All available modifiers are used by other layers. Delete a layer or map more modifiers in BASE.
-                </p>
-              </>
+              <p className="text-[10px] text-muted-foreground mt-2 font-sans">
+                Only modifiers mapped in BASE (and not already used by another layer) appear above.
+              </p>
             )}
           </div>
 
           {/* Stats */}
-          <div className="rounded-lg bg-muted p-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Mapped keys:</span>
+          <div className="rounded-md bg-muted/40 border border-border p-3 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground uppercase tracking-wider text-[10px]">
+                Mapped keys
+              </span>
               <span className="font-semibold">
                 {Object.keys(layer.mappings || {}).length}
               </span>
             </div>
-            <div className="flex items-center justify-between text-sm mt-1">
-              <span className="text-muted-foreground">Shift mappings:</span>
-              <span className="font-semibold">
-                {(layer.shiftMappings || []).length}
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-muted-foreground uppercase tracking-wider text-[10px]">
+                Shift mappings
               </span>
+              <span className="font-semibold">{(layer.shiftMappings || []).length}</span>
             </div>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="mt-6 flex items-center justify-between">
+        <div className="mt-5 flex items-center justify-between">
           <button
             onClick={handleDelete}
             className={cn(
-              "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors h-9 px-3 gap-2",
-              "border border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              "inline-flex items-center gap-2 h-9 px-3 rounded-md text-sm font-semibold uppercase tracking-wider",
+              "border border-destructive/60 text-destructive",
+              "hover:bg-destructive hover:text-destructive-foreground transition-colors",
             )}
           >
             <Trash2 size={14} />
             Delete
           </button>
-
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent h-9 px-4"
+              className={cn(
+                "inline-flex items-center h-9 px-3 rounded-md text-sm font-semibold uppercase tracking-wider",
+                "border border-input bg-background hover:bg-accent",
+              )}
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 gap-2"
+              className={cn(
+                "inline-flex items-center gap-2 h-9 px-3 rounded-md text-sm font-semibold uppercase tracking-wider",
+                "bg-primary text-primary-foreground hover:bg-primary/90 transition-colors",
+                "shadow-[0_0_12px_hsl(var(--primary)/0.3)]",
+              )}
             >
               <Check size={14} />
               Save
