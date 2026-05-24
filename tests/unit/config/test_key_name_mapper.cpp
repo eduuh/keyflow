@@ -151,4 +151,13 @@ TEST(KeyNameMapperTest, ExtendedKeysIfSupported) {
   if (home.has_value()) {
     EXPECT_NE(*home, 0);
   }
+  if (end.has_value()) {
+    EXPECT_NE(*end, 0);
+  }
+  if (pgup.has_value()) {
+    EXPECT_NE(*pgup, 0);
+  }
+  if (pgdn.has_value()) {
+    EXPECT_NE(*pgdn, 0);
+  }
 }

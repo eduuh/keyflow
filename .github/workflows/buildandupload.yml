@@ -16,18 +16,37 @@ jobs:
       - name: Set up MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Build with CMake
+      - name: Build with CMake (Production Only)
         shell: pwsh
         run: |
-          cmake -B build -G "Visual Studio 17 2022" -A x64
+          cmake -B build -G "Visual Studio 17 2022" -A x64 -DENABLE_TESTS=OFF
           cmake --build build --config Release
+
+      - name: Verify Build Output
+        shell: pwsh
+        run: |
+          Write-Host "Checking build output directory..."
+          if (Test-Path "build/bin/Release") {
+            Write-Host "Found: build/bin/Release"
+            Get-ChildItem "build/bin/Release" -Recurse | ForEach-Object { Write-Host "  $_" }
+          }
+          if (Test-Path "build/Release") {
+            Write-Host "Found: build/Release"
+            Get-ChildItem "build/Release" -Recurse | ForEach-Object { Write-Host "  $_" }
+          }
 
       - name: Zip RELEASE folder
         shell: pwsh
         run: |
           $releaseFolder = "build/bin/Release"
+          if (-not (Test-Path $releaseFolder)) {
+            Write-Error "Release folder not found at $releaseFolder"
+            exit 1
+          }
           $zipPath = "keyflow-release.zip"
           Compress-Archive -Path "$releaseFolder/*" -DestinationPath $zipPath
+          Write-Host "Created $zipPath with contents:"
+          Get-ChildItem $releaseFolder | ForEach-Object { Write-Host "  $($_.Name)" }
 
       - name: Upload Release Asset
         if: github.event_name == 'release'

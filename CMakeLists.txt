@@ -20,7 +20,7 @@ endif()
 
 # Compiler flags
 if(MSVC)
-    add_compile_options(/W4 /WX)
+    add_compile_options(/W4 /WX /MP)  # /MP enables multi-processor compilation
     # Optimization is handled by CMAKE_BUILD_TYPE
 else()
     add_compile_options(-Wall -Wextra -Werror)
