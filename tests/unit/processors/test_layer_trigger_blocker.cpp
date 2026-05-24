@@ -105,7 +105,8 @@ TEST(LayerTriggerBlockerTest, NonTriggerKeyPassesThrough) {
 
 TEST(LayerTriggerBlockerTest, BlocksBasedOnOutputScancode) {
   LayerTriggerBlocker blocker;
-  blocker.addTrigger(SC_LALT);
+  // Use string overload to add as output trigger (standard layer)
+  blocker.addTrigger("LALT");
 
   Context ctx;
   ctx.scancode = SC_CAPSLOCK;   // Physical key
@@ -234,8 +235,9 @@ TEST(LayerTriggerBlockerTest, EmptyBlockerPassesThrough) {
 TEST(LayerTriggerBlockerTest, DuplicateTriggersWork) {
   LayerTriggerBlocker blocker;
   blocker.addTrigger(SC_LALT);
-  blocker.addTrigger(SC_LALT); // Duplicate
-  EXPECT_EQ(blocker.triggerCount(), 2u);
+  blocker.addTrigger(
+      SC_LALT); // Duplicate - automatically deduplicated by unordered_set
+  EXPECT_EQ(blocker.triggerCount(), 1u); // Deduplicated to 1
 
   Context ctx;
   ctx.scancode = SC_LALT;
@@ -244,5 +246,136 @@ TEST(LayerTriggerBlockerTest, DuplicateTriggersWork) {
   ctx.action = Action::Forward;
 
   blocker.process(ctx);
-  EXPECT_EQ(ctx.action, Action::Consume); // Still works
+  EXPECT_EQ(ctx.action, Action::Consume); // Still works correctly
+}
+
+// ===== Custom Modifier Physical vs Output Tests =====
+
+TEST(LayerTriggerBlockerTest, PhysicalTriggerBlocksBeforeRemapping) {
+  LayerTriggerBlocker blocker;
+  // Add RightAlt as a physical trigger (custom modifier)
+  blocker.addTriggerByScancode(SC_RALT);
+
+  Context ctx;
+  ctx.scancode = SC_RALT;       // Physical RightAlt
+  ctx.outputScancode = SC_RALT; // Not remapped
+  ctx.isDown = true;
+  ctx.action = Action::Forward;
+
+  blocker.process(ctx);
+
+  // Should be blocked because physical scancode matches
+  EXPECT_EQ(ctx.action, Action::Consume);
+}
+
+TEST(LayerTriggerBlockerTest, RemappedKeyNotBlockedByPhysicalTrigger) {
+  LayerTriggerBlocker blocker;
+  // Add RightAlt as a physical trigger (custom modifier with blockOutput=true)
+  blocker.addTriggerByScancode(SC_RALT);
+
+  Context ctx;
+  ctx.scancode = SC_LWIN;       // Physical LeftWin
+  ctx.outputScancode = SC_RALT; // Remapped to RightAlt
+  ctx.isDown = true;
+  ctx.action = Action::Forward;
+
+  blocker.process(ctx);
+
+  // Should NOT be blocked - physical scancode doesn't match
+  // This is the key fix: remapped keys pass through
+  EXPECT_EQ(ctx.action, Action::Forward);
+}
+
+TEST(LayerTriggerBlockerTest, OutputTriggerBlocksAfterRemapping) {
+  LayerTriggerBlocker blocker;
+  // Add LALT as an output trigger (standard layer)
+  blocker.addTrigger("LALT");
+
+  Context ctx;
+  ctx.scancode = SC_CAPSLOCK;   // Physical CapsLock
+  ctx.outputScancode = SC_LALT; // Remapped to LeftAlt
+  ctx.isDown = true;
+  ctx.action = Action::Forward;
+
+  blocker.process(ctx);
+
+  // Should be blocked because outputScancode matches
+  EXPECT_EQ(ctx.action, Action::Consume);
+}
+
+TEST(LayerTriggerBlockerTest, PhysicalAndOutputTriggersBothWork) {
+  LayerTriggerBlocker blocker;
+  // Add RightAlt as physical trigger (custom modifier)
+  blocker.addTriggerByScancode(SC_RALT);
+  // Add LeftAlt as output trigger (standard layer)
+  blocker.addTrigger("LALT");
+
+  EXPECT_EQ(blocker.triggerCount(), 2u);
+
+  Context ctx;
+  ctx.isDown = true;
+  ctx.action = Action::Forward;
+
+  // Test 1: Physical RightAlt should be blocked
+  ctx.scancode = SC_RALT;
+  ctx.outputScancode = SC_RALT;
+  blocker.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
+
+  // Test 2: Remapped to LeftAlt should be blocked (output trigger)
+  ctx.action = Action::Forward;
+  ctx.scancode = SC_CAPSLOCK;
+  ctx.outputScancode = SC_LALT;
+  blocker.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
+
+  // Test 3: LeftWin remapped to RightAlt should NOT be blocked
+  ctx.action = Action::Forward;
+  ctx.scancode = SC_LWIN;
+  ctx.outputScancode = SC_RALT;
+  blocker.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Forward);
+}
+
+TEST(LayerTriggerBlockerTest,
+     RealWorldScenario_WinKeyRemappedToCustomModifier) {
+  // Scenario: User has LeftWin → RightAlt remapping
+  // RightAlt is a custom modifier with blockOutput: true
+  LayerTriggerBlocker blocker;
+  blocker.addTriggerByScancode(SC_RALT);
+
+  Context ctx;
+  ctx.isDown = true;
+  ctx.action = Action::Forward;
+
+  // Press physical RightAlt → should be blocked
+  ctx.scancode = SC_RALT;
+  ctx.outputScancode = SC_RALT;
+  blocker.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
+
+  // Press LeftWin (remapped to RightAlt) → should pass through
+  ctx.action = Action::Forward;
+  ctx.scancode = SC_LWIN;
+  ctx.outputScancode = SC_RALT;
+  blocker.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Forward);
+
+  // This allows Win+C shortcuts to work even though
+  // RightAlt is a custom modifier with blockOutput: true
+}
+
+TEST(LayerTriggerBlockerTest, AddPhysicalTriggerMethod) {
+  LayerTriggerBlocker blocker;
+  blocker.addPhysicalTrigger(SC_RALT);
+  EXPECT_EQ(blocker.triggerCount(), 1u);
+
+  Context ctx;
+  ctx.scancode = SC_RALT;
+  ctx.outputScancode = SC_RALT;
+  ctx.isDown = true;
+  ctx.action = Action::Forward;
+
+  blocker.process(ctx);
+  EXPECT_EQ(ctx.action, Action::Consume);
 }

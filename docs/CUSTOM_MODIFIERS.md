@@ -178,6 +178,11 @@ You can use custom modifiers alongside standard modifiers:
 4. **Key Blocking (LayerTriggerBlocker.h)**
    - Blocks custom modifier keys with `blockOutput: true`
    - Prevents them from reaching the OS when used as modifiers
+   - **Important**: Custom modifiers are checked using physical scancode (before remapping)
+   - This allows remapped keys to pass through while blocking the physical modifier key
+   - Example: If `LeftWin → RightAlt` and RightAlt is a custom modifier:
+     - Physical RightAlt press → blocked (activates layer)
+     - LeftWin press → passes through as RightAlt (Win+C shortcuts work)
 
 ### Processing Pipeline
 

@@ -70,7 +70,8 @@ class Rewire : public IProcessor {
   private:
     // Simple lookup table: scancode → mapped scancode
     // NO_MAPPING = no mapping defined
-    std::array<uint16_t, 512> map_;
+    // Size 65536 to support all possible uint16_t scancodes including extended keys (0xE000+)
+    std::array<uint16_t, 65536> map_;
 };
 
 } // namespace keyflow
