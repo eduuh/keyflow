@@ -25,7 +25,7 @@ bool HardwareIO::initialize() noexcept {
                                 INTERCEPTION_FILTER_KEY_E0 | INTERCEPTION_FILTER_KEY_E1);
 
     initialized_ = true;
-    std::cout << "[HardwareIO] Initialized successfully\n";
+    DEBUG_LOG("[HardwareIO] Initialized successfully\n");
     return true;
 }
 
@@ -35,7 +35,7 @@ void HardwareIO::shutdown() noexcept {
         context_ = nullptr;
     }
     initialized_ = false;
-    std::cout << "[HardwareIO] Shutdown complete\n";
+    DEBUG_LOG("[HardwareIO] Shutdown complete\n");
 }
 
 std::optional<KeyEvent> HardwareIO::waitForKey(int timeoutMS) noexcept {

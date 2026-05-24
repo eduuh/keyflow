@@ -8,16 +8,6 @@
 namespace keyflow {
 
 /**
- * @brief Debug configuration settings
- */
-struct DebugConfig {
-    bool debugMode = false;
-    bool showAllKeys = false;
-    bool showPipeline = false;
-    bool showTimings = false;
-};
-
-/**
  * @brief No-modifier combo mapping (e.g., number row → symbols)
  */
 struct NoModCombo {
@@ -67,7 +57,6 @@ struct JsonConfig {
     std::string version = "1.0";
     std::string name;
 
-    DebugConfig debug;
     std::unordered_map<std::string, std::string> remapping;
     std::vector<NoModCombo> noModCombos;
     std::vector<Layer> layers;

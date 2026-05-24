@@ -42,31 +42,47 @@ set(SOURCES
     src/hardware/HardwareIO.cpp
 )
 
-# Executable
+# Executable (always console subsystem, hide window at runtime for Release)
 add_executable(keyflow ${SOURCES})
 
 # Link Interception library
 target_link_libraries(keyflow PRIVATE interception)
 
-# Output directory
+# Output directory - organize by build type
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/debug/bin)
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/release/bin)
+else()
+    set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
+endif()
+
 set_target_properties(keyflow PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
 )
 
 # Copy interception.dll to output directory
 add_custom_command(TARGET keyflow POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/interception.dll"
-        "$<TARGET_FILE_DIR:keyflow>/interception.dll"
-    COMMENT "Copying interception.dll to output directory"
+        "${OUTPUT_DIR}/interception.dll"
+    COMMENT "Copying interception.dll to ${CMAKE_BUILD_TYPE} output directory"
 )
 
 # Copy config.json to output directory
 add_custom_command(TARGET keyflow POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/src/config.json"
-        "$<TARGET_FILE_DIR:keyflow>/config.json"
-    COMMENT "Copying config.json to output directory"
+        "${OUTPUT_DIR}/config.json"
+    COMMENT "Copying config.json to ${CMAKE_BUILD_TYPE} output directory"
+)
+
+# Copy keyboard-icon.ico to output directory
+add_custom_command(TARGET keyflow POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/keyboard-icon.ico"
+        "${OUTPUT_DIR}/keyboard-icon.ico"
+    COMMENT "Copying keyboard-icon.ico to ${CMAKE_BUILD_TYPE} output directory"
 )
 
 # Installation

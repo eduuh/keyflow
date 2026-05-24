@@ -1,5 +1,6 @@
 #include "Config.h"
 #include "DebugLog.h"
+#include "SystemTray.h"
 #include "config/ConfigBuilder.h"
 #include "config/ConfigLoader.h"
 #include "hardware/HardwareIO.h"
@@ -20,7 +21,8 @@ Config g_config;
 volatile bool g_running = true;
 
 void signalHandler(int signal) {
-    std::cout << "\n[Main] Received signal " << signal << ", shutting down...\n";
+    (void)signal; // Unused in Release builds
+    DEBUG_LOG("\n[Main] Received signal " << signal << ", shutting down...\n");
     g_running = false;
 }
 
@@ -28,7 +30,7 @@ void signalHandler(int signal) {
  * @brief Release all modifier keys to prevent stuck keys on shutdown
  */
 void releaseAllModifiers(HardwareIO& hardware) {
-    std::cout << "[Main] Releasing all modifier keys...\n";
+    DEBUG_LOG("[Main] Releasing all modifier keys...\n");
 
     // Release all modifiers (both left and right)
     hardware.sendKey(SC_LSHIFT, false);
@@ -42,9 +44,18 @@ void releaseAllModifiers(HardwareIO& hardware) {
 }
 
 int main(int argc, char* argv[]) {
+#ifndef DEBUG_BUILD
+    // Hide console window in Release builds (runs as system tray app)
+    HWND console = GetConsoleWindow();
+    if (console) {
+        ShowWindow(console, SW_HIDE);
+    }
+#else
+    // Show banner in Debug builds
     std::cout << "==============================================\n";
     std::cout << "  keyflow 🌶️ - Keyboard Remapper\n";
     std::cout << "==============================================\n\n";
+#endif
 
     // Parse command-line arguments
     g_config.parseArgs(argc, argv);
@@ -62,16 +73,8 @@ int main(int argc, char* argv[]) {
     // Load configuration from JSON
     JsonConfig jsonConfig;
     try {
-        std::cout << "[Config] Loading: " << configPath << "\n\n";
+        DEBUG_LOG("[Config] Loading: " << configPath << "\n\n");
         jsonConfig = ConfigLoader::loadFromFile(configPath);
-
-        // Apply debug settings from JSON
-        if (jsonConfig.debug.debugMode) {
-            g_config.debugMode = true;
-            g_config.showAllKeys = jsonConfig.debug.showAllKeys;
-            g_config.showPipeline = jsonConfig.debug.showPipeline;
-            g_config.showTimings = jsonConfig.debug.showTimings;
-        }
 
     } catch (const std::exception& e) {
         std::cerr << "[Config] ERROR: " << e.what() << "\n";
@@ -97,6 +100,13 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // Initialize system tray
+    SystemTray sysTray;
+    if (!sysTray.initialize("Keyflow - Keyboard Remapper")) {
+        std::cerr << "[Main] Failed to initialize system tray\n";
+        return 1;
+    }
+
     // Build pipeline from configuration
     Pipeline pipeline;
     bool verbose = !g_config.debugMode; // Show config loading unless in debug mode
@@ -105,7 +115,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Display configuration summary
+    // Display configuration summary (Debug only)
+#ifdef DEBUG_BUILD
     if (!jsonConfig.name.empty()) {
         std::cout << "[Main] Configuration: " << jsonConfig.name << "\n";
     }
@@ -114,16 +125,27 @@ int main(int argc, char* argv[]) {
 
     std::cout << "[Info] Runtime Controls:\n";
     std::cout << "  Ctrl+Escape  - Exit\n\n";
+#endif
 
     // Main processing loop
+#ifdef DEBUG_BUILD
     int keystrokeCount = 0;
+#endif
 
     while (g_running) {
+        // Process system tray messages
+        if (!sysTray.processMessages()) {
+            g_running = false;
+            break;
+        }
+
         auto event = hardware.waitForKey(2);
         if (!event)
             continue;
 
+#ifdef DEBUG_BUILD
         keystrokeCount++;
+#endif
 
         // If disabled, pass through unchanged
         if (!g_config.keyflowEnabled) {
@@ -137,12 +159,13 @@ int main(int argc, char* argv[]) {
         // Check for Ctrl+Escape to exit
         if (event->isDown && event->scancode == SC_ESCAPE &&
             (result.modifiers & (1 << 2) || result.modifiers & (1 << 3))) { // LCTRL or RCTRL
-            std::cout << "\n[HOTKEY] Ctrl+Escape detected, exiting...\n";
+            DEBUG_LOG("\n[HOTKEY] Ctrl+Escape detected, exiting...\n");
             g_running = false;
             continue;
         }
 
-        // Log keystroke if enabled (combined with pipeline result)
+        // Log keystroke if enabled (compiled out in Release)
+#ifdef DEBUG_BUILD
         if (g_config.showAllKeys) {
             // Get key name or use hex if unknown
             const char* keyName = getScancodeNameOrNull(event->scancode);
@@ -223,6 +246,7 @@ int main(int argc, char* argv[]) {
 
             std::cout << "\n";
         }
+#endif // DEBUG_BUILD
 
         // Execute result
         switch (result.action) {
@@ -254,8 +278,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    std::cout << "\n[Main] Processed " << keystrokeCount << " keystrokes\n";
-    std::cout << "[Main] Shutting down...\n";
+    DEBUG_LOG("\n[Main] Processed " << keystrokeCount << " keystrokes\n");
+    DEBUG_LOG("[Main] Shutting down...\n");
 
     // Release all modifiers to prevent stuck keys
     releaseAllModifiers(hardware);
