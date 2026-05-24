@@ -3,25 +3,44 @@
 #include "../pipeline/IProcessor.h"
 #include "../pipeline/Modifiers.h"
 
+#include <string>
+#include <unordered_map>
+
 namespace keyflow {
 
 /**
- * @brief Tracks modifier key state
+ * @brief Tracks modifier key state including custom modifiers
  *
  * Keeps track of which modifiers (Shift, Ctrl, Alt, Win) are currently
- * held down. Sets flags in the context for other processors to use.
+ * held down. Also supports custom modifiers where any key can act as a modifier.
  *
  * In EDUUH_MOD config, these become MOD layers:
  * - MOD11: Activated by RALT (numpad layer)
  * - MOD12: Activated by LALT (arrows/symbols layer)
  * - MOD13: Activated by LCTRL or LWIN (tab/brackets layer)
+ *
+ * Custom modifiers example:
+ * - Register Space as "SPACE_MOD" → Can use SPACE_MOD as layer trigger
  */
 class ModifierTracker : public IProcessor {
   public:
     bool process(Context& ctx) override {
-        // Check if this is a modifier key (use outputScancode after Rewire)
+        // Check standard modifier keys (use outputScancode after Rewire)
         if (isModifierKey(ctx.outputScancode)) {
             ModifierBit modBit = getModifierBit(ctx.outputScancode);
+
+            // Update modifier state
+            if (ctx.isDown) {
+                activeModifiers_ |= static_cast<uint32_t>(modBit);
+            } else {
+                activeModifiers_ &= ~static_cast<uint32_t>(modBit);
+            }
+        }
+
+        // Check custom modifier keys (use physical scancode before remapping)
+        auto customIt = customModifiers_.find(ctx.scancode);
+        if (customIt != customModifiers_.end()) {
+            ModifierBit modBit = customIt->second;
 
             // Update modifier state
             if (ctx.isDown) {
@@ -51,8 +70,41 @@ class ModifierTracker : public IProcessor {
         return (activeModifiers_ & modBit) != 0;
     }
 
+    /**
+     * @brief Register a custom modifier key
+     * @param scancode Physical scancode that acts as modifier
+     * @param modifierName Modifier name (e.g., "SPACE_MOD")
+     * @param modifierBit The custom modifier bit to use
+     */
+    void registerCustomModifier(uint16_t scancode, const std::string& modifierName,
+                                ModifierBit modifierBit) {
+        customModifiers_[scancode] = modifierBit;
+        customModifierNames_[modifierName] = modifierBit;
+    }
+
+    /**
+     * @brief Resolve custom modifier name to bit
+     * @return ModifierBit or ModifierBit::None if not found
+     */
+    [[nodiscard]] ModifierBit resolveCustomModifier(const std::string& modifierName) const {
+        auto it = customModifierNames_.find(modifierName);
+        if (it != customModifierNames_.end()) {
+            return it->second;
+        }
+        return ModifierBit::None;
+    }
+
+    /**
+     * @brief Check if a modifier name is a registered custom modifier
+     */
+    [[nodiscard]] bool isCustomModifier(const std::string& modifierName) const {
+        return customModifierNames_.find(modifierName) != customModifierNames_.end();
+    }
+
   private:
-    uint32_t activeModifiers_ = 0; // Bitmask of active modifiers
+    uint32_t activeModifiers_ = 0;                              // Bitmask of active modifiers
+    std::unordered_map<uint16_t, ModifierBit> customModifiers_; // scancode → custom modifier bit
+    std::unordered_map<std::string, ModifierBit> customModifierNames_; // name → custom modifier bit
 };
 
 } // namespace keyflow

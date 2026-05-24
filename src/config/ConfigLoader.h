@@ -125,6 +125,41 @@ class ConfigLoader {
             }
         }
 
+        // Validate customModifiers
+        std::unordered_set<std::string> seenModifierNames;
+        for (size_t i = 0; i < config.customModifiers.size(); ++i) {
+            const auto& customMod = config.customModifiers[i];
+            std::string context = "customModifiers[" + std::to_string(i) + "]";
+
+            if (!KeyNameMapper::nameToScancode(customMod.key)) {
+                result.errors.emplace_back(context + ".key",
+                                           "Unknown key name: '" + customMod.key + "'");
+                result.valid = false;
+            }
+
+            if (customMod.modifierName.empty()) {
+                result.errors.emplace_back(context + ".modifierName",
+                                           "Modifier name cannot be empty");
+                result.valid = false;
+            }
+
+            // Check for duplicate modifier names
+            if (seenModifierNames.count(customMod.modifierName)) {
+                result.errors.emplace_back(context + ".modifierName", "Duplicate modifier name: '" +
+                                                                          customMod.modifierName +
+                                                                          "'");
+                result.valid = false;
+            }
+            seenModifierNames.insert(customMod.modifierName);
+
+            // Limit to 23 custom modifiers (bits 9-31)
+            if (i >= 23) {
+                result.errors.emplace_back(context,
+                                           "Maximum 23 custom modifiers allowed (limit reached)");
+                result.valid = false;
+            }
+        }
+
         // Validate layers
         for (size_t i = 0; i < config.layers.size(); ++i) {
             const auto& layer = config.layers[i];
@@ -213,6 +248,11 @@ class ConfigLoader {
         // NoMod combos
         if (j.contains("noModCombos")) {
             parseNoModCombos(j["noModCombos"], config.noModCombos);
+        }
+
+        // Custom modifiers
+        if (j.contains("customModifiers")) {
+            parseCustomModifiers(j["customModifiers"], config.customModifiers);
         }
 
         // Layers
@@ -361,6 +401,33 @@ class ConfigLoader {
             }
 
             shiftMappings.push_back(mapping);
+        }
+    }
+
+    /**
+     * @brief Parse customModifiers array
+     */
+    static void parseCustomModifiers(const json& j, std::vector<CustomModifier>& customModifiers) {
+        if (!j.is_array()) {
+            throw std::runtime_error("customModifiers must be an array");
+        }
+
+        for (const auto& item : j) {
+            CustomModifier customMod;
+
+            if (!item.contains("key") || !item.contains("modifierName")) {
+                throw std::runtime_error(
+                    "customModifier must have 'key' and 'modifierName' fields");
+            }
+
+            customMod.key = item["key"].get<std::string>();
+            customMod.modifierName = item["modifierName"].get<std::string>();
+
+            if (item.contains("blockOutput")) {
+                customMod.blockOutput = item["blockOutput"].get<bool>();
+            }
+
+            customModifiers.push_back(customMod);
         }
     }
 };

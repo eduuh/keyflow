@@ -24,6 +24,7 @@ cp examples\simple.json config.json
 
 - **1:1 key remapping** - CapsLock → Ctrl
 - **Layer system** - Vim navigation, symbols, numpad
+- **Custom modifiers** - Any key as a modifier (Space Cadet navigation)
 - **JSON config** - Simple, human-readable
 - **<2ms latency** - Driver-level capture
 - **Zero logging** - No data collection, no network
@@ -93,10 +94,17 @@ Install MinGW-w64: https://www.msys2.org/
 ## Documentation
 
 - **[Installation Guide](docs/INSTALLATION.md)** - Setup instructions
+- **[Configuration Usage](docs/CONFIG_USAGE.md)** - How to use config files
+- **[Custom Modifiers](docs/CUSTOM_MODIFIERS.md)** - Advanced layer triggers (Space Cadet, etc.)
 - **[Architecture](docs/ARCHITECTURE.md)** - Technical details
+- **[Development Guide](docs/DEVELOPMENT.md)** - Build and development
 - **[Privacy Policy](docs/PRIVACY.md)** - Privacy guarantees
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues
-- **[Configuration Reference](JSON_CONFIG.md)** - Complete config guide
+
+---
+
+## Acknowledgments
+
+Development assisted by [Claude Code](https://claude.com/claude-code) - Anthropic's AI-powered coding assistant.
 
 ---
 

@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "name": "Custom Modifiers Example - Advanced Layout",
+  "strictMode": false,
+
+  "remapping": {
+    "CapsLock": "LeftShift",
+    "LeftWin": "RightAlt",
+    "RightWin": "RightAlt"
+  },
+
+  "customModifiers": [
+    {
+      "key": "Space",
+      "modifierName": "SPACE_MOD",
+      "blockOutput": true
+    },
+    {
+      "key": "LeftAlt",
+      "modifierName": "LALT_MOD",
+      "blockOutput": true
+    },
+    {
+      "key": "RightAlt",
+      "modifierName": "RALT_MOD",
+      "blockOutput": true
+    }
+  ],
+
+  "layers": [
+    {
+      "name": "Space Cadet Navigation Layer",
+      "trigger": "SPACE_MOD",
+      "mappings": {
+        "H": "Left",
+        "J": "Down",
+        "K": "Up",
+        "L": "Right",
+        "U": "Home",
+        "I": "PageUp",
+        "O": "PageDown",
+        "P": "End",
+        "Backspace": "Delete"
+      }
+    },
+    {
+      "name": "Left Alt Layer - Numpad",
+      "trigger": "LALT_MOD",
+      "mappings": {
+        "M": "1",
+        "Comma": "2",
+        "Period": "3",
+        "J": "4",
+        "K": "5",
+        "L": "6",
+        "U": "7",
+        "I": "8",
+        "O": "9",
+        "Space": "0"
+      }
+    },
+    {
+      "name": "Right Alt Layer - Function Keys & Symbols",
+      "trigger": "RALT_MOD",
+      "mappings": {
+        "1": "F1",
+        "2": "F2",
+        "3": "F3",
+        "4": "F4",
+        "5": "F5",
+        "6": "F6",
+        "7": "F7",
+        "8": "F8",
+        "9": "F9",
+        "0": "F10",
+        "Minus": "F11",
+        "Equals": "F12"
+      }
+    }
+  ]
+}
