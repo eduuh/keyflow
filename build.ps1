@@ -1,14 +1,34 @@
 # Keyflow Build Script
-# Usage: .\build.ps1 [-Config Debug|Release] [-Tests]
+# Usage: .\build.ps1 [-Config Debug|Release] [-Tests] [-RunTests] [-Clean]
+#
+#   -Config <type>  Debug or Release (default: Release)
+#   -Tests          Configure + build with tests enabled
+#   -RunTests       Run the existing test binary without reconfiguring/rebuilding
+#                   (requires a prior `-Tests` build)
+#   -Clean          Wipe the build directory before configuring
 
 param(
     [ValidateSet("Debug", "Release")]
     [string]$Config = "Release",
     [switch]$Tests,
+    [switch]$RunTests,
     [switch]$Clean
 )
 
 $BuildDir = "builds\$Config"
+
+# Fast path: just run tests, skip configure/build entirely.
+if ($RunTests) {
+    $TestExe = "$BuildDir\tests\$Config\keyflow_tests.exe"
+    if (-not (Test-Path $TestExe)) {
+        Write-Host "Test binary not found: $TestExe" -ForegroundColor Red
+        Write-Host "Run './build.ps1 -Tests' first to build it." -ForegroundColor Yellow
+        exit 1
+    }
+    Write-Host "Running tests..." -ForegroundColor Cyan
+    & $TestExe @args
+    exit $LASTEXITCODE
+}
 
 Write-Host "=== Keyflow Build Script ===" -ForegroundColor Cyan
 Write-Host "Build directory: $BuildDir" -ForegroundColor Green

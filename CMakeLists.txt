@@ -65,6 +65,12 @@ if(KEYFLOW_HAS_PLATFORM_BACKEND)
 
     add_executable(keyflow ${SOURCES})
 
+    # Expose the CMake project version to the C++ source so `--version` can print
+    # the same number the release workflow tags with.
+    target_compile_definitions(keyflow PRIVATE
+        KEYFLOW_VERSION="${PROJECT_VERSION}"
+    )
+
     if(WIN32)
         target_link_libraries(keyflow PRIVATE interception)
     endif()

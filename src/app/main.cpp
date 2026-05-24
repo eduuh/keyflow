@@ -1,5 +1,6 @@
 #include "DebugLog.h"
 #include "app/Application.h"
+#include "config/BehaviorEnumerator.h"
 #include "config/ConfigBuilder.h"
 #include "config/ConfigLoader.h"
 #include "hardware/Scancodes.h"
@@ -29,6 +30,8 @@ void shutdownCallback() {
 struct CliArgs {
     std::string configPath = "config.json";
     bool validateOnly = false;
+    bool listBindings = false;
+    bool printVersion = false;
     bool debug = false;
     bool verbose = false;
 };
@@ -39,6 +42,10 @@ CliArgs parseArgs(int argc, char* argv[]) {
         std::string_view arg = argv[i];
         if (arg == "--validate") {
             args.validateOnly = true;
+        } else if (arg == "--list-bindings") {
+            args.listBindings = true;
+        } else if (arg == "--version" || arg == "-V") {
+            args.printVersion = true;
         } else if (arg == "--debug" || arg == "-d") {
             args.debug = true;
         } else if (arg == "--verbose" || arg == "-v") {
@@ -48,6 +55,14 @@ CliArgs parseArgs(int argc, char* argv[]) {
         }
     }
     return args;
+}
+
+#ifndef KEYFLOW_VERSION
+#    define KEYFLOW_VERSION "unknown"
+#endif
+
+void printVersion() {
+    std::cout << "keyflow " << KEYFLOW_VERSION << "\n";
 }
 
 void printValidationErrors(const ValidationResult& result) {
@@ -104,6 +119,57 @@ void printValidateSummary(const JsonConfig& config) {
               << "[Config] Remappings: " << config.remapping.size() << "\n"
               << "[Config] NoModCombos: " << config.noModCombos.size() << "\n"
               << "[Config] Layers: " << config.layers.size() << "\n";
+}
+
+// Dumps every active binding from the loaded config, grouped by kind. Useful
+// for "what does my LAlt+I actually do" without diving into JSON. Read-only —
+// doesn't start the runtime.
+void printBindings(const JsonConfig& config) {
+    auto behaviors = enumerateBehaviors(config, config.name);
+
+    std::cout << "\nKeyflow bindings — " << config.name << " (" << behaviors.size()
+              << " behaviors)\n";
+    std::cout << std::string(60, '=') << "\n\n";
+
+    auto printSection = [&](const char* title, Behavior::Kind kind) {
+        bool printedHeader = false;
+        for (const auto& b : behaviors) {
+            if (b.kind != kind) {
+                continue;
+            }
+            if (!printedHeader) {
+                std::cout << title << "\n" << std::string(strlen(title), '-') << "\n";
+                printedHeader = true;
+            }
+            std::cout << "  " << b.physicalKeyName;
+            if (b.triggerModifier) {
+                std::cout << " (with " << *b.triggerModifier << ")";
+            }
+            std::cout << "  →  ";
+            if (b.expectedInjectShift) {
+                std::cout << "Shift+";
+            }
+            if (b.kind == Behavior::Kind::CustomModifier) {
+                std::cout << "modifier:" << b.expectedOutputName;
+                if (b.blockOutput) {
+                    std::cout << " (output blocked)";
+                }
+            } else {
+                std::cout << b.expectedOutputName;
+            }
+            std::cout << "\n";
+        }
+        if (printedHeader) {
+            std::cout << "\n";
+        }
+    };
+
+    printSection("Modifier remaps", Behavior::Kind::ModifierRemap);
+    printSection("Key remaps", Behavior::Kind::Remap);
+    printSection("No-modifier combos", Behavior::Kind::NoModCombo);
+    printSection("Custom modifiers", Behavior::Kind::CustomModifier);
+    printSection("Layer mappings", Behavior::Kind::LayerMapping);
+    printSection("Layer shift-mappings (inject Shift)", Behavior::Kind::LayerShiftMapping);
 }
 
 // Send replacement key with shift injection. Tracker is updated so the safety
@@ -201,6 +267,12 @@ int main(int argc, char* argv[]) {
     platformInit->hideConsoleIfRelease();
 
     CliArgs args = parseArgs(argc, argv);
+
+    if (args.printVersion) {
+        printVersion();
+        return 0;
+    }
+
     if (args.verbose) {
         gVerboseLogging = true;
         std::cout << "[Main] Verbose logging enabled - writing to keyflow_debug.log\n";
@@ -213,6 +285,11 @@ int main(int argc, char* argv[]) {
 
     if (args.validateOnly) {
         printValidateSummary(*config);
+        return 0;
+    }
+
+    if (args.listBindings) {
+        printBindings(*config);
         return 0;
     }
 
