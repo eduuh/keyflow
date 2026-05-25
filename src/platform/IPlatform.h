@@ -38,7 +38,11 @@ class ISingleInstanceLock {
 class IPlatformInit {
   public:
     virtual ~IPlatformInit() = default;
-    virtual void hideConsoleIfRelease() noexcept = 0;
+    // Surface a fatal startup error to the user via the platform's modal UI
+    // (MessageBox on Windows). Needed because SUBSYSTEM:WINDOWS swallows
+    // stderr when launched from Explorer — without this, init failures look
+    // like the exe did nothing.
+    virtual void showFatalError(std::string_view message) noexcept = 0;
     using ShutdownCallback = void (*)();
     virtual void installSignalHandlers(ShutdownCallback callback) noexcept = 0;
 };

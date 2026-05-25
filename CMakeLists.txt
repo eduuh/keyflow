@@ -65,14 +65,20 @@ if(KEYFLOW_HAS_PLATFORM_BACKEND)
 
     add_executable(keyflow ${SOURCES})
 
-    # Expose the CMake project version to the C++ source so `--version` can print
-    # the same number the release workflow tags with.
-    target_compile_definitions(keyflow PRIVATE
-        KEYFLOW_VERSION="${PROJECT_VERSION}"
-    )
-
     if(WIN32)
         target_link_libraries(keyflow PRIVATE interception)
+
+        # Release builds: no console window. Process lives in the system tray.
+        # /ENTRY:mainCRTStartup lets us keep the standard `int main(argc, argv)`
+        # signature instead of switching to WinMain.
+        # Generator expressions are required: Visual Studio is multi-config,
+        # so CMAKE_BUILD_TYPE is empty at configure time.
+        if(MSVC)
+            target_link_options(keyflow PRIVATE
+                $<$<CONFIG:Release>:/SUBSYSTEM:WINDOWS>
+                $<$<CONFIG:Release>:/ENTRY:mainCRTStartup>
+            )
+        endif()
     endif()
 
     # Output directory - organize by build type

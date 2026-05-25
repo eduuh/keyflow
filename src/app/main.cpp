@@ -1,6 +1,5 @@
 #include "DebugLog.h"
 #include "app/Application.h"
-#include "config/BehaviorEnumerator.h"
 #include "config/ConfigBuilder.h"
 #include "config/ConfigLoader.h"
 #include "hardware/Scancodes.h"
@@ -10,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -29,9 +29,6 @@ void shutdownCallback() {
 
 struct CliArgs {
     std::string configPath = "config.json";
-    bool validateOnly = false;
-    bool listBindings = false;
-    bool printVersion = false;
     bool debug = false;
     bool verbose = false;
 };
@@ -40,13 +37,7 @@ CliArgs parseArgs(int argc, char* argv[]) {
     CliArgs args;
     for (int i = 1; i < argc; i++) {
         std::string_view arg = argv[i];
-        if (arg == "--validate") {
-            args.validateOnly = true;
-        } else if (arg == "--list-bindings") {
-            args.listBindings = true;
-        } else if (arg == "--version" || arg == "-V") {
-            args.printVersion = true;
-        } else if (arg == "--debug" || arg == "-d") {
+        if (arg == "--debug" || arg == "-d") {
             args.debug = true;
         } else if (arg == "--verbose" || arg == "-v") {
             args.verbose = true;
@@ -57,15 +48,7 @@ CliArgs parseArgs(int argc, char* argv[]) {
     return args;
 }
 
-#ifndef KEYFLOW_VERSION
-#    define KEYFLOW_VERSION "unknown"
-#endif
-
-void printVersion() {
-    std::cout << "keyflow " << KEYFLOW_VERSION << "\n";
-}
-
-void printValidationErrors(const ValidationResult& result) {
+void printValidationErrors(IPlatformInit& platform, const ValidationResult& result) {
     std::cerr << "\n[Config] Validation failed:\n\n";
     for (const auto& [field, message] : result.errors) {
         std::cerr << "  - " << field << ": " << message << "\n";
@@ -73,9 +56,18 @@ void printValidationErrors(const ValidationResult& result) {
     std::cerr << "\nTips:\n"
                  "  - Check key names in docs/CONFIG_USAGE.md\n"
                  "  - Key names are case-sensitive (e.g., 'CapsLock' not 'capslock')\n\n";
+
+    // Build a concise MessageBox version for Explorer-launched users.
+    std::ostringstream dialog;
+    dialog << "Config validation failed:\n\n";
+    for (const auto& [field, message] : result.errors) {
+        dialog << "  - " << field << ": " << message << "\n";
+    }
+    platform.showFatalError(dialog.str());
 }
 
-void printLoadFailure(const std::string& configPath, const std::exception& e) {
+void printLoadFailure(IPlatformInit& platform, const std::string& configPath,
+                      const std::exception& e) {
     std::cerr << "\n[Config] Failed to load: " << configPath << "\n\n"
               << "Error: " << e.what() << "\n\n";
 
@@ -89,87 +81,34 @@ void printLoadFailure(const std::string& configPath, const std::exception& e) {
                      "       \"remapping\": { \"CapsLock\": \"LeftCtrl\" }\n"
                      "     }\n\n"
                      "See docs/EDUUH_DH.md for the bundled layout's full spec.\n\n";
+        platform.showFatalError("config.json not found.\n\nMake sure config.json sits next to "
+                                "keyflow.exe.\n\nPath checked: " +
+                                configPath);
     } else {
         std::cerr << "Common issues:\n"
                      "  - Check JSON syntax (missing commas, brackets)\n"
                      "  - Ensure 'version' field exists\n"
                      "  - Validate at https://jsonlint.com\n\n";
+        platform.showFatalError(std::string("Failed to load config: ") + configPath + "\n\n" +
+                                e.what() + "\n\nCheck JSON syntax and the 'version' field.");
     }
 }
 
-std::optional<JsonConfig> loadAndValidateConfig(const std::string& configPath) {
+std::optional<JsonConfig> loadAndValidateConfig(IPlatformInit& platform,
+                                                const std::string& configPath) {
     try {
         DEBUG_LOG("[Config] Loading: " << configPath << "\n\n");
         JsonConfig config = ConfigLoader::loadFromFile(configPath);
         auto validation = ConfigLoader::validate(config);
         if (!validation) {
-            printValidationErrors(validation);
+            printValidationErrors(platform, validation);
             return std::nullopt;
         }
         return config;
     } catch (const std::exception& e) {
-        printLoadFailure(configPath, e);
+        printLoadFailure(platform, configPath, e);
         return std::nullopt;
     }
-}
-
-void printValidateSummary(const JsonConfig& config) {
-    std::cout << "[Config] Validation successful\n"
-              << "[Config] Config name: " << config.name << "\n"
-              << "[Config] Remappings: " << config.remapping.size() << "\n"
-              << "[Config] NoModCombos: " << config.noModCombos.size() << "\n"
-              << "[Config] Layers: " << config.layers.size() << "\n";
-}
-
-// Dumps every active binding from the loaded config, grouped by kind. Useful
-// for "what does my LAlt+I actually do" without diving into JSON. Read-only —
-// doesn't start the runtime.
-void printBindings(const JsonConfig& config) {
-    auto behaviors = enumerateBehaviors(config, config.name);
-
-    std::cout << "\nKeyflow bindings — " << config.name << " (" << behaviors.size()
-              << " behaviors)\n";
-    std::cout << std::string(60, '=') << "\n\n";
-
-    auto printSection = [&](const char* title, Behavior::Kind kind) {
-        bool printedHeader = false;
-        for (const auto& b : behaviors) {
-            if (b.kind != kind) {
-                continue;
-            }
-            if (!printedHeader) {
-                std::cout << title << "\n" << std::string(strlen(title), '-') << "\n";
-                printedHeader = true;
-            }
-            std::cout << "  " << b.physicalKeyName;
-            if (b.triggerModifier) {
-                std::cout << " (with " << *b.triggerModifier << ")";
-            }
-            std::cout << "  →  ";
-            if (b.expectedInjectShift) {
-                std::cout << "Shift+";
-            }
-            if (b.kind == Behavior::Kind::CustomModifier) {
-                std::cout << "modifier:" << b.expectedOutputName;
-                if (b.blockOutput) {
-                    std::cout << " (output blocked)";
-                }
-            } else {
-                std::cout << b.expectedOutputName;
-            }
-            std::cout << "\n";
-        }
-        if (printedHeader) {
-            std::cout << "\n";
-        }
-    };
-
-    printSection("Modifier remaps", Behavior::Kind::ModifierRemap);
-    printSection("Key remaps", Behavior::Kind::Remap);
-    printSection("No-modifier combos", Behavior::Kind::NoModCombo);
-    printSection("Custom modifiers", Behavior::Kind::CustomModifier);
-    printSection("Layer mappings", Behavior::Kind::LayerMapping);
-    printSection("Layer shift-mappings (inject Shift)", Behavior::Kind::LayerShiftMapping);
 }
 
 // Send replacement key with shift injection. Tracker is updated so the safety
@@ -264,33 +203,17 @@ void runEventLoop(Application& app, ModifierTracker* modTracker) {
 
 int main(int argc, char* argv[]) {
     auto platformInit = PlatformFactory::createPlatformInit();
-    platformInit->hideConsoleIfRelease();
 
     CliArgs args = parseArgs(argc, argv);
-
-    if (args.printVersion) {
-        printVersion();
-        return 0;
-    }
 
     if (args.verbose) {
         gVerboseLogging = true;
         std::cout << "[Main] Verbose logging enabled - writing to keyflow_debug.log\n";
     }
 
-    auto config = loadAndValidateConfig(args.configPath);
+    auto config = loadAndValidateConfig(*platformInit, args.configPath);
     if (!config) {
         return 1;
-    }
-
-    if (args.validateOnly) {
-        printValidateSummary(*config);
-        return 0;
-    }
-
-    if (args.listBindings) {
-        printBindings(*config);
-        return 0;
     }
 
     Application app(PlatformFactory::createHardwareIO(), PlatformFactory::createSystemTray());
@@ -301,8 +224,10 @@ int main(int argc, char* argv[]) {
 
     auto instanceLock = PlatformFactory::createSingleInstanceLock();
     if (!instanceLock->acquire()) {
-        std::cerr << "[Main] Another instance of Keyflow is already running\n"
-                     "[Main] Only one instance can run at a time\n";
+        std::cerr << "[Main] Couldn't take over from existing Keyflow instance\n";
+        platformInit->showFatalError(
+            "Couldn't take over from the existing Keyflow instance.\n\nThe other process may be "
+            "running as a different user or with elevated privileges. Try closing it manually.");
         gApp = nullptr;
         return 1;
     }
@@ -318,6 +243,12 @@ int main(int argc, char* argv[]) {
                "  4. Re-run keyflow.exe\n\n"
                "If the driver is already installed, check that interception.dll\n"
                "is sitting next to keyflow.exe in the same folder.\n\n";
+        platformInit->showFatalError(
+            "Hardware init failed — the Interception driver couldn't be opened.\n\n"
+            "Install it from:\n"
+            "https://github.com/oblitum/Interception/releases\n\n"
+            "Run install-interception.exe /install, reboot, then re-run keyflow.exe.\n\n"
+            "If already installed, check that interception.dll sits next to keyflow.exe.");
         gApp = nullptr;
         return 1;
     }
@@ -325,6 +256,9 @@ int main(int argc, char* argv[]) {
     ModifierTracker* modTracker = nullptr;
     if (!ConfigBuilder::buildPipeline(*config, app.pipeline(), !args.debug, &modTracker)) {
         std::cerr << "[Main] Failed to build pipeline from config\n";
+        platformInit->showFatalError(
+            "Failed to build pipeline from config.\n\nRun from PowerShell with --debug for "
+            "details.");
         gApp = nullptr;
         return 1;
     }
