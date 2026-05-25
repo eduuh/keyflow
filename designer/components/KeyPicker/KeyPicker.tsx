@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getKeyType, KEY_TYPE_STYLES } from "@/lib/keyTypes";
+import { displayLabel, SHIFTED_KEYS } from "@/lib/keyDisplay";
 import { cn } from "@/lib/utils";
 
 type KeyCategory = "basic" | "modifiers" | "navigation" | "numbers" | "symbols" | "shifted";
@@ -58,29 +59,7 @@ const KEYS: Record<KeyCategory, PickerKey[]> = {
     { label: ".", code: "Period" },
     { label: "/", code: "Slash" },
   ],
-  shifted: [
-    { label: "~", code: "Grave", isShifted: true },
-    { label: "!", code: "1", isShifted: true },
-    { label: "@", code: "2", isShifted: true },
-    { label: "#", code: "3", isShifted: true },
-    { label: "$", code: "4", isShifted: true },
-    { label: "%", code: "5", isShifted: true },
-    { label: "^", code: "6", isShifted: true },
-    { label: "&", code: "7", isShifted: true },
-    { label: "*", code: "8", isShifted: true },
-    { label: "(", code: "9", isShifted: true },
-    { label: ")", code: "0", isShifted: true },
-    { label: "_", code: "Minus", isShifted: true },
-    { label: "+", code: "Equals", isShifted: true },
-    { label: "{", code: "LeftBracket", isShifted: true },
-    { label: "}", code: "RightBracket", isShifted: true },
-    { label: "|", code: "Backslash", isShifted: true },
-    { label: ":", code: "Semicolon", isShifted: true },
-    { label: '"', code: "Apostrophe", isShifted: true },
-    { label: "<", code: "Comma", isShifted: true },
-    { label: ">", code: "Period", isShifted: true },
-    { label: "?", code: "Slash", isShifted: true },
-  ],
+  shifted: SHIFTED_KEYS.map((k) => ({ ...k, isShifted: true })),
 };
 
 export function KeyPicker() {
@@ -152,13 +131,13 @@ export function KeyPicker() {
             <>
               <span className="text-muted-foreground text-xl">→</span>
               <Badge variant="default" className="font-mono text-base px-3 py-1">
-                {currentTarget}
+                {displayLabel(currentTarget)}
               </Badge>
             </>
           )}
           {currentShift && (
             <Badge variant="default" className="font-mono text-base px-3 py-1">
-              ⇧ {currentShift.output}
+              ⇧ {displayLabel(currentShift.output)}
             </Badge>
           )}
         </div>
