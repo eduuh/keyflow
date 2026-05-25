@@ -3,12 +3,16 @@
   "version": "1.0.0",
   "description": "Visual keyboard configuration designer for KeyFlow",
   "scripts": {
+    "copy-config": "node scripts/copy-config.mjs",
+    "predev": "npm run copy-config",
+    "prebuild": "npm run copy-config",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "test": "playwright test",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "capture-images": "playwright test --project=capture --reporter=list"
   },
   "keywords": [
     "keyboard",
