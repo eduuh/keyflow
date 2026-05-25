@@ -2,6 +2,8 @@
 
 A personal Colemak-inspired keyboard layout shipped as the default Keyflow config (`src/config.json`).
 
+![Eduuh-DH all layers composite — every key shows its BASE remap plus its outputs in each layer (top: layer 0 / layer 1 or ⇧-injected)](images/eduuh-dh-all.png)
+
 ## What it is
 
 Eduuh-DH is **not** Colemak-DH. It borrows ideas from old Colemak and Colemak Mod-DH, then makes three structural changes:
@@ -36,6 +38,8 @@ Eduuh-DH:        Q W F P G   V J L U Y     A R S T D   / K N E I   X C B V -   Z
 | Bottom   | Z X C D V K H | X C B V - Z M H | Bottom row significantly customized              |
 
 ## Base remapping (physical → letter)
+
+![Eduuh-DH base remap — only the BASE remapping shown on each keycap, layer outputs omitted](images/eduuh-dh-base.png)
 
 ### Top row
 | Physical | Output |   | Physical | Output |
@@ -74,8 +78,11 @@ Eduuh-DH:        Q W F P G   V J L U Y     A R S T D   / K N E I   X C B V -   Z
 | RightShift   | RightCtrl   |
 | Enter        | RightShift  |
 | RightCtrl    | PrintScreen |
+| LeftWin      | LeftAlt     |
 
 `CapsLock → Shift` is the foundational ergonomic move. `Enter → RightShift` puts a second shift under the right pinky, freeing both shift keys for use as Ctrl modifiers. CapsLock blocking (`"disableCapsLock": true`) prevents accidental caps-lock toggles.
+
+`LeftWin → LeftAlt` repurposes the left Windows key as a second LeftAlt — useful on laptops where LWin sits where Alt should be ergonomically. Two consequences: (1) the Start menu no longer pops when LWin is pressed alone (reach it via Ctrl+Esc), and (2) LWin inherits LAlt's role as the Numpad layer trigger, so LWin + I produces `4` just like LAlt + I.
 
 ## Number row (no-mod combos)
 
@@ -94,6 +101,8 @@ These fire when no modifier is held — typing the number row produces programmi
 ## Layers
 
 ### Numpad Layer (LAlt)
+
+![Numpad layer — BASE remap on the bottom-left of each keycap, LAlt-mapped output on the top-left, ⇧-injected outputs on the top-right](images/eduuh-dh-numpad.png)
 
 Hold LeftAlt to turn the right side of the keyboard into a numeric keypad. Physical positions, not Colemak positions.
 
@@ -114,6 +123,8 @@ Shift-injected combos in the Numpad layer:
 | U          | `+` (numeric operator on Colemak-J position) |
 
 ### Arrows & Symbols Layer (RAlt)
+
+![Arrows and Symbols layer — BASE remap on the bottom-left, RAlt-mapped output on the top-left, ⇧-injected symbols on the top-right](images/eduuh-dh-arrows.png)
 
 Hold RightAlt for navigation and the rest of the programming symbol set.
 
