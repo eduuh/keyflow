@@ -1,0 +1,45 @@
+// Windows version info resource. Embedded into keyflow.exe by the MSVC
+// resource compiler. Shows up in: right-click -> Properties -> Details.
+//
+// @VAR@ placeholders are substituted by CMake's configure_file().
+// Single source of truth for the version: CMakeLists.txt project(... VERSION ...).
+
+#include <winver.h>
+
+#define VER_FILEVERSION         @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+#define VER_FILEVERSION_STR     "@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@.0"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     VER_FILEVERSION
+PRODUCTVERSION  VER_FILEVERSION
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+FILEFLAGS       VS_FF_DEBUG
+#else
+FILEFLAGS       0x0L
+#endif
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        // 0409 = US English, 04B0 = Unicode codepage (1200).
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",      "Edwin Muraya"
+            VALUE "FileDescription",  "KeyFlow - keyboard remapper and layer engine"
+            VALUE "FileVersion",      VER_FILEVERSION_STR
+            VALUE "InternalName",     "keyflow"
+            VALUE "LegalCopyright",   "Copyright (C) 2025-2026 Edwin Muraya. MIT License."
+            VALUE "OriginalFilename", "keyflow.exe"
+            VALUE "ProductName",      "KeyFlow"
+            VALUE "ProductVersion",   VER_FILEVERSION_STR
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        // Must match the StringFileInfo BLOCK above: 0x0409 / 0x04B0.
+        VALUE "Translation", 0x0409, 0x04B0
+    END
+END

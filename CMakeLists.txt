@@ -52,8 +52,19 @@ if(KEYFLOW_HAS_PLATFORM_BACKEND)
         link_directories(
             ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/windows    # For interception.lib
         )
+
+        # Generate the Windows VERSIONINFO resource from the template. @ONLY
+        # restricts substitution to @VAR@ so the .rc's #define / hex literals
+        # are left alone.
+        configure_file(
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/app/keyflow.rc.in"
+            "${CMAKE_CURRENT_BINARY_DIR}/keyflow.rc"
+            @ONLY
+        )
+
         set(PLATFORM_SOURCES
             src/platform/windows/WindowsHardwareIO.cpp
+            "${CMAKE_CURRENT_BINARY_DIR}/keyflow.rc"
         )
     endif()
 
