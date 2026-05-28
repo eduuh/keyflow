@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(keyflow VERSION 2.1.0 LANGUAGES CXX)
+project(keyflow VERSION 2.1.1 LANGUAGES CXX)
 
 # C++17 required
 set(CMAKE_CXX_STANDARD 17)

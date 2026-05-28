@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-05-28
+
+Build and CI maintenance release — no changes to remapping behavior.
+
+### Added
+- CI now builds a Release binary on every push to `main` and uploads it as a
+  workflow artifact, so a tested build is always available without cutting a tag.
+
+### Changed
+- `keyflow.exe` now embeds a Windows VERSIONINFO resource, so the publisher,
+  version, and product name appear in the file's Properties → Details dialog.
+
 ## [2.1.0] - 2026-05-25
 
 ### Highlights
