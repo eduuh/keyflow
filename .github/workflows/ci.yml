@@ -33,3 +33,79 @@ jobs:
         run: |
           cd build
           ctest -C Debug --output-on-failure
+
+  release-artifact:
+    # Produce a Release build of keyflow.exe + bundled files on every push to
+    # main (or manual dispatch), so maintainers/testers can grab a working
+    # binary from any commit without cutting a tag. Skipped on PRs — keeps
+    # the artifact list focused on main-line commits and saves runner minutes.
+    # Gated on build-and-test passing: a known-broken binary is worse than no
+    # binary.
+    needs: build-and-test
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure (Release)
+        shell: pwsh
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Release
+
+      - name: Compute short SHA for artifact name
+        id: short
+        shell: pwsh
+        run: |
+          "sha=$($env:GITHUB_SHA.Substring(0,7))" >> $env:GITHUB_OUTPUT
+
+      - name: Locate release folder
+        id: locate
+        shell: pwsh
+        run: |
+          # Same probe pattern as release.yml: VS multi-config emits to a few
+          # different paths depending on CMake's OUTPUT_DIR resolution.
+          $candidates = @(
+            "build/release/bin/Release",
+            "build/Release",
+            "build/release/bin",
+            "build/bin/Release"
+          )
+          $folder = $candidates | Where-Object { Test-Path (Join-Path $_ "keyflow.exe") } | Select-Object -First 1
+          if (-not $folder) {
+            Write-Error "Release folder containing keyflow.exe not found. Probed: $($candidates -join ', ')"
+            exit 1
+          }
+          Write-Host "Found release folder at: $folder"
+          "folder=$folder" >> $env:GITHUB_OUTPUT
+
+      - name: Stage artifact contents (binary + DLL + config + LICENSE + notices)
+        shell: pwsh
+        run: |
+          $folder = "${{ steps.locate.outputs.folder }}"
+          $required = @("keyflow.exe", "interception.dll", "config.json")
+          foreach ($file in $required) {
+            if (-not (Test-Path (Join-Path $folder $file))) {
+              Write-Error "Required file missing in release folder: $file"
+              exit 1
+            }
+          }
+          # LGPL-3.0 compliance: THIRD_PARTY_NOTICES must travel with
+          # interception.dll. LICENSE + README included so testers know what
+          # they're running.
+          Copy-Item "LICENSE" $folder
+          Copy-Item "README.md" $folder
+          Copy-Item "THIRD_PARTY_NOTICES.md" $folder
+
+      - name: Upload keyflow build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: keyflow-main-${{ steps.short.outputs.sha }}
+          path: ${{ steps.locate.outputs.folder }}/*
+          retention-days: 30
+          if-no-files-found: error
