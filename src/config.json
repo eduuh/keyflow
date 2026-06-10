@@ -102,6 +102,11 @@
       "name": "Numpad Layer",
       "trigger": "LALT",
       "mappings": {
+        "_comment": "Passthrough Shift and Ctrl on this layer",
+        "Enter": "RightShift",
+        "LeftShift": "LeftCtrl",
+        "RightShift": "RightCtrl",
+        "LeftCtrl": "LeftCtrl",
         "9": "7",
         "0": "8",
         "Minus": "9",
@@ -125,6 +130,11 @@
       "name": "Arrows and Symbols Layer",
       "trigger": "RALT",
       "mappings": {
+        "_comment": "Passthrough Shift and Ctrl on this layer",
+        "Enter": "RightShift",
+        "LeftShift": "LeftCtrl",
+        "RightShift": "RightCtrl",
+        "LeftCtrl": "LeftCtrl",
         "K": "Left",
         "L": "Down",
         "Semicolon": "Right",
