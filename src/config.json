@@ -10,7 +10,6 @@
     "RightShift": "RightCtrl",
     "Enter": "RightShift",
     "RightCtrl": "PrintScreen",
-    "LeftWin": "LeftAlt",
 
     "_comment2": "Colemak-DH Top Row",
     "E": "F",
@@ -74,7 +73,31 @@
     {"key": "Tab", "output": "Tab", "shift": false, "description": "Shift+Tab passthrough"}
   ],
 
+  "customModifiers": [
+    {
+      "key": "LeftWin",
+      "modifierName": "WIN_MOD",
+      "blockOutput": true
+    }
+  ],
+
   "layers": [
+    {
+      "name": "Win Layer",
+      "trigger": "WIN_MOD",
+      "mappings": {
+        "_comment": "Home row A-L → workspaces 1-9 via numpad relay",
+        "A": "KP_1",
+        "S": "KP_2",
+        "D": "KP_3",
+        "F": "KP_4",
+        "G": "KP_5",
+        "H": "KP_6",
+        "J": "KP_7",
+        "K": "KP_8",
+        "L": "KP_9"
+      }
+    },
     {
       "name": "Numpad Layer",
       "trigger": "LALT",
