@@ -4,7 +4,19 @@
 [![Release](https://img.shields.io/github/v/release/eduuh/keyflow?include_prereleases)](https://github.com/eduuh/keyflow/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Privacy-first keyboard remapper for Windows. Zero data collection, driver-level interception, JSON config.
+keyflow remaps a Windows keyboard from a JSON config. Use it to put navigation on
+a layer, change modifier keys, or assign key combos without changing keyboard
+firmware. The bundled config includes the Eduuh-DH layout.
+
+The remapper uses C++17 and the Interception driver. A processor pipeline handles
+modifiers, layers, remappings, and combos before sending keys back to Windows.
+The [web designer](designer/) uses Next.js, React, TypeScript, and Zustand to edit
+configs visually.
+
+The runtime is Windows-only. Linux and macOS can build the platform-independent
+tests, but don't have runtime backends yet. Driver installation needs admin
+rights and a reboot; running keyflow afterward doesn't. Verbose logging is
+opt-in and writes per-event logs, so leave it off for normal use.
 
 ## Quick start
 
@@ -43,7 +55,7 @@ See [docs/CONFIG_USAGE.md](docs/CONFIG_USAGE.md) for the full reference.
 
 ```powershell
 .\build.ps1            # Release
-.\build.ps1 -Tests     # Debug + tests
+.\build.ps1 -Tests     # Release + tests
 ```
 
 Requirements: CMake 3.15+, MSVC or any C++17 compiler. Details in [BUILD.md](BUILD.md).
