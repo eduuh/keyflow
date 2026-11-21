@@ -55,6 +55,7 @@ protected:
     libevdev *observer = nullptr;
     ASSERT_EQ(libevdev_new_from_fd(outputFd_, &observer), 0);
     observer_.reset(observer);
+    ASSERT_STREQ(libevdev_get_phys(observer_.get()), "keyflow/uinput");
     // Nothing is injected until this exclusive consumer protects the desktop.
     ASSERT_EQ(libevdev_grab(observer_.get(), LIBEVDEV_GRAB), 0);
     ASSERT_TRUE(hardware_.activate()) << hardware_.lastError();

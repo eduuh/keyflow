@@ -88,6 +88,7 @@ class LinuxHardwareIO final : public IHardwareIO {
     std::vector<Device> devices_;
     linux_backend::OutputState outputState_;
     libevdev_uinput* output_ = nullptr;
+    int outputFd_ = -1;
     int wakeFd_ = -1;
     int wakeError_ = 0;
     std::atomic<bool> stop_{false};

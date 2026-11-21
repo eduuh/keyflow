@@ -10,6 +10,7 @@
 #    include <fcntl.h>
 #    include <libevdev/libevdev-uinput.h>
 #    include <limits>
+#    include <linux/uinput.h>
 #    include <poll.h>
 #    include <sys/eventfd.h>
 #    include <sys/ioctl.h>
@@ -208,9 +209,15 @@ bool LinuxHardwareIO::createOutput() noexcept {
             break;
     }
     // Do not enable EV_REP: physical value-2 events are the sole repeat generator.
-    if (result == 0)
-        result =
-            libevdev_uinput_create_from_device(description, LIBEVDEV_UINPUT_OPEN_MANAGED, &output_);
+    if (result == 0) {
+        outputFd_ = open("/dev/uinput", O_RDWR | O_NONBLOCK | O_CLOEXEC);
+        if (outputFd_ < 0)
+            result = -errno;
+        else if (ioctl(outputFd_, UI_SET_PHYS, linux_backend::outputPhys) < 0)
+            result = -errno;
+        else
+            result = libevdev_uinput_create_from_device(description, outputFd_, &output_);
+    }
     libevdev_free(description);
     if (result < 0)
         return fail("cannot create uinput keyboard; check explicit /dev/uinput access", "",
@@ -354,6 +361,10 @@ void LinuxHardwareIO::shutdown() noexcept {
         }
         libevdev_uinput_destroy(output_);
         output_ = nullptr;
+    }
+    if (outputFd_ >= 0) {
+        close(outputFd_);
+        outputFd_ = -1;
     }
     for (auto& device : devices_) {
         if (device.grabbed)
