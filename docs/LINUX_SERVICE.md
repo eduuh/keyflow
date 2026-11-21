@@ -123,6 +123,15 @@ The bundled config keeps Windows physical key identities. In that layout Enter
 is RightShift, not Kanata's tap-hold Enter. Check the layout, OS keymap, NumLock,
 modifiers and layers before accepting it at the login screen.
 
+For a normal Enter key in Linux password prompts and applications, make a Linux
+copy of the config and set `"Enter": "Enter"` in its `remapping` object. Pass that
+copy to `--config`; also change the Enter passthrough entries in each layer's
+`mappings` object. Do not edit the Windows fixture. This deliberately removes
+Enter-as-RightShift, while CapsLock remains LeftShift in the bundled layout.
+For an existing installation, update only `/etc/keyflow/config.json`, validate
+it, release all keys and restart `keyflow.service`. Clicking a password dialog's
+button is the temporary workaround until the corrected layout is active.
+
 After successful typing, stop the trial timer and recheck both service states.
 If the timer already restored Kanata, start a new guarded trial instead of
 enabling an inactive Keyflow service:
