@@ -13,6 +13,10 @@ namespace keyflow {
 
 class WindowsPlatformInit final : public IPlatformInit {
   public:
+    ~WindowsPlatformInit() override {
+        s_callback.store(nullptr);
+        SetConsoleCtrlHandler(consoleHandler, FALSE);
+    }
     WindowsPlatformInit() noexcept {
         // Pin CWD to exe directory so config.json, keyboard-icon.ico, and
         // keyflow_debug.log resolve regardless of how the exe was launched.
@@ -48,23 +52,25 @@ class WindowsPlatformInit final : public IPlatformInit {
         SetConsoleCtrlHandler(consoleHandler, TRUE);
         std::atexit(atexitHandler);
     }
+    void processSignals() noexcept override {
+        if (s_pending.exchange(false)) {
+            auto callback = s_callback.load();
+            if (callback) {
+                callback();
+            }
+        }
+    }
 
   private:
     // Atomic for safe access from signal handlers and console handler
     static inline std::atomic<ShutdownCallback> s_callback{nullptr};
+    static inline std::atomic<bool> s_pending{false};
 
-    static void posixSignalHandler(int /*signal*/) {
-        auto cb = s_callback.load();
-        if (cb)
-            cb();
-    }
+    static void posixSignalHandler(int /*signal*/) { s_pending.store(true); }
 
     static BOOL WINAPI consoleHandler(DWORD signal) {
         if (signal == CTRL_C_EVENT || signal == CTRL_CLOSE_EVENT || signal == CTRL_BREAK_EVENT) {
-            auto cb = s_callback.load();
-            if (cb)
-                cb();
-            ExitProcess(0);
+            s_pending.store(true);
         }
         return TRUE;
     }

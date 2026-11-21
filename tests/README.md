@@ -73,7 +73,7 @@ prove exclusive capture, consumer readiness, balanced kernel output, recovery,
 glyphs, compositor repeat or desktop shortcuts. Linux remains **EXPERIMENTAL**
 until the later live kernel/application verification is recorded.
 
-Device tests are opt-in and outside hosted CI. Enabling the planned
+Device tests are opt-in and outside hosted CI. Enabling the
 `ENABLE_LINUX_DEVICE_TESTS` / `linux-device` gate requires separate authorization
 for a disposable VM or dedicated seat, explicitly selected synthetic devices,
 scoped access and an unaffected control channel. An explicitly enabled run must
@@ -81,3 +81,23 @@ fail when access is unavailable; a disabled gate means not executed, not passed.
 Synthetic uinput devices can still be visible to desktop consumers, so a shared
 workstation is not a safe substitute. Do not enumerate/grab physical keyboards,
 change permissions or services, or log personal typing as part of ordinary tests.
+
+Build the isolated suite without executing device IO:
+
+```sh
+cmake -S . -B builds/Linux-Device -DENABLE_TESTS=ON -DENABLE_LINUX_DEVICE_TESTS=ON
+cmake --build builds/Linux-Device --target keyflow_linux_device_tests --parallel 2
+```
+
+Only after explicit environment/access approval, execute:
+
+```sh
+ctest --test-dir builds/Linux-Device -L linux-device --output-on-failure --no-tests=error
+```
+
+The suite creates only its own synthetic source, exclusively grabs the output
+consumer before injecting, and destroys both devices afterward. It checks literal
+traces from both unchanged fixtures, explicit repeats, native passthrough, balanced
+cleanup, competing capture, owned-device exclusion, cancellation and source loss.
+It does not prove desktop readiness, SIGKILL recovery, overflow recovery or Windows
+application parity; those remain separate acceptance gates.

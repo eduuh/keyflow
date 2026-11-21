@@ -53,9 +53,11 @@ jobs:
             Write-Error "Bundled config differs from src/config.json"
             exit 1
           }
-          & $binary --validate src/config.json
+          $runtimeConfig = (Resolve-Path "src/config.json").Path
+          $designerConfig = (Resolve-Path "designer/public/eduuh-dh-config.json").Path
+          & $binary --validate $runtimeConfig
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $binary --validate designer/public/eduuh-dh-config.json
+          & $binary --validate $designerConfig
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   build-and-test-linux:
@@ -92,6 +94,12 @@ jobs:
           "$folder/keyflow" --help
           "$folder/keyflow" --validate src/config.json
           "$folder/keyflow" --validate designer/public/eduuh-dh-config.json
+
+      - name: Verify backend-OFF portable tests
+        run: |
+          cmake -S . -B builds/Portable-${{ matrix.config }} -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DENABLE_LINUX_BACKEND=OFF -DENABLE_TESTS=ON -DENABLE_LINUX_DEVICE_TESTS=OFF
+          cmake --build builds/Portable-${{ matrix.config }} --target keyflow_tests --parallel 2
+          ctest --test-dir builds/Portable-${{ matrix.config }} --output-on-failure --no-tests=error
 
   release-artifact:
     # Produce a Release build of keyflow.exe + bundled files on every push to

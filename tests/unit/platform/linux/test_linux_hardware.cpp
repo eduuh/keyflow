@@ -194,6 +194,20 @@ TEST(LinuxHardwareAdapter, RepeatWithoutAHeldOutputIsRejectedWithoutInjection) {
     EXPECT_TRUE(writer.events.empty());
 }
 
+TEST(LinuxHardwareAdapter, CleanupReleasesOrdinaryKeysBeforeModifiers) {
+    OutputState state;
+    RecordingWriter writer;
+    ASSERT_EQ(state.send(KeyEvent(SC_LCTRL, KeyAction::Press), writer.write, &writer), 0);
+    ASSERT_EQ(state.send(KeyEvent(SC_A, KeyAction::Press), writer.write, &writer), 0);
+    writer.events.clear();
+    ASSERT_EQ(state.releaseAll(writer.write, &writer), 0);
+    const decltype(writer.events) expected = {{EV_KEY, KEY_A, 0},
+                                              {EV_SYN, SYN_REPORT, 0},
+                                              {EV_KEY, KEY_LEFTCTRL, 0},
+                                              {EV_SYN, SYN_REPORT, 0}};
+    EXPECT_EQ(writer.events, expected);
+}
+
 TEST(LinuxHardwareLifecycle, MissingSelectionFailsWithoutOpeningDevicesAndErrorSurvivesShutdown) {
     LinuxHardwareIO hardware;
     EXPECT_FALSE(hardware.initialize());

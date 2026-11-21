@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace keyflow {
 
@@ -18,6 +19,18 @@ class IHardwareIO {
     [[nodiscard]] virtual std::optional<KeyEvent> waitForKey(int timeoutMS = 0) noexcept = 0;
     virtual void sendKey(uint16_t scancode, bool isDown) noexcept = 0;
     [[nodiscard]] virtual bool isInitialized() const noexcept = 0;
+    [[nodiscard]] virtual bool sendEvent(const KeyEvent& event) noexcept {
+        sendKey(event.scancode, event.isDown);
+        return isInitialized();
+    }
+    [[nodiscard]] virtual bool configureDevices(const std::vector<std::string>& devices) {
+        return devices.empty();
+    }
+    [[nodiscard]] virtual bool supportsKey(uint16_t) const noexcept { return true; }
+    [[nodiscard]] virtual bool activate() noexcept { return isInitialized(); }
+    virtual void requestStop() noexcept {}
+    [[nodiscard]] virtual bool hasFailed() const noexcept { return false; }
+    [[nodiscard]] virtual std::string_view lastError() const noexcept { return {}; }
 };
 
 class ISystemTray {
@@ -45,6 +58,7 @@ class IPlatformInit {
     virtual void showFatalError(std::string_view message) noexcept = 0;
     using ShutdownCallback = void (*)();
     virtual void installSignalHandlers(ShutdownCallback callback) noexcept = 0;
+    virtual void processSignals() noexcept {}
 };
 
 } // namespace keyflow

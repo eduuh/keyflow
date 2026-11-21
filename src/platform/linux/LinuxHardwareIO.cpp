@@ -98,16 +98,19 @@ int OutputState::send(const KeyEvent& event, Writer writer, void* context) noexc
 
 int OutputState::releaseAll(Writer writer, void* context) noexcept {
     int firstError = 0;
-    for (uint16_t code = 1; code <= KEY_MAX; ++code) {
-        if (!held_[code])
-            continue;
-        int result = writer(context, EV_KEY, code, 0);
-        if (result == 0)
-            result = writer(context, EV_SYN, SYN_REPORT, 0);
-        if (result == 0)
-            held_[code] = false;
-        else if (firstError == 0)
-            firstError = result;
+    for (bool modifiers : {false, true}) {
+        for (uint16_t code = 1; code <= KEY_MAX; ++code) {
+            const auto CANONICAL = toCanonical(code);
+            if (!held_[code] || (CANONICAL && isModifier(*CANONICAL)) != modifiers)
+                continue;
+            int result = writer(context, EV_KEY, code, 0);
+            if (result == 0)
+                result = writer(context, EV_SYN, SYN_REPORT, 0);
+            if (result == 0)
+                held_[code] = false;
+            else if (firstError == 0)
+                firstError = result;
+        }
     }
     return firstError;
 }
