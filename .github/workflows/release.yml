@@ -80,7 +80,7 @@ jobs:
         run: |
           $config = $env:BUILD_CONFIG
           $build = "builds/Windows-$config"
-          cmake -S . -B $build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=$config -DENABLE_TESTS=ON
+          cmake -S . -B $build -G "Visual Studio 17 2022" -A x64 "-DCMAKE_BUILD_TYPE=$config" -DENABLE_TESTS=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build $build --config $config --target keyflow keyflow_tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
