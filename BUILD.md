@@ -158,7 +158,11 @@ After all four entries pass, the main-only Linux artifact contains `keyflow`,
 `config.json`, `LICENSE`, `README.md`, `THIRD_PARTY_NOTICES.md` and this build guide.
 It is an experimental native build, not an advertised supported Linux release.
 Existing Windows artifact names and the tagged Windows release publisher remain
-unchanged; Linux release publishing and installers are deferred.
+unchanged. Separately published **experimental Linux prereleases** may contain a
+manually gated native binary and SHA256 checksum. Check the asset's stated build
+distribution, architecture and runtime-library requirements: a binary built on
+Arch is not a promise of compatibility with Ubuntu or older distributions.
+These archives do not install a service or provision input-device permissions.
 
 ## Directory Structure
 
