@@ -22,6 +22,8 @@ inline constexpr int outputProduct = 0x0001;
 
 [[nodiscard]] bool isOwnedDevice(const libevdev* device) noexcept;
 [[nodiscard]] bool isKeyboardDevice(const libevdev* device) noexcept;
+[[nodiscard]] int openOutputNode(const char* path, int wakeFd,
+                                 const std::atomic<bool>& stop) noexcept;
 
 // The same checked writer/ledger is used by uinput and nonprivileged adapter tests.
 class OutputState {

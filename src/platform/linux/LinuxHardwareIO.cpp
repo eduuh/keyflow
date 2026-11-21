@@ -21,6 +21,31 @@ namespace keyflow {
 
 namespace linux_backend {
 
+int openOutputNode(const char* path, int wakeFd, const std::atomic<bool>& stop) noexcept {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (!stop.load(std::memory_order_relaxed)) {
+        const int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+        if (fd >= 0)
+            return fd;
+        const int error = errno;
+        if ((error != EACCES && error != ENOENT) || std::chrono::steady_clock::now() >= deadline) {
+            errno = error;
+            return -1;
+        }
+        // The devnode can precede udev's narrowly scoped access rule.
+        pollfd wake{wakeFd, POLLIN, 0};
+        const int result = poll(&wake, 1, 10);
+        if (result > 0) {
+            errno = ECANCELED;
+            return -1;
+        }
+        if (result < 0 && errno != EINTR)
+            return -1;
+    }
+    errno = ECANCELED;
+    return -1;
+}
+
 bool isOwnedDevice(const libevdev* device) noexcept {
     const char* name = libevdev_get_name(device);
     const char* phys = libevdev_get_phys(device);
@@ -229,7 +254,7 @@ bool LinuxHardwareIO::verifyOutput() noexcept {
     const char* path = libevdev_uinput_get_devnode(output_);
     if (!path)
         return fail("uinput has no identifiable evdev devnode", "", ENODEV);
-    const int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+    const int fd = linux_backend::openOutputNode(path, wakeFd_, stop_);
     if (fd < 0)
         return fail("cannot verify uinput devnode; check input-node access", path, errno);
     libevdev* device = nullptr;

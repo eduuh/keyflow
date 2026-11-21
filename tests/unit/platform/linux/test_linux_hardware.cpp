@@ -3,15 +3,70 @@
 #    include "platform/linux/LinuxHardwareIO.h"
 
 #    include <cerrno>
+#    include <chrono>
+#    include <fcntl.h>
 #    include <gtest/gtest.h>
 #    include <memory>
+#    include <sys/eventfd.h>
+#    include <sys/stat.h>
+#    include <thread>
 #    include <tuple>
+#    include <unistd.h>
 #    include <vector>
 
 namespace keyflow::linux_backend {
 namespace {
 
 using Device = std::unique_ptr<libevdev, decltype(&libevdev_free)>;
+
+TEST(LinuxOutputReadiness, WaitsForDelayedAccessWithoutFailingInitialization) {
+    if (geteuid() == 0)
+        GTEST_SKIP() << "Root bypasses the access restrictions exercised by this test";
+    char path[] = "/tmp/keyflow-output-access-XXXXXX";
+    const int original = mkstemp(path);
+    ASSERT_GE(original, 0);
+    ASSERT_EQ(fchmod(original, 0000), 0);
+    std::atomic<bool> stop{false};
+    std::thread permissions([original] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        EXPECT_EQ(fchmod(original, 0600), 0);
+    });
+    const int fd = openOutputNode(path, -1, stop);
+    permissions.join();
+    EXPECT_GE(fd, 0);
+    if (fd >= 0)
+        close(fd);
+    close(original);
+    unlink(path);
+}
+
+TEST(LinuxOutputReadiness, MissingNodeWaitIsBoundedAndCancellationAware) {
+    char directory[] = "/tmp/keyflow-output-missing-XXXXXX";
+    ASSERT_NE(mkdtemp(directory), nullptr);
+    const std::string path = std::string(directory) + "/event";
+    std::atomic<bool> stop{false};
+    const int wake = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+    ASSERT_GE(wake, 0);
+    std::thread cancellation([&stop, wake] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        stop.store(true, std::memory_order_relaxed);
+        const uint64_t value = 1;
+        EXPECT_EQ(write(wake, &value, sizeof(value)), sizeof(value));
+    });
+    const auto start = std::chrono::steady_clock::now();
+    EXPECT_EQ(openOutputNode(path.c_str(), wake, stop), -1);
+    EXPECT_EQ(errno, ECANCELED);
+    cancellation.join();
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(1));
+    close(wake);
+    stop.store(false, std::memory_order_relaxed);
+    const auto retry = std::chrono::steady_clock::now();
+    EXPECT_EQ(openOutputNode(path.c_str(), -1, stop), -1);
+    EXPECT_EQ(errno, ENOENT);
+    EXPECT_GE(std::chrono::steady_clock::now() - retry, std::chrono::seconds(1));
+    EXPECT_LT(std::chrono::steady_clock::now() - retry, std::chrono::seconds(2));
+    rmdir(directory);
+}
 
 Device keyboard() {
     Device device(libevdev_new(), libevdev_free);
