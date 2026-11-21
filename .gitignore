@@ -93,6 +93,7 @@ keyflow-x64-Release.zip
 keyflow-x64-Release/
 keyflow-release.zip
 keyflow_debug.log
+__pycache__/
 
 # Windows reserved-name artifact (accidental `> nul` in PowerShell creates a literal file)
 /nul

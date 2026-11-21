@@ -31,8 +31,8 @@ Press `Ctrl+Escape` to exit.
 ## Linux quick start (experimental)
 
 Build with CMake, a C++17 compiler, pkg-config and libevdev development headers;
-see [BUILD.md](BUILD.md) for commands and the device-access gate. Run manually in
-the foreground: there is no tray, autostart, service, or automatic device discovery.
+see [BUILD.md](BUILD.md) for commands and the device-access gate. The executable
+runs in the foreground without a tray or automatic device discovery.
 Validation needs no device access:
 
 ```sh
@@ -59,6 +59,11 @@ device nodes as a shortcut.
 Existing configs retain physical Windows `SC_*` key identities, not universal
 glyphs or desktop/workspace shortcuts. The OS keymap, NumLock/AltGr, compositor
 and desktop bindings can change visible results.
+
+For separately authorized boot startup, use the opt-in
+[Linux systemd installation and Kanata rollback guide](docs/LINUX_SERVICE.md).
+The installer is for fresh deployments and does not start or enable capture.
+Do not run it over an existing working service.
 
 ## Example config
 

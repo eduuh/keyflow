@@ -95,6 +95,9 @@ jobs:
           "$folder/keyflow" --validate src/config.json
           "$folder/keyflow" --validate designer/public/eduuh-dh-config.json
 
+      - name: Test Linux deployment helpers without device access
+        run: python3 -B -m unittest discover -s tests/linux_service -v
+
       - name: Verify backend-OFF portable tests
         run: |
           cmake -S . -B builds/Portable-${{ matrix.config }} -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DENABLE_LINUX_BACKEND=OFF -DENABLE_TESTS=ON -DENABLE_LINUX_DEVICE_TESTS=OFF
@@ -168,6 +171,9 @@ jobs:
           Copy-Item "LICENSE" $folder
           Copy-Item "README.md" $folder
           Copy-Item "THIRD_PARTY_NOTICES.md" $folder
+          Copy-Item "BUILD.md" $folder
+          New-Item -ItemType Directory -Force "$folder/docs" | Out-Null
+          Copy-Item "docs/*" "$folder/docs/" -Recurse
 
       - name: Upload keyflow build artifact
         uses: actions/upload-artifact@v4
@@ -202,6 +208,10 @@ jobs:
           test -x "$folder/keyflow"
           cmp src/config.json "$folder/config.json"
           cp LICENSE README.md THIRD_PARTY_NOTICES.md BUILD.md "$folder/"
+          cp -a docs "$folder/"
+          mkdir -p "$folder/scripts"
+          cp -a scripts/linux "$folder/scripts/"
+          printf '%s\n' "$GITHUB_SHA" > "$folder/SOURCE_COMMIT"
           for file in keyflow config.json LICENSE README.md THIRD_PARTY_NOTICES.md BUILD.md; do
             test -f "$folder/$file"
           done

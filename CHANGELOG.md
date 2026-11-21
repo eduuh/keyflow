@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Experimental Linux evdev/uinput runtime with explicitly selected keyboards
+  and unchanged Windows JSON layouts.
+- Opt-in Linux systemd installation and archived Kanata rollback tools, with
+  scoped device access and a dedicated non-root service account.
+- Windows and Linux release archives with checksums and exact source-commit
+  records, published only after both platform gates pass.
+
+### Fixed
+- Press/repeat/release output ownership and balanced shutdown across sources.
+- Shipped layer metadata and custom-trigger config compatibility.
+- Linux virtual-output identity and delayed udev access during startup.
+
 ## [2.1.1] - 2026-05-28
 
 Build and CI maintenance release — no changes to remapping behavior.

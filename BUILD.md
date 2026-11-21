@@ -105,7 +105,10 @@ is recorded.** Compilation, CTest and non-capturing `--validate` are separate
 evidence from evdev capture/uinput output and desktop-visible text or shortcuts.
 Hosted CI does not access devices or run privileged kernel tests.
 
-The runtime runs manually in the foreground, with no tray, autostart or service.
+The runtime runs in the foreground, with no built-in tray or autostart.
+An opt-in [systemd installation guide](docs/LINUX_SERVICE.md) covers the checked-in
+service/install/rollback files, scoped access and guarded Kanata migration.
+It is a separately authorized system change, not part of a normal build or test.
 It preserves the launch working directory; use an absolute config path.
 `--help` and `--validate file.json` exit without selecting or capturing keyboards.
 For runtime, repeat `--device` for every explicitly selected input. Prefer stable
@@ -154,15 +157,25 @@ tests ON. Each builds the actual runtime and tests, runs CTest, checks the copie
 config and validates both fixtures without input capture. These gates do not prove
 kernel acceptance or application-visible behavior.
 
-After all four entries pass, the main-only Linux artifact contains `keyflow`,
-`config.json`, `LICENSE`, `README.md`, `THIRD_PARTY_NOTICES.md` and this build guide.
-It is an experimental native build, not an advertised supported Linux release.
-Existing Windows artifact names and the tagged Windows release publisher remain
-unchanged. Separately published **experimental Linux prereleases** may contain a
-manually gated native binary and SHA256 checksum. Check the asset's stated build
-distribution, architecture and runtime-library requirements: a binary built on
-Arch is not a promise of compatibility with Ubuntu or older distributions.
-These archives do not install a service or provision input-device permissions.
+After all four entries pass, the main-only Linux workflow artifact contains
+`keyflow`, the unchanged config and licensing/build documentation.
+
+The release workflow resolves one existing tag to a commit, builds and tests
+Windows and Ubuntu 24.04 in Debug and Release, then publishes both platform
+archives from that commit through one publisher:
+
+- **KeyFlow Windows**: `keyflow-release.zip` and its SHA256 file. The existing
+  Windows asset name is retained; it includes `keyflow.exe`, `interception.dll`,
+  the unchanged config and licensing documentation.
+- **KeyFlow Linux (experimental)**: `keyflow-linux-x86_64.tar.gz` and its SHA256
+  file. It includes the native binary, unchanged config, documentation and the
+  optional `scripts/linux/` installation files.
+
+Both archives record `SOURCE_COMMIT`. The Linux workflow binary is built on
+Ubuntu 24.04 and links system libraries; check the stated runtime requirements.
+Earlier manually published Arch assets retain their explicit distribution label.
+Neither archive installs a Linux service or provisions device access when
+extracted. Linux remains experimental even when a Windows release is stable.
 
 ## Directory Structure
 

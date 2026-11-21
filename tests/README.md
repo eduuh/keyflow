@@ -99,5 +99,19 @@ The suite creates only its own synthetic source, exclusively grabs the output
 consumer before injecting, and destroys both devices afterward. It checks literal
 traces from both unchanged fixtures, explicit repeats, native passthrough, balanced
 cleanup, competing capture, owned-device exclusion, cancellation and source loss.
-It does not prove desktop readiness, SIGKILL recovery, overflow recovery or Windows
-application parity; those remain separate acceptance gates.
+The ten current cases also cover held-source startup rollback, real selected
+queue overflow and disposable-child SIGKILL recovery. They do not prove desktop
+readiness, exhaustive IO-failure boundaries or Windows application parity.
+
+## Linux Service Tools
+
+Deployment helpers use standard-library Python tests:
+
+```sh
+python3 -B -m unittest discover -s tests/linux_service -v
+```
+
+These tests use temporary files and mocked account/service/device operations.
+They must not change installed services, grant device access or read physical
+input. Passing them is not a fresh live installation or reboot test; see the
+[separate service guide](../docs/LINUX_SERVICE.md).
