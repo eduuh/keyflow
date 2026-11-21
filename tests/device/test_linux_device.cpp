@@ -7,10 +7,14 @@
 
 #include <cerrno>
 #include <chrono>
+#include <csignal>
 #include <fcntl.h>
 #include <memory>
 #include <poll.h>
 #include <string>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
 #include <thread>
 #include <tuple>
 #include <unistd.h>
@@ -62,6 +66,17 @@ protected:
   }
 
   void TearDown() override {
+    if (child_ > 0) {
+      kill(child_, SIGKILL);
+      while (waitpid(child_, nullptr, 0) < 0 && errno == EINTR) {
+      }
+      child_ = -1;
+    }
+    for (int descriptor : connection_) {
+      if (descriptor >= 0) {
+        close(descriptor);
+      }
+    }
     hardware_.shutdown();
     observer_.reset();
     if (outputFd_ >= 0) {
@@ -117,6 +132,8 @@ protected:
   UInput source_{nullptr, libevdev_uinput_destroy};
   Device observer_{nullptr, libevdev_free};
   int outputFd_ = -1;
+  pid_t child_ = -1;
+  int connection_[2] = {-1, -1};
 };
 
 TEST_F(LinuxDeviceTest,
@@ -213,6 +230,117 @@ TEST_F(LinuxDeviceTest, CancellationWakesAnActiveIndefiniteWait) {
   EXPECT_FALSE(event);
   EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(1));
   EXPECT_FALSE(hardware_.hasFailed());
+}
+
+TEST_F(LinuxDeviceTest, HeldSourceAtStartupRefusesCaptureAndRollsBackOutput) {
+  ASSERT_EQ(libevdev_uinput_write_event(source_.get(), EV_KEY, KEY_A, 1), 0);
+  ASSERT_EQ(libevdev_uinput_write_event(source_.get(), EV_SYN, SYN_REPORT, 0),
+            0);
+  LinuxHardwareIO other;
+  ASSERT_TRUE(
+      other.configureDevices({libevdev_uinput_get_devnode(source_.get())}));
+  ASSERT_TRUE(other.initialize()) << other.lastError();
+  EXPECT_FALSE(other.activate());
+  EXPECT_NE(other.lastError().find("release every"), std::string_view::npos);
+  EXPECT_FALSE(other.isInitialized());
+  EXPECT_TRUE(other.outputDevicePath().empty());
+  EXPECT_TRUE(hardware_.isInitialized());
+  ASSERT_EQ(libevdev_uinput_write_event(source_.get(), EV_KEY, KEY_A, 0), 0);
+  ASSERT_EQ(libevdev_uinput_write_event(source_.get(), EV_SYN, SYN_REPORT, 0),
+            0);
+}
+
+TEST_F(LinuxDeviceTest, SelectedQueueOverflowStopsInsteadOfReplayingLostInput) {
+  for (int index = 0; index < 65536; ++index) {
+    ASSERT_EQ(libevdev_uinput_write_event(source_.get(), EV_KEY, KEY_A,
+                                          index % 2 == 0 ? 1 : 0),
+              0);
+    ASSERT_EQ(libevdev_uinput_write_event(source_.get(), EV_SYN, SYN_REPORT, 0),
+              0);
+  }
+  EXPECT_FALSE(hardware_.waitForKey(1000));
+  EXPECT_TRUE(hardware_.hasFailed());
+  EXPECT_NE(hardware_.lastError().find("SYN_DROPPED"), std::string_view::npos);
+  EXPECT_FALSE(hardware_.isInitialized());
+  EXPECT_TRUE(hardware_.outputDevicePath().empty());
+}
+
+TEST_F(LinuxDeviceTest,
+       AbruptOwnerDeathRemovesHeldOutputAndReleasesSourceGrab) {
+  hardware_.shutdown();
+  observer_.reset();
+  close(outputFd_);
+  outputFd_ = -1;
+  ASSERT_EQ(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, connection_),
+            0);
+  child_ = fork();
+  ASSERT_GE(child_, 0);
+  if (child_ == 0) {
+    close(connection_[0]);
+    LinuxHardwareIO childHardware;
+    if (!childHardware.configureDevices(
+            {libevdev_uinput_get_devnode(source_.get())}) ||
+        !childHardware.initialize()) {
+      _exit(2);
+    }
+    const std::string path(childHardware.outputDevicePath());
+    if (send(connection_[1], path.data(), path.size(), MSG_NOSIGNAL) !=
+        static_cast<ssize_t>(path.size())) {
+      _exit(3);
+    }
+    char ready = 0;
+    if (recv(connection_[1], &ready, 1, 0) != 1 || ready != 'G' ||
+        !childHardware.activate() ||
+        !childHardware.sendEvent(KeyEvent(SC_A, KeyAction::Press))) {
+      _exit(4);
+    }
+    if (send(connection_[1], "P", 1, MSG_NOSIGNAL) != 1) {
+      _exit(5);
+    }
+    for (;;) {
+      pause();
+    }
+  }
+  close(connection_[1]);
+  connection_[1] = -1;
+  pollfd channel{connection_[0], POLLIN, 0};
+  ASSERT_GT(poll(&channel, 1, 3000), 0);
+  char path[512]{};
+  const auto length = recv(connection_[0], path, sizeof(path) - 1, 0);
+  ASSERT_GT(length, 0);
+  outputFd_ = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+  ASSERT_GE(outputFd_, 0);
+  libevdev *observer = nullptr;
+  ASSERT_EQ(libevdev_new_from_fd(outputFd_, &observer), 0);
+  observer_.reset(observer);
+  ASSERT_STREQ(libevdev_get_phys(observer_.get()), "keyflow/uinput");
+  ASSERT_EQ(libevdev_grab(observer_.get(), LIBEVDEV_GRAB), 0);
+  ASSERT_EQ(send(connection_[0], "G", 1, MSG_NOSIGNAL), 1);
+  ASSERT_GT(poll(&channel, 1, 3000), 0);
+  char pressed = 0;
+  ASSERT_EQ(recv(connection_[0], &pressed, 1, 0), 1);
+  ASSERT_EQ(pressed, 'P');
+  const std::vector<Frame> expected = {{EV_KEY, KEY_A, 1},
+                                       {EV_SYN, SYN_REPORT, 0}};
+  ASSERT_EQ(readFrames(expected.size()), expected);
+  ASSERT_EQ(kill(child_, SIGKILL), 0);
+  int status = 0;
+  ASSERT_EQ(waitpid(child_, &status, 0), child_);
+  child_ = -1;
+  ASSERT_TRUE(WIFSIGNALED(status));
+  EXPECT_EQ(WTERMSIG(status), SIGKILL);
+  int version = 0;
+  EXPECT_EQ(ioctl(outputFd_, EVIOCGVERSION, &version), -1);
+  EXPECT_EQ(errno, ENODEV);
+  close(connection_[0]);
+  connection_[0] = open(libevdev_uinput_get_devnode(source_.get()),
+                        O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+  ASSERT_GE(connection_[0], 0);
+  libevdev *input = nullptr;
+  ASSERT_EQ(libevdev_new_from_fd(connection_[0], &input), 0);
+  Device recovered(input, libevdev_free);
+  ASSERT_EQ(libevdev_grab(recovered.get(), LIBEVDEV_GRAB), 0);
+  EXPECT_EQ(libevdev_grab(recovered.get(), LIBEVDEV_UNGRAB), 0);
 }
 
 } // namespace
