@@ -14,6 +14,13 @@ add_executable(keyflow_tests
     ${CMAKE_SOURCE_DIR}/src/app/DebugLog.cpp
 )
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(keyflow_tests PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/platform/linux/LinuxPlatformInit.cpp
+        ${CMAKE_SOURCE_DIR}/src/platform/linux/LinuxSingleInstanceLock.cpp
+    )
+endif()
+
 # Link against Google Test and keyflow headers
 target_link_libraries(keyflow_tests
     PRIVATE
@@ -34,6 +41,7 @@ target_include_directories(keyflow_tests
 # remapping test surface automatically tracks.
 target_compile_definitions(keyflow_tests PRIVATE
     KEYFLOW_CONFIG_PATH="${CMAKE_SOURCE_DIR}/src/config.json"
+    KEYFLOW_DESIGNER_CONFIG_PATH="${CMAKE_SOURCE_DIR}/designer/public/eduuh-dh-config.json"
 )
 
 # Set C++17 standard (matching main project)

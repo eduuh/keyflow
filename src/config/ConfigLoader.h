@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../pipeline/Modifiers.h"
 #include "JsonConfig.h"
 #include "KeyNameMapper.h"
 
@@ -178,11 +179,12 @@ class ConfigLoader {
                 result.valid = false;
             }
 
-            // Validate trigger keys
+            // Use the same modifier namespace as ConfigBuilder.
             for (const auto& trigger : layer.triggers) {
-                if (!KeyNameMapper::nameToScancode(trigger)) {
+                if (modifierNameToBit(trigger) == ModifierBit::None &&
+                    seenModifierNames.count(trigger) == 0) {
                     result.errors.emplace_back(layerContext + ".trigger",
-                                               "Unknown key name: '" + trigger + "'");
+                                               "Unknown trigger modifier: '" + trigger + "'");
                     result.valid = false;
                 }
             }
@@ -359,11 +361,7 @@ class ConfigLoader {
                 throw std::runtime_error("Layer must have 'mappings' field");
             }
 
-            for (auto& [key, value] : item["mappings"].items()) {
-                if (value.is_string()) {
-                    layer.mappings[key] = value.get<std::string>();
-                }
-            }
+            parseRemapping(item["mappings"], layer.mappings);
 
             // Shift mappings (optional)
             if (item.contains("shiftMappings")) {

@@ -97,6 +97,18 @@ See `config.json` for full example. Basic structure:
 
 ### Configuration Options
 
+#### Layer triggers and comments
+
+A layer trigger must be a standard modifier identifier (`LALT`, `RALT`, `LCTRL`,
+`RCTRL`, `LSHIFT`, `RSHIFT`, `LWIN`, `RWIN`, or `PRINT`) or a `modifierName`
+declared in `customModifiers`, such as `WIN_MOD`. The legacy identifiers `MOD11`,
+`MOD12`, and `MOD13` are also accepted. An ordinary key such as `A` must first be
+declared as a custom modifier before it can trigger a layer.
+
+Keys starting with `_` inside `remapping` or a layer's `mappings` are metadata,
+not key mappings. This allows comments such as `"_comment": "Navigation keys"`
+without affecting validation or pipeline construction.
+
 #### `disableCapsLock` (optional, default: false)
 When enabled, blocks the CapsLock key from reaching the OS, preventing accidental caps lock toggle. Useful when remapping CapsLock to another key (like Shift or Ctrl) to ensure the caps lock LED never activates.
 
