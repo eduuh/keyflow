@@ -125,8 +125,19 @@ void verifyBehavior(PipelineHarness &h, const Behavior &b) {
     uint16_t triggerSc = resolveTriggerScancode(b, h.config());
     ASSERT_NE(triggerSc, 0u) << "Could not resolve trigger scancode";
 
+    Action triggerAction = Action::Consume;
+    if (b.triggerModifier) {
+      for (const auto &customMod : h.config().customModifiers) {
+        if (customMod.modifierName == *b.triggerModifier) {
+          triggerAction =
+              customMod.blockOutput ? Action::Consume : Action::Forward;
+          break;
+        }
+      }
+    }
+
     auto trigDown = h.drive(triggerSc, true);
-    expectFinalState(trigDown, Action::Consume, 0, false, "trigger down");
+    expectFinalState(trigDown, triggerAction, 0, false, "trigger down");
 
     auto keyDown = h.drive(b.physicalScancode, true);
     expectFinalState(keyDown, Action::Replace, b.expectedOutputScancode,
@@ -137,7 +148,7 @@ void verifyBehavior(PipelineHarness &h, const Behavior &b) {
                      b.expectedInjectShift, "layer key up");
 
     auto trigUp = h.drive(triggerSc, false);
-    expectFinalState(trigUp, Action::Consume, 0, false, "trigger up");
+    expectFinalState(trigUp, triggerAction, 0, false, "trigger up");
     break;
   }
 
