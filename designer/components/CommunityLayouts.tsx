@@ -11,14 +11,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useConfigStore } from "@/lib/store";
 import { COMMUNITY_LAYOUTS, CommunityLayout } from "@/lib/community-layouts";
-
-// Three surfaces share a single load action and a single LayoutCard
-// component: the header button + dialog (CommunityLayoutsButton), the
-// inline section on the page (CommunityLayoutsSection), and any future
-// place that wants to list layouts.
 
 function useLoadLayout(): {
   loadingId: string | null;
@@ -166,50 +161,17 @@ export function CommunityLayoutsButton() {
   return (
     <>
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
         title="Browse community layouts"
-        aria-label="Layouts"
+        aria-label="Community layouts"
         data-tour="community-layouts"
       >
         <Users className="h-4 w-4" />
-        <span className="hidden md:inline ml-2">Layouts</span>
+        <span>Community layouts</span>
       </Button>
       <CommunityLayoutsModal isOpen={open} onClose={() => setOpen(false)} />
     </>
-  );
-}
-
-// ─── Inline section on the page ──────────────────────────────────────────────
-
-export function CommunityLayoutsSection() {
-  const { loadingId, load } = useLoadLayout();
-
-  return (
-    <Card data-tour="community-section">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Users className="h-4 w-4" />
-          <CardTitle className="text-base">Community layouts</CardTitle>
-        </div>
-        <CardDescription>
-          Layouts shared by the community. Click &quot;Load&quot; to import one as a starting point,
-          or &quot;View on GitHub&quot; to see its source. Submit yours via PR.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-          {COMMUNITY_LAYOUTS.map((layout) => (
-            <LayoutCard
-              key={layout.id}
-              layout={layout}
-              loading={loadingId === layout.id}
-              onLoad={() => load(layout)}
-            />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
   );
 }

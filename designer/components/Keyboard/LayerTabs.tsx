@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Plus, Settings2 } from "lucide-react";
 import { useConfigStore, useEditingConfig } from "@/lib/store";
-import { availableTriggers } from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { layerAccent } from "@/lib/layerColors";
@@ -15,43 +14,23 @@ function formatTriggers(triggers: string[] | undefined): string {
 }
 
 export function LayerTabs() {
-  const { currentLayerIndex, setCurrentLayer, addLayer, hasBaseModifiers } =
+  const { currentLayerIndex, setCurrentLayer } =
     useConfigStore();
   const config = useEditingConfig();
   const [editingLayer, setEditingLayer] = useState<number | null>(null);
+  const [creatingLayer, setCreatingLayer] = useState(false);
 
   const layers = config.layers || [];
-  const canAddLayer = hasBaseModifiers();
-
-  const getDefaultTrigger = () => {
-    const availableModifiers = availableTriggers(config);
-    const usedTriggers = layers.flatMap((layer) => layer.triggers);
-    const unused = availableModifiers.find((mod) => !usedTriggers.includes(mod));
-    return unused || availableModifiers[0] || "RALT";
-  };
-
-  const handleAddLayer = () => {
-    if (!canAddLayer) {
-      alert("Map a modifier in BASE first — layers need a trigger.");
-      return;
-    }
-    addLayer({
-      name: `Layer ${layers.length + 1}`,
-      triggers: [getDefaultTrigger()],
-      mappings: {},
-    });
-    setCurrentLayer(layers.length);
-  };
-
   return (
     <div
       data-tour="layer-tabs"
-      className="flex items-center gap-2 overflow-x-auto py-1"
+      className="flex flex-wrap items-center gap-2 py-1"
     >
+      <div className="flex items-center gap-2 overflow-x-auto flex-1 min-w-0">
       <LayerTab
         active={currentLayerIndex === -1}
         title="BASE"
-        subtitle="All layers visible"
+        subtitle="Always active"
         count={Object.keys(config.remapping || {}).filter((key) => !key.startsWith("_")).length}
         onClick={() => setCurrentLayer(-1)}
       />
@@ -60,8 +39,8 @@ export function LayerTabs() {
         <div key={index} className="relative group shrink-0">
           <LayerTab
             active={currentLayerIndex === index}
-            title={formatTriggers(layer.triggers)}
-            subtitle={layer.name}
+            title={layer.name}
+            subtitle={formatTriggers(layer.triggers)}
             count={Object.keys(layer.mappings || {}).filter((key) => !key.startsWith("_")).length + (layer.shiftMappings?.length ?? 0)}
             onClick={() => setCurrentLayer(index)}
             accentIndex={index}
@@ -79,26 +58,21 @@ export function LayerTabs() {
           </button>
         </div>
       ))}
+      </div>
 
       <Button
         variant="outline"
-        onClick={handleAddLayer}
-        disabled={!canAddLayer}
-        className="border-dashed shrink-0 h-[3.25rem] gap-1 px-3"
+        onClick={() => setCreatingLayer(true)}
+        className="shrink-0 h-[3.25rem] gap-1 px-3"
       >
         <Plus className="h-4 w-4" />
-        Add layer
+        New layer
       </Button>
-
-      {!canAddLayer && (
-        <span className="text-xs text-muted-foreground shrink-0">
-          Map a modifier in BASE first
-        </span>
-      )}
 
       {editingLayer !== null && (
         <LayerEditor layerIndex={editingLayer} onClose={() => setEditingLayer(null)} />
       )}
+      {creatingLayer && <LayerEditor onClose={() => setCreatingLayer(false)} />}
     </div>
   );
 }
@@ -134,7 +108,7 @@ function LayerTab({ active, title, subtitle, count, onClick, accentIndex }: Laye
             background: dotColor,
           }}
         />
-        <span className="font-keycap text-[12px] font-medium tracking-[0.05em] uppercase">
+        <span className="text-sm font-medium">
           {title}
         </span>
         <span
@@ -144,7 +118,7 @@ function LayerTab({ active, title, subtitle, count, onClick, accentIndex }: Laye
         </span>
       </div>
       <span
-        className="text-[12px] truncate max-w-full mt-0.5 pr-5"
+        className="font-mono text-[11px] truncate max-w-full mt-0.5 pr-5"
       >
         {subtitle}
       </span>

@@ -120,13 +120,17 @@ export function normalizeConfig(value: unknown): KeyFlowConfig {
     }
     for (const layer of effective.layers ?? []) {
       for (const trigger of layer.triggers) {
-        if (!TRIGGER_ALIAS[trigger] && !names.includes(trigger)) {
+        if (!Object.hasOwn(TRIGGER_ALIAS, trigger) && !names.includes(trigger)) {
           throw new Error(`${platform}: unknown trigger modifier '${trigger}' in ${layer.name}`);
         }
       }
     }
   }
   return config;
+}
+
+export function serializeConfig(value: unknown): string {
+  return JSON.stringify(normalizeConfig(value), null, 2);
 }
 
 export function resolveConfig(config: KeyFlowConfig, platform: EditPlatform): KeyFlowConfig {

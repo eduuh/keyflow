@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { KEY_GROUPS } from "@/lib/allKeys";
+import { KEY_GROUPS, canonicalKey } from "@/lib/allKeys";
 
 // Editor for `customModifiers` — promote any physical key to a layer trigger
 // by giving it a name (e.g. Space → SPACE_MOD). C++ assigns each one a bit
@@ -58,7 +58,7 @@ export function CustomModifiersEditor() {
             className="grid grid-cols-2 sm:grid-cols-[1fr_auto_2fr_auto_auto] items-center gap-2 rounded-lg border p-3"
           >
             <Select
-              value={mod.key}
+              value={canonicalKey(mod.key) ?? mod.key}
               onValueChange={(v) =>
                 setCustomModifier({ ...mod, key: v, blockOutput: mod.blockOutput ?? true })
               }

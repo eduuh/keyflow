@@ -15,7 +15,7 @@ const FIELD_LABELS = {
 };
 
 export function EnvironmentSettings() {
-  const { config: document, platform, setPlatform, resetOverride, applyPlatformPreset, setName, setDisableCapsLock } = useConfigStore();
+  const { config: document, platform, resetOverride, applyPlatformPreset, setName, setDisableCapsLock } = useConfigStore();
   const config = useEditingConfig();
   const override = platform === "shared" ? undefined : document.platformOverrides?.[platform];
   const resetSection = (field: OverrideField) => {
@@ -26,7 +26,7 @@ export function EnvironmentSettings() {
     }
   };
   return (
-    <section data-tour="environment" aria-label="Configuration environment" className="rounded-xl border bg-card p-4 space-y-4">
+    <section data-tour="environment-options" aria-label="Configuration environment" className="rounded-xl border bg-card p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1.5 w-full sm:w-64">
           <Label htmlFor="config-name" className="text-xs text-muted-foreground">Layout name</Label>
@@ -34,16 +34,7 @@ export function EnvironmentSettings() {
         </div>
         <div className="space-y-1.5 min-w-0">
           <p className="text-xs text-muted-foreground flex items-center gap-1.5"><Monitor className="h-3.5 w-3.5" /> Editing environment</p>
-          <div className="flex flex-wrap gap-1" role="group" aria-label="Editing environment">
-            {(["shared", ...Object.keys(PLATFORMS)] as EditPlatform[]).map((value) => (
-              <Button key={value} size="sm" variant={platform === value ? "default" : "ghost"}
-                aria-label={value === "shared" ? "Shared" : PLATFORMS[value]}
-                aria-pressed={platform === value} onClick={() => setPlatform(value)}>
-                {value === "shared" ? "Shared" : PLATFORMS[value]}
-                {value !== "shared" && document.platformOverrides?.[value] && <span aria-hidden title="Has overrides" className="h-1.5 w-1.5 rounded-full bg-current" />}
-              </Button>
-            ))}
-          </div>
+          <EnvironmentSelector />
         </div>
         <div className="flex items-center gap-2">
           <Switch id="disable-caps" checked={config.disableCapsLock ?? false} onCheckedChange={setDisableCapsLock} />
@@ -78,5 +69,21 @@ export function EnvironmentSettings() {
         </div>
       )}
     </section>
+  );
+}
+
+export function EnvironmentSelector() {
+  const { config, platform, setPlatform } = useConfigStore();
+  return (
+    <div data-tour="environment" className="flex flex-wrap gap-1" role="group" aria-label="Editing environment">
+      {(["shared", ...Object.keys(PLATFORMS)] as EditPlatform[]).map((value) => (
+        <Button key={value} size="sm" variant={platform === value ? "secondary" : "ghost"}
+          aria-label={value === "shared" ? "Shared" : PLATFORMS[value]}
+          aria-pressed={platform === value} onClick={() => setPlatform(value)}>
+          {value === "shared" ? "Shared" : PLATFORMS[value]}
+          {value !== "shared" && config.platformOverrides?.[value] && <span aria-hidden title="Has overrides" className="h-1.5 w-1.5 rounded-full bg-current" />}
+        </Button>
+      ))}
+    </div>
   );
 }

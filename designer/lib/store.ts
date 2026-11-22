@@ -31,10 +31,7 @@ type ConfigState = {
   hasBaseModifiers: () => boolean;
 };
 
-const defaultConfig: KeyFlowConfig = {
-  version: "1.0", name: "My Layout", disableCapsLock: false,
-  remapping: {}, noModCombos: [], customModifiers: [], layers: [],
-};
+const defaultConfig = normalizeConfig({ version: "1.0", name: "My Layout", remapping: {} });
 
 function removeMapping(mappings: Record<string, string> | undefined, key: string) {
   return Object.fromEntries(Object.entries(mappings ?? {}).filter(([source]) =>

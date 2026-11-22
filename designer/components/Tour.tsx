@@ -1,17 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
 import { driver } from "driver.js";
 // driver.css imported via app/globals.css (@import) — Turbopack's
 // node_modules CSS resolution doesn't always read the exports field.
-
-// First-visit onboarding tour. Walks through the main UI concepts in
-// 8 steps. Driver.js handles overlay rendering, focus management, and
-// keyboard navigation; we just define the steps and target selectors.
-//
-// Storage contract: localStorage["keyflow-designer-tour-seen"] === "true"
-// after the user finishes or dismisses. Returning visitors don't see the
-// tour unless they click "Take a tour" in the header (startTour()).
 
 const STORAGE_KEY = "keyflow-designer-tour-seen";
 
@@ -28,7 +19,7 @@ const STEPS = [
     element: '[data-tour="environment"]',
     popover: {
       title: "One layout, every environment",
-      description: "Choose Shared to edit the portable base, or a platform to preview and edit its overrides. Remaps merge; array edits replace that section. Use Shared restores inheritance.",
+      description: "Choose Shared or a platform before remapping. The keyboard always shows the environment you are editing. Presets and inheritance controls live on the Settings page.",
     },
   },
   {
@@ -56,44 +47,41 @@ const STEPS = [
     },
   },
   {
-    element: '[data-tour="picker-shift"]',
+    element: '[data-tour="save-config"]',
     popover: {
-      title: "Shift mappings (layers only)",
-      description:
-        "Inside a layer, the 'Shift+' tab is enabled. Picking a target there creates a 'shift mapping' — pressing the key in the layer also injects Shift. Useful for symbols (RAlt+T → ^) without holding two modifiers manually.",
+      title: "Save your config",
+      description: "Save config downloads your layout as JSON, keeping Shared and every platform override together. More contains JSON editing, images, sharing and community layouts.",
     },
   },
   {
-    element: '[data-tour="advanced"]',
+    element: '[data-tour="settings-link"]',
     popover: {
-      title: "Advanced settings",
-      description:
-        "Expand to find two power-user features: 'no-modifier combos' (number row → symbol without Shift, like 2→[), and 'custom modifiers' (any key promoted to a layer trigger, like Space → SPACE_MOD). Hidden by default to keep the main view clean.",
-    },
-  },
-  {
-    element: '[data-tour="export-image"]',
-    popover: {
-      title: "Export as PNG",
-      description:
-        "Generate cheat-sheet images of your layout. Each category (Letters / Numbers / Symbols / Directional / Functional / Return / Layout) highlights different keys. Download one at a time, or all categories as a zip.",
-    },
-  },
-  {
-    element: '[data-tour="download-binary"]',
-    popover: {
-      title: "Get Keyflow",
-      description:
-        "Install the latest Keyflow release for your operating system, then load your exported config.json.",
+      title: "Settings, when you need them",
+      description: "Change the layout name, Caps Lock, platform presets, inheritance, custom modifiers and combos on the Settings page. Return to Remapping to edit the keyboard.",
     },
   },
 ];
 
-export function startTour() {
+const SETTINGS_STEPS = [
+  { element: '[data-tour="environment-options"]', popover: {
+    title: "Layout settings", description: "Edit your layout name and Caps Lock behavior. Choose Shared or a platform to keep settings in the correct environment.",
+  } },
+  { element: '[data-tour="advanced"]', popover: {
+    title: "Modifiers and combos", description: "Set up layer triggers and no-modifier combos here. Changes apply to the selected environment.",
+  } },
+  { element: '[data-tour="save-config"]', popover: {
+    title: "Save your config", description: "Download the complete portable document. Your settings also stay saved in this browser.",
+  } },
+  { element: '[data-tour="settings-link"]', popover: {
+    title: "Back to remapping", description: "Return to the keyboard to edit key outputs and layers. The selected environment and your edits stay with you.",
+  } },
+];
+
+export function startTour(settings = false) {
   const tour = driver({
     showProgress: true,
     showButtons: ["next", "previous", "close"],
-    steps: STEPS.map((s) => ({
+    steps: (settings ? SETTINGS_STEPS : STEPS).map((s) => ({
       element: s.element,
       popover: {
         ...s.popover,
@@ -110,20 +98,4 @@ export function startTour() {
     },
   });
   tour.drive();
-}
-
-export function TourAutoStart() {
-  useEffect(() => {
-    let seen = false;
-    try {
-      seen = localStorage.getItem(STORAGE_KEY) === "true";
-    } catch {
-      seen = false;
-    }
-    if (seen) return;
-    // Small delay so the page settles before the tour overlays appear.
-    const t = setTimeout(() => startTour(), 500);
-    return () => clearTimeout(t);
-  }, []);
-  return null;
 }

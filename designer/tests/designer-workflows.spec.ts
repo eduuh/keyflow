@@ -17,7 +17,6 @@ const config = {
 };
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("keyflow-designer-tour-seen", "true"));
   await page.goto("/");
 });
 
@@ -25,7 +24,15 @@ async function importConfig(page: Page, value: unknown = config) {
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await (await chooser).setFiles({ name: "config.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(value)) });
-  await expect(page.getByLabel("Layout name", { exact: true })).toHaveValue((value as typeof config).name);
+  await expect(page.locator("[data-layout-name]")).toHaveText((value as typeof config).name);
+}
+
+async function openTool(page: Page, name: string) {
+  const more = page.getByLabel("More tools", { exact: true });
+  await expect(more).toHaveAccessibleName("More tools");
+  await more.click();
+  await page.getByRole("button", { name, exact: true }).click();
+  await expect(page.locator("details[open]")).toHaveCount(0);
 }
 
 async function documentConfig(page: Page) {
@@ -48,6 +55,7 @@ test("platform previews, key overrides, presets, inheritance and persistence", a
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Use Shared / clear combo" }).click();
   await expect(page.locator('[data-key="A"]')).toHaveAccessibleName("A → B");
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
   for (const [platform, name, target] of [["linux", "Linux", "LeftWin"], ["windows", "Windows", "RightCtrl"], ["mac", "macOS", "LeftWin"]]) {
     await page.getByRole("button", { name, exact: true }).click();
     await page.getByRole("button", { name: `Apply ${name} preset`, exact: true }).click();
@@ -59,7 +67,10 @@ test("platform previews, key overrides, presets, inheritance and persistence", a
   await expect(page.getByRole("switch", { name: "Disable Caps Lock" })).not.toBeChecked();
   await page.getByRole("button", { name: "Linux", exact: true }).click();
   await page.getByRole("button", { name: "Inherit Layers" }).click();
+  await page.getByRole("link", { name: "Remapping", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit layer Navigation" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Linux", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByLabel("Layout name", { exact: true }).fill("Saved workflow");
   const saved = await documentConfig(page);
   await page.reload();
@@ -84,13 +95,15 @@ test("mapping categories, extra keys, shifted output, layer creation, editing an
   await page.getByLabel("All output keys").selectOption("MediaPlay");
   expect((await documentConfig(page)).remapping.PrintScreen).toBe("MediaPlay");
 
-  await page.getByRole("button", { name: "Add layer" }).click();
+  await page.getByRole("button", { name: "New layer", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Create layer", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await selectKey(page, "A");
   await page.getByRole("tab", { name: "Shift+", exact: true }).click();
   await page.getByRole("button", { name: "Map to Shift+1", exact: true }).click();
   await expect(page.locator('[data-key="A"]')).toHaveAccessibleName("A → !");
   const layers = (await documentConfig(page)).layers;
-  expect(layers[3].triggers).toEqual(["LCTRL"]);
+  expect(layers[3].triggers).toEqual(["RALT"]);
   expect(layers[3].shiftMappings).toEqual([{ key: "A", output: "1", shift: true }]);
   await page.getByRole("tab", { name: "A-Z", exact: true }).click();
   await page.getByRole("button", { name: "Map to Z", exact: true }).click();
@@ -100,9 +113,9 @@ test("mapping categories, extra keys, shifted output, layer creation, editing an
   expect((await documentConfig(page)).layers[3].mappings).toEqual({});
   await page.getByRole("button", { name: "Edit layer Layer 4", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("New layer");
-  await page.getByRole("button", { name: "SPACE_MOD", exact: true }).click();
+  await page.getByRole("button", { name: "Add SPACE_MOD (SPACE_MOD)", exact: true }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  expect((await documentConfig(page)).layers[3].triggers).toEqual(["LCTRL", "SPACE_MOD"]);
+  expect((await documentConfig(page)).layers[3].triggers).toEqual(["RALT", "SPACE_MOD"]);
   await page.getByRole("button", { name: "Edit layer New layer", exact: true }).click();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Delete", exact: true }).click();
@@ -111,7 +124,7 @@ test("mapping categories, extra keys, shifted output, layer creation, editing an
 
 test("combo and custom modifier edits replace rows, update triggers and stay scoped", async ({ page }) => {
   await importConfig(page);
-  await page.getByRole("button", { name: "Advanced settings" }).click();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("combobox", { name: "Combo 1 source" }).click();
   await page.getByRole("option", { name: "2", exact: true }).click();
   await page.getByRole("combobox", { name: "Combo 1 output" }).click();
@@ -137,7 +150,7 @@ test("combo and custom modifier edits replace rows, update triggers and stay sco
 
 test("JSON format, validation, reset, download and save retain all environments", async ({ page }) => {
   await importConfig(page);
-  await page.getByRole("button", { name: "JSON", exact: true }).click();
+  await openTool(page, "JSON");
   const editor = page.getByRole("textbox", { name: "Configuration JSON" });
   await editor.fill('{"version":"1.0","platformOverrides":{"linux":null}}');
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -145,15 +158,96 @@ test("JSON format, validation, reset, download and save retain all environments"
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Reset", exact: true }).click();
   expect(JSON.parse(await editor.inputValue()).platformOverrides).toEqual(config.platformOverrides);
-  await editor.fill(JSON.stringify({ ...config, name: "JSON edited" }));
+  const draft = { ...config, name: "JSON edited", unsupportedRuntimeField: true,
+    noModCombos: config.noModCombos.map((combo) => ({ ...combo, blockOutput: true })) };
+  await editor.fill(JSON.stringify(draft));
   await page.getByRole("button", { name: "Format", exact: true }).click();
   expect(await editor.inputValue()).toContain('\n  "version"');
+  expect(JSON.parse(await editor.inputValue())).not.toHaveProperty("unsupportedRuntimeField");
+  await editor.fill(JSON.stringify(draft));
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download", exact: true }).click();
-  expect(JSON.parse(await readFile((await (await download).path())!, "utf8")).name).toBe("JSON edited");
+  const downloaded = JSON.parse(await readFile((await (await download).path())!, "utf8"));
+  expect(downloaded.name).toBe("JSON edited");
+  expect(downloaded).not.toHaveProperty("unsupportedRuntimeField");
+  expect(downloaded.noModCombos).toEqual(config.noModCombos);
+  expect(downloaded.platformOverrides).toEqual(config.platformOverrides);
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByLabel("Layout name", { exact: true })).toHaveValue("JSON edited");
+  await expect(page.locator("[data-layout-name]")).toHaveText("JSON edited");
   expect((await documentConfig(page)).platformOverrides).toEqual(config.platformOverrides);
+});
+
+for (const width of [1440, 390]) {
+  test(`keyboard-first workspace and settings preserve the document at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await importConfig(page);
+    await expect(page.locator('[data-tour="keyboard"] [data-key="A"]')).toBeVisible();
+    await expect(page.getByLabel("Layout name", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("switch", { name: "Disable Caps Lock" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Modifiers and combos" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Community layouts" })).not.toBeVisible();
+    await page.getByRole("button", { name: "Linux", exact: true }).click();
+    await selectKey(page, "A");
+    await page.getByRole("button", { name: "Map to D", exact: true }).click();
+    const remapped = await documentConfig(page);
+    await page.getByRole("link", { name: "Settings", exact: true }).click();
+    await expect(page).toHaveURL(/\/settings\/?$/);
+    await expect(page.getByRole("button", { name: "Linux", exact: true })).toHaveAttribute("aria-pressed", "true");
+    expect(await documentConfig(page)).toEqual(remapped);
+    await page.getByLabel("Layout name", { exact: true }).fill("Portable latest edits");
+    await page.getByRole("switch", { name: "Disable Caps Lock" }).click();
+    const latest = await documentConfig(page);
+    await page.getByRole("link", { name: "Remapping", exact: true }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("button", { name: "Linux", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator('[data-key="A"]')).toHaveAccessibleName("A → D");
+    expect(await documentConfig(page)).toEqual(latest);
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Save config", exact: true }).click();
+    expect(JSON.parse(await readFile((await (await download).path())!, "utf8"))).toEqual(latest);
+    await page.getByLabel("More tools", { exact: true }).click();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("details[open]")).toHaveCount(0);
+    await expect(page.getByLabel("More tools", { exact: true })).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+test("alias bindings display correctly without changing source spellings or runtime defaults", async ({ page }) => {
+  const aliases = { ...config,
+    remapping: { A: "LCtrl", CapsLock: "LShift" },
+    noModCombos: [{ key: "B", output: "LCtrl" }, { key: "C", output: "1", shift: false }],
+    customModifiers: [{ key: "RShift", modifierName: "SPACE_MOD" }],
+  };
+  await importConfig(page, aliases);
+  await selectKey(page, "A");
+  await page.getByRole("tab", { name: "Mod", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Map to LeftCtrl", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.locator('[data-tour="layer-tabs"]').getByRole("button", { name: /^Symbols / }).click();
+  await selectKey(page, "H");
+  await page.getByRole("tab", { name: "Shift+", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Map to Shift+3", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Combo 1 output" })).toContainText("LeftCtrl");
+  await expect(page.getByRole("combobox", { name: "Modifier 1 key" })).toContainText("RightShift");
+  await expect(page.getByRole("switch", { name: "Combo 1 shift" })).not.toBeChecked();
+  await expect(page.getByRole("switch", { name: "Block output", exact: true })).toBeChecked();
+  const saved = await documentConfig(page);
+  expect(saved.remapping).toEqual(aliases.remapping);
+  expect(saved.noModCombos).toEqual(aliases.noModCombos);
+  expect(saved.customModifiers).toEqual(aliases.customModifiers);
+});
+
+test("blank modifier edits preserve the valid name and portable document", async ({ page }) => {
+  await importConfig(page);
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  const before = await documentConfig(page);
+  await page.getByLabel("Modifier 1 name").fill("");
+  await expect(page.getByLabel("Modifier 1 name")).toHaveValue(config.customModifiers[0].modifierName);
+  expect(await documentConfig(page)).toEqual(before);
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Save config", exact: true }).click();
+  expect(JSON.parse(await readFile((await (await download).path())!, "utf8"))).toEqual(before);
 });
 
 test("image categories include physical defaults, all layers, selected platform and ZIP downloads", async ({ page }) => {
@@ -161,7 +255,7 @@ test("image categories include physical defaults, all layers, selected platform 
   await importConfig(page);
   await page.getByRole("button", { name: "Windows", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Export image", exact: true }).click();
+  await openTool(page, "Export image");
   const preview = page.getByLabel("Export preview");
   await expect(preview.locator('[data-export-layer="2"]')).toContainText("3: 3");
   for (const category of ["Letters", "Numbers", "Symbols", "Directional", "Functional", "Return", "Full layout"]) {
@@ -186,7 +280,7 @@ test("many-layer image preview keeps the final layer badge inside the keycap", a
   await importConfig(page, { ...config, layers: Array.from({ length: 20 }, (_, index) => ({
     name: `Layer ${index + 1}`, triggers: ["LCTRL"], mappings: { H: "A" },
   })) });
-  await page.getByRole("button", { name: "Export image", exact: true }).click();
+  await openTool(page, "Export image");
   const keycap = page.getByLabel("Export preview").locator('[data-export-key="H"]');
   await page.getByRole("dialog").evaluate((element) =>
     Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
@@ -200,7 +294,7 @@ test("many-layer image preview keeps the final layer badge inside the keycap", a
 test("coupled section reset asks before dropping platform modifier and layer edits", async ({ page }) => {
   await importConfig(page, { ...config, platformOverrides: { linux: {}, windows: {}, mac: {} } });
   await page.getByRole("button", { name: "Linux", exact: true }).click();
-  await page.getByRole("button", { name: "Advanced settings" }).click();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByLabel("Modifier 1 name").fill("SPACE_NEW");
   const before = await documentConfig(page);
   page.once("dialog", (dialog) => dialog.dismiss());
@@ -222,7 +316,7 @@ test("share URL loading, Gist upload and publishing UI use the whole document", 
       html_url: "https://gist.github.com/example" } });
   });
   await page.getByRole("button", { name: "macOS", exact: true }).click();
-  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await openTool(page, "Share");
   await page.getByRole("button", { name: "Upload to Gist" }).click();
   await expect(page.getByText("Paste a GitHub personal access token")).toBeVisible();
   await page.getByLabel("GitHub token (gist scope)").fill("test-token-not-a-credential");
@@ -231,7 +325,7 @@ test("share URL loading, Gist upload and publishing UI use the whole document", 
   await page.getByRole("button", { name: "Copy raw URL" }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("https://gist.githubusercontent.com/example/raw/config.json");
   await page.getByRole("button", { name: "Done", exact: true }).click();
-  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await openTool(page, "Share");
   await page.getByRole("tab", { name: "Load URL" }).click();
   await page.getByLabel("Raw URL", { exact: true }).fill("https://example.com/config.json");
   await page.getByRole("button", { name: "Load", exact: true }).click();
@@ -241,8 +335,8 @@ test("share URL loading, Gist upload and publishing UI use the whole document", 
   await page.getByLabel("Raw URL", { exact: true }).fill(url);
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Load", exact: true }).click();
-  await expect(page.getByLabel("Layout name", { exact: true })).toHaveValue("URL layout");
-  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await expect(page.locator("[data-layout-name]")).toHaveText("URL layout");
+  await openTool(page, "Share");
   await page.getByRole("tab", { name: "Load URL" }).click();
   await expect(page.getByRole("button", { name: url, exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Publish PR" }).click();
@@ -262,9 +356,9 @@ test("community layouts import the maintained bundled config", async ({ page }) 
   await page.route("https://raw.githubusercontent.com/eduuh/keyflow/main/src/config.json",
     (route) => route.fulfill({ contentType: "application/json", body: source }));
   page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "Layouts", exact: true }).click();
+  await openTool(page, "Community layouts");
   await page.getByRole("dialog").getByRole("button", { name: "Load", exact: true }).first().click();
-  await expect(page.getByLabel("Layout name", { exact: true })).toHaveValue("Eduuh-DH");
+  await expect(page.locator("[data-layout-name]")).toHaveText(JSON.parse(source).name);
   expect((await documentConfig(page)).platformOverrides).toBeDefined();
 });
 
@@ -288,12 +382,25 @@ test("visual workspace stays usable on mobile and in both themes", async ({ page
   expect(errors).toEqual([]);
 });
 
-test("onboarding tour covers the environment and can be completed", async ({ page }) => {
-  await page.getByRole("button", { name: "Take a tour" }).click();
-  await expect(page.locator(".driver-popover-title")).toContainText("Welcome");
-  await page.getByRole("button", { name: /^Next/ }).click();
-  await expect(page.locator(".driver-popover-title")).toContainText("environment");
-  for (let index = 0; index < 7; index++) await page.getByRole("button", { name: /^Next/ }).click();
-  await page.getByRole("button", { name: /^Done/ }).click();
-  expect(await page.evaluate(() => localStorage.getItem("keyflow-designer-tour-seen"))).toBe("true");
-});
+for (const settings of [false, true]) {
+  test(`opt-in ${settings ? "settings" : "remapping"} tour can be completed`, async ({ page }) => {
+    if (settings) {
+      await page.getByRole("link", { name: "Settings", exact: true }).click();
+      await expect(page.getByLabel("Layout name", { exact: true })).toBeVisible({ timeout: 15_000 });
+    }
+    await expect(page.locator(".driver-popover, .driver-overlay")).toHaveCount(0);
+    await openTool(page, "Take a tour");
+    await expect(page.locator(".driver-popover-title")).toContainText(settings ? "Layout settings" : "Welcome");
+    await page.getByRole("button", { name: /^Next/ }).click();
+    if (!settings) await expect(page.locator(".driver-popover-title")).toContainText("environment");
+    for (let index = 0; index < (settings ? 2 : 5); index++) {
+      await page.getByRole("button", { name: /^Next/ }).click();
+    }
+    await page.getByRole("button", { name: /^Done/ }).click();
+    await expect(page.locator(".driver-popover, .driver-overlay")).toHaveCount(0);
+    const background = () => page.locator("body").evaluate((element) => getComputedStyle(element).backgroundColor);
+    const before = await background();
+    await page.getByRole("button", { name: "Toggle theme" }).click();
+    await expect.poll(background).not.toBe(before);
+  });
+}
