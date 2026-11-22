@@ -1,163 +1,119 @@
-# Eduuh-DH Layout
+# Eduuh-DH keyboard layout
 
-A personal Colemak-inspired keyboard layout shipped as the default Keyflow config (`src/config.json`).
+Eduuh-DH is a Colemak-inspired layout for Keyflow. It puts common letters on the home row, programming symbols on the number row, and extra keys on the Left Alt and Right Alt layers.
 
-![Eduuh-DH all layers composite — every key shows its BASE remap plus its outputs in each layer (top: layer 0 / layer 1 or ⇧-injected)](images/eduuh-dh-all.png)
+![Eduuh-DH all layers](images/eduuh-dh-all.png)
 
-## What it is
+## Base layout
 
-Eduuh-DH is **not** Colemak-DH. It borrows ideas from old Colemak and Colemak Mod-DH, then makes three structural changes:
+![Eduuh-DH base remap](images/eduuh-dh-base.png)
 
-1. **Right-hand letters shift right by one position**, opening a slot for V (top row) and K (home row) on the right hand's leftmost columns.
-2. **Apostrophe (`'`) becomes a letter slot**, holding the O that Colemak puts on `;`.
-3. **Number row and symbol punctuation are aggressively repurposed** via no-modifier combos — typing `2` produces `[`, `3` produces `]`, `8` produces `/`, etc. The shift-modified versions of these keys are also rebound.
+| Physical key | Base output | Physical key | Base output |
+|--------------|-------------|--------------|-------------|
+| Q | Q | Y | V |
+| W | W | U | J |
+| E | F | I | L |
+| R | P | O | U |
+| T | G | P | Y |
+| A | A | H | `/` |
+| S | R | J | K |
+| D | S | K | N |
+| F | T | L | E |
+| G | D | `;` | I |
+| | | `'` | O |
+| Z | X | N | Z |
+| X | C | M | M |
+| C | B | `,` | H |
+| V | V | `.` | `,` |
+| B | `-` | `/` | `.` |
 
-The result is a layout optimized for the author's preferences: more letters on the home row's right hand, programming punctuation on the number row, and two thumb-accessible layers (LAlt = numpad, RAlt = arrows & symbols).
+## Modifier keys
 
-## Comparison with Colemak-DH
+| Physical key | Keyflow output |
+|--------------|----------------|
+| Caps Lock | Left Shift |
+| Left Shift | Left Ctrl |
+| Right Shift | Right Ctrl |
+| Enter | Right Shift |
+| Right Ctrl | Print Screen |
+| Left Windows | Left Alt |
 
-```
-Physical QWERTY  Q W E R T   Y U I O P     A S D F G   H J K L ;   Z X C V B   N M , . /
-Colemak Mod-DH:  Q W F P B   J L U Y ;     A R S T G   M N E I O   Z X C D V   K H , . /
-Eduuh-DH:        Q W F P G   V J L U Y     A R S T D   / K N E I   X C B V -   Z M H , .
-                 ─── ─────   ─────────     ─── ─── ─   ─ ───────   ───────── ─── ─────
-                 same diff   right-shift   same diff   ! shifted    very diff    shifted
-                                           (old C)     right by 1
-```
+Caps Lock no longer toggles Caps Lock. Left and right Shift act as Ctrl when used with shortcuts.
 
-### Specific divergences
+On Linux, Left Windows passes through as Super. It can open the app launcher and control workspaces and windows.
 
-| Position | Colemak-DH | Eduuh-DH | Note                                                          |
-|----------|------------|----------|---------------------------------------------------------------|
-| T        | B          | G        | Matches **old Colemak**, not Mod-DH                           |
-| G        | G          | D        | Matches **old Colemak**; Mod-DH puts G here                   |
-| H        | M          | `/`      | H pulled off home, slash takes its place                      |
-| J K L ;  | N E I O    | K N E I  | Right-hand shifted right by one; K inserted at the leftmost   |
-| `'`      | (none)     | O        | Apostrophe repurposed as a letter slot                        |
-| Y, top   | J          | V        | V pulled up from bottom row, J L U Y shifted right            |
-| Bottom   | Z X C D V K H | X C B V - Z M H | Bottom row significantly customized              |
+## Number row
 
-## Base remapping (physical → letter)
+Without Shift, the number row produces programming symbols:
 
-![Eduuh-DH base remap — only the BASE remapping shown on each keycap, layer outputs omitted](images/eduuh-dh-base.png)
+| Key | Output | Key | Output |
+|-----|--------|-----|--------|
+| `` ` `` | `?` | 7 | `*` |
+| 1 | `!` | 8 | `/` |
+| 2 | `[` | 9 | `'` |
+| 3 | `]` | 0 | `)` |
+| 4 | `"` | `=` | `+` |
+| 5 | `{` | `]` | `:` |
+| 6 | `}` | Tab | Tab |
 
-### Top row
-| Physical | Output |   | Physical | Output |
-|----------|--------|---|----------|--------|
-| Q        | Q      |   | Y        | V      |
-| W        | W      |   | U        | J      |
-| E        | F      |   | I        | L      |
-| R        | P      |   | O        | U      |
-| T        | G      |   | P        | Y      |
+Hold Shift to use the normal number or symbol.
 
-### Home row
-| Physical | Output |   | Physical | Output |
-|----------|--------|---|----------|--------|
-| A        | A      |   | H        | `/`    |
-| S        | R      |   | J        | K      |
-| D        | S      |   | K        | N      |
-| F        | T      |   | L        | E      |
-| G        | D      |   | `;`      | I      |
-|          |        |   | `'`      | O      |
+## Left Alt: numpad
 
-### Bottom row
-| Physical | Output |   | Physical | Output |
-|----------|--------|---|----------|--------|
-| Z        | X      |   | N        | Z      |
-| X        | C      |   | M        | M      |
-| C        | B      |   | `,`      | H      |
-| V        | V      |   | `.`      | `,`    |
-| B        | `-`    |   | `/`      | `.`    |
+![Eduuh-DH numpad layer](images/eduuh-dh-numpad.png)
 
-## Modifier remaps
+Hold Left Alt. The right side becomes a numpad:
 
-| Physical key | Remapped to |
-|--------------|-------------|
-| CapsLock     | LeftShift   |
-| LeftShift    | LeftCtrl    |
-| RightShift   | RightCtrl   |
-| Enter        | RightShift  |
-| RightCtrl    | PrintScreen |
-| LeftWin      | LeftAlt     |
+| Physical keys | Output |
+|---------------|--------|
+| I O P | 4 5 6 |
+| K L `;` `'` | 1 2 3 0 |
+| 9 0 `-` | 7 8 9 |
+| J | `\` |
 
-`CapsLock → Shift` is the foundational ergonomic move. `Enter → RightShift` puts a second shift under the right pinky, freeing both shift keys for use as Ctrl modifiers. CapsLock blocking (`"disableCapsLock": true`) prevents accidental caps-lock toggles.
+Left Alt also provides these symbols:
 
-`LeftWin → LeftAlt` repurposes the left Windows key as a second LeftAlt — useful on laptops where LWin sits where Alt should be ergonomically. Two consequences: (1) the Start menu no longer pops when LWin is pressed alone (reach it via Ctrl+Esc), and (2) LWin inherits LAlt's role as the Numpad layer trigger, so LWin + I produces `4` just like LAlt + I.
+| Keys | Output |
+|------|--------|
+| Left Alt + N | `$` |
+| Left Alt + M | `%` |
+| Left Alt + `,` | `#` |
+| Left Alt + U | `+` |
 
-## Number row (no-mod combos)
+## Right Alt: arrows and symbols
 
-These fire when no modifier is held — typing the number row produces programming punctuation by default. Hold Shift to get the original number/symbol.
+![Eduuh-DH arrows and symbols layer](images/eduuh-dh-arrows.png)
 
-| Press | Produces | | Press | Produces |
-|-------|----------|---|-------|----------|
-| `` ` `` | `?` (Shift+/) | | `7`   | `*` (Shift+8) |
-| `1`   | `!` (Shift+1) | | `8`   | `/`           |
-| `2`   | `[`           | | `9`   | `'`           |
-| `3`   | `]`           | | `0`   | `)` (Shift+0) |
-| `4`   | `"` (Shift+') | | `=`   | `+` (Shift+=) |
-| `5`   | `{` (Shift+[) | | `]`   | `:` (Shift+;) |
-| `6`   | `}` (Shift+]) | | Tab   | Tab (Shift+Tab passthrough) |
+Hold Right Alt for arrows and programming symbols:
 
-## Layers
+| Keys | Output |
+|------|--------|
+| Right Alt + K | Left |
+| Right Alt + L | Down |
+| Right Alt + O | Up |
+| Right Alt + `;` | Right |
+| Right Alt + `'` | Enter |
+| Right Alt + A | `\` |
+| Right Alt + S | Escape |
+| Right Alt + D | `9` |
+| Right Alt + X | `` ` `` |
 
-### Numpad Layer (LAlt)
+Right Alt with these keys produces symbols:
 
-![Numpad layer — BASE remap on the bottom-left of each keycap, LAlt-mapped output on the top-left, ⇧-injected outputs on the top-right](images/eduuh-dh-numpad.png)
+| Keys | Output |
+|------|--------|
+| Right Alt + E | `<` |
+| Right Alt + R | `>` |
+| Right Alt + U | `+` |
+| Right Alt + Q | `@` |
+| Right Alt + W | `~` |
+| Right Alt + T | `^` |
+| Right Alt + F | `!` |
+| Right Alt + G | `?` |
+| Right Alt + Z | `*` |
+| Right Alt + C | `&` |
+| Right Alt + V | `\|` |
 
-Hold LeftAlt to turn the right side of the keyboard into a numeric keypad. Physical positions, not Colemak positions.
+## Test the layout
 
-```
-                 9   0   -      → 7   8   9
-                 I   O   P      → 4   5   6
-                 K   L   ;   '  → 1   2   3   0
-                 J              → \
-```
-
-Shift-injected combos in the Numpad layer:
-
-| LAlt + key | Produces |
-|------------|----------|
-| N          | `$`      |
-| M          | `%`      |
-| `,`        | `#`      |
-| U          | `+` (numeric operator on Colemak-J position) |
-
-### Arrows & Symbols Layer (RAlt)
-
-![Arrows and Symbols layer — BASE remap on the bottom-left, RAlt-mapped output on the top-left, ⇧-injected symbols on the top-right](images/eduuh-dh-arrows.png)
-
-Hold RightAlt for navigation and the rest of the programming symbol set.
-
-| RAlt + key | Produces |   | RAlt + key | Produces |
-|------------|----------|---|------------|----------|
-| K          | Left     |   | A          | `\`      |
-| L          | Down     |   | S          | Escape   |
-| O          | Up       |   | D          | `9`      |
-| `;`        | Right    |   | X          | `` ` ``  |
-| `'`        | Enter    |   |            |          |
-
-Shift-injected symbols:
-
-| RAlt + key | Produces |   | RAlt + key | Produces |
-|------------|----------|---|------------|----------|
-| E          | `<`      |   | G          | `?`      |
-| R          | `>`      |   | Z          | `*`      |
-| U          | `+` (physical U = Colemak J) | | C  | `&`      |
-| Q          | `@`      |   | V          | `\|`     |
-| W          | `~`      |   | T          | `^`      |
-| F          | `!`      |   |            |          |
-
-## Design notes
-
-- **No `;` letter on `;` position.** Colemak's iconic ";" → "O" mapping is gone; instead `;` produces `I` and `'` produces `O`. Saves the apostrophe-as-letter for the right pinky.
-- **Numpad layer is physical-positional, not Colemak-letter-positional.** Pressing LAlt + the J key (Colemak position N) produces `\`. To get a numpad mapping for the Colemak-J letter, press LAlt + physical U.
-- **Layer-shift mappings inject Shift.** When `LAlt + U → +` fires, Keyflow sends `Shift+Equals` to the OS. Shift cleanup runs before the next keystroke so the shift doesn't leak.
-
-## Verifying the layout works
-
-`tests/unit/integration/test_config_coverage.cpp` walks every behavior in `src/config.json` and asserts the pipeline produces the configured output. Edit `config.json`, rebuild tests, and the test surface tracks automatically:
-
-```powershell
-./build.ps1 -Tests
-./builds/Debug/tests/Debug/keyflow_tests.exe --gtest_filter=ConfigRemapping.*
-```
+`tests/unit/integration/test_config_coverage.cpp` checks every mapping in `src/config.json`.

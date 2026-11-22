@@ -220,7 +220,7 @@ TEST(OutputDispatcherTest,
 }
 
 TEST(OutputDispatcherTest,
-     RuntimeWinModifierUsesKeypadIdentityAndSuppressesItsTrigger) {
+     RuntimeWinModifierUsesKeypadIdentityAndHonorsBlockOutput) {
   auto harness =
       keyflow::testing::PipelineHarness::fromConfigFile(KEYFLOW_CONFIG_PATH);
   RecordingHardware hardware;
@@ -229,9 +229,26 @@ TEST(OutputDispatcherTest,
   ASSERT_TRUE(dispatcher.process(KeyEvent(SC_J, true)));
   ASSERT_TRUE(dispatcher.process(KeyEvent(SC_LWIN, false)));
   ASSERT_TRUE(dispatcher.process(KeyEvent(SC_J, false)));
-  ASSERT_EQ(hardware.events.size(), 2u);
-  expectEvent(hardware.events.at(0), SC_KP_7, KeyAction::Press);
-  expectEvent(hardware.events.at(1), SC_KP_7, KeyAction::Release);
+
+  bool blockOutput = true;
+  for (const auto &customMod : harness.config().customModifiers) {
+    if (customMod.modifierName == "WIN_MOD") {
+      blockOutput = customMod.blockOutput;
+      break;
+    }
+  }
+
+  if (blockOutput) {
+    ASSERT_EQ(hardware.events.size(), 2u);
+    expectEvent(hardware.events.at(0), SC_KP_7, KeyAction::Press);
+    expectEvent(hardware.events.at(1), SC_KP_7, KeyAction::Release);
+  } else {
+    ASSERT_EQ(hardware.events.size(), 4u);
+    expectEvent(hardware.events.at(0), SC_LWIN, KeyAction::Press);
+    expectEvent(hardware.events.at(1), SC_KP_7, KeyAction::Press);
+    expectEvent(hardware.events.at(2), SC_LWIN, KeyAction::Release);
+    expectEvent(hardware.events.at(3), SC_KP_7, KeyAction::Release);
+  }
   EXPECT_EQ(harness.currentModifiers(), 0u);
 }
 
