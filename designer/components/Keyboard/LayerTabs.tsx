@@ -2,27 +2,12 @@
 
 import { useState } from "react";
 import { Plus, Settings2 } from "lucide-react";
-import { useConfigStore } from "@/lib/store";
+import { useConfigStore, useEditingConfig } from "@/lib/store";
+import { availableTriggers } from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { layerAccent } from "@/lib/layerColors";
 import { LayerEditor } from "./LayerEditor";
-
-// Layer navigation. Each tab adopts its layer's accent color; the active
-// tab fills with that color and shifts to cream text. The BASE tab is the
-// "all layers visible" view — its tab takes the burgundy brand color.
-
-const MODIFIER_NAMES = [
-  "RALT",
-  "LALT",
-  "RCTRL",
-  "LCTRL",
-  "RSHIFT",
-  "LSHIFT",
-  "RWIN",
-  "LWIN",
-  "CAPS",
-];
 
 function formatTriggers(triggers: string[] | undefined): string {
   if (!triggers || triggers.length === 0) return "—";
@@ -30,21 +15,17 @@ function formatTriggers(triggers: string[] | undefined): string {
 }
 
 export function LayerTabs() {
-  const { config, currentLayerIndex, setCurrentLayer, addLayer, hasBaseModifiers } =
+  const { currentLayerIndex, setCurrentLayer, addLayer, hasBaseModifiers } =
     useConfigStore();
+  const config = useEditingConfig();
   const [editingLayer, setEditingLayer] = useState<number | null>(null);
 
   const layers = config.layers || [];
   const canAddLayer = hasBaseModifiers();
 
   const getDefaultTrigger = () => {
-    const baseRemapping = config.remapping || {};
-    const availableModifiers = Object.values(baseRemapping).filter((target) =>
-      MODIFIER_NAMES.includes(target),
-    );
-    const usedTriggers = layers
-      .map((l) => l.triggers?.[0])
-      .filter((t): t is string => !!t);
+    const availableModifiers = availableTriggers(config);
+    const usedTriggers = layers.flatMap((layer) => layer.triggers);
     const unused = availableModifiers.find((mod) => !usedTriggers.includes(mod));
     return unused || availableModifiers[0] || "RALT";
   };
@@ -71,7 +52,7 @@ export function LayerTabs() {
         active={currentLayerIndex === -1}
         title="BASE"
         subtitle="All layers visible"
-        count={Object.keys(config.remapping || {}).length}
+        count={Object.keys(config.remapping || {}).filter((key) => !key.startsWith("_")).length}
         onClick={() => setCurrentLayer(-1)}
       />
 
@@ -81,18 +62,18 @@ export function LayerTabs() {
             active={currentLayerIndex === index}
             title={formatTriggers(layer.triggers)}
             subtitle={layer.name}
-            count={Object.keys(layer.mappings || {}).length}
+            count={Object.keys(layer.mappings || {}).filter((key) => !key.startsWith("_")).length + (layer.shiftMappings?.length ?? 0)}
             onClick={() => setCurrentLayer(index)}
             accentIndex={index}
           />
           <button
             type="button"
-            className="absolute top-1.5 right-1.5 h-5 w-5 rounded grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/15"
+            className="absolute bottom-1.5 right-1.5 h-6 w-6 rounded grid place-items-center bg-card text-foreground border hover:bg-accent"
             onClick={(e) => {
               e.stopPropagation();
               setEditingLayer(index);
             }}
-            aria-label="Edit layer"
+            aria-label={`Edit layer ${layer.name}`}
           >
             <Settings2 className="h-3 w-3" />
           </button>
@@ -103,15 +84,14 @@ export function LayerTabs() {
         variant="outline"
         onClick={handleAddLayer}
         disabled={!canAddLayer}
-        className="border-dashed shrink-0 h-[3.25rem] gap-1 px-3 font-serif italic"
-        style={{ fontVariationSettings: "'opsz' 14" }}
+        className="border-dashed shrink-0 h-[3.25rem] gap-1 px-3"
       >
         <Plus className="h-4 w-4" />
         Add layer
       </Button>
 
       {!canAddLayer && (
-        <span className="text-xs text-muted-foreground shrink-0 font-serif italic">
+        <span className="text-xs text-muted-foreground shrink-0">
           Map a modifier in BASE first
         </span>
       )}
@@ -134,59 +114,37 @@ type LayerTabProps = {
 
 function LayerTab({ active, title, subtitle, count, onClick, accentIndex }: LayerTabProps) {
   const accent = accentIndex !== undefined ? layerAccent(accentIndex) : null;
-  const activeColor = accent?.hex ?? "#6B2D3F"; // BASE → burgundy
-  const dotColor = accent?.hex ?? "#6B2D3F";
-
-  const inactiveStyle: React.CSSProperties = {
-    background: "rgba(250,247,240,0.6)",
-    borderColor: "rgba(61,53,48,0.18)",
-    color: "#3D3530",
-    boxShadow: "0 1px 2px rgba(61,53,48,0.06)",
-  };
-  const activeStyle: React.CSSProperties = {
-    background: activeColor,
-    borderColor: activeColor,
-    color: "#F5EBDB",
-    boxShadow: `0 3px 0 ${activeColor}55, 0 4px 12px ${activeColor}38`,
-  };
+  const dotColor = accent?.hex ?? "hsl(var(--primary))";
 
   return (
     <button
       type="button"
       onClick={onClick}
-      style={active ? activeStyle : inactiveStyle}
+      aria-pressed={active}
       className={cn(
         "shrink-0 flex flex-col items-start rounded-md border px-3.5 py-2 text-left transition-all",
         "min-w-[7.5rem]",
-        active && "-translate-y-[1px]",
+        active ? "bg-accent border-primary text-foreground" : "bg-card text-muted-foreground hover:bg-muted",
       )}
     >
       <div className="flex items-center gap-2 w-full">
         <span
           className="h-[6px] w-[6px] rounded-full shrink-0"
           style={{
-            background: active ? "rgba(245,235,219,0.95)" : dotColor,
+            background: dotColor,
           }}
         />
         <span className="font-keycap text-[12px] font-medium tracking-[0.05em] uppercase">
           {title}
         </span>
         <span
-          className="ml-auto text-[10px] font-keycap font-medium px-1.5 py-px rounded-[3px]"
-          style={{
-            background: active ? "rgba(245,235,219,0.18)" : "rgba(61,53,48,0.08)",
-            color: active ? "rgba(245,235,219,0.9)" : "rgba(61,53,48,0.7)",
-          }}
+          className="ml-auto text-[10px] font-keycap font-medium px-1.5 py-px rounded-[3px] bg-muted text-muted-foreground"
         >
           {count}
         </span>
       </div>
       <span
-        className="font-serif italic text-[12px] truncate max-w-full mt-0.5"
-        style={{
-          color: active ? "rgba(245,235,219,0.82)" : "rgba(61,53,48,0.62)",
-          fontVariationSettings: "'opsz' 14",
-        }}
+        className="text-[12px] truncate max-w-full mt-0.5 pr-5"
       >
         {subtitle}
       </span>

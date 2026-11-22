@@ -21,7 +21,14 @@ const STEPS = [
     popover: {
       title: "Welcome to Keyflow Designer",
       description:
-        "Visual editor for your Keyflow config.json. The actual remapping happens in keyflow.exe — this is where you design what it does. Save your config as JSON, share it as a PNG, or grab the binary.",
+        "Visual editor for your Keyflow config.json. Design here, then download JSON to use with Keyflow. Shared settings and Linux, Windows and macOS overrides travel in one document.",
+    },
+  },
+  {
+    element: '[data-tour="environment"]',
+    popover: {
+      title: "One layout, every environment",
+      description: "Choose Shared to edit the portable base, or a platform to preview and edit its overrides. Remaps merge; array edits replace that section. Use Shared restores inheritance.",
     },
   },
   {
@@ -37,7 +44,7 @@ const STEPS = [
     popover: {
       title: "Color-coded keyboard",
       description:
-        "Every key is colored by what it produces — mocha for modifiers, cream for letters & numbers, pink for navigation, burgundy for function keys. The legend below the keyboard explains the palette. Click any key to start mapping it.",
+        "The small legend identifies the physical key; the large legend shows its output. Colored edges show layer bindings. Select a key to edit it, or choose function, navigation, numpad and media keys below the canvas.",
     },
   },
   {
@@ -75,9 +82,9 @@ const STEPS = [
   {
     element: '[data-tour="download-binary"]',
     popover: {
-      title: "Get keyflow.exe",
+      title: "Get Keyflow",
       description:
-        "Designing here is half the work — to actually use your config, install keyflow.exe (and the Interception driver). Latest stable release is one click away.",
+        "Install the latest Keyflow release for your operating system, then load your exported config.json.",
     },
   },
 ];

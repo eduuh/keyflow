@@ -2,6 +2,10 @@
 
 import { ansiLayout } from "@/lib/keyboardLayout";
 import { useConfigStore } from "@/lib/store";
+import { keyMapping } from "@/lib/config";
+import { canonicalKey } from "@/lib/allKeys";
+import { shiftedDisplayLabel } from "@/lib/keyDisplay";
+import { layerAccent } from "@/lib/layerColors";
 
 // Render target for keyboard exports.
 //
@@ -31,23 +35,30 @@ export type KeyContext = {
 type Config = ReturnType<typeof useConfigStore.getState>["config"];
 
 export type LayerFilter = "all" | "base" | number;
+const BINDING_PITCH = 15;
 
 /** Build the per-key context map used for category matching. */
 export function buildKeyContexts(config: Config): Map<string, KeyContext> {
   const map = new Map<string, KeyContext>();
   ansiLayout.forEach((k) => {
     const outputs: string[] = [];
-    const base = config.remapping?.[k.keyCode];
-    if (base) outputs.push(base);
+    const base = keyMapping(config.remapping, k.keyCode) ?? k.keyCode;
+    outputs.push(canonicalKey(base) ?? base);
     config.layers?.forEach((layer) => {
-      const m = layer.mappings?.[k.keyCode];
+      const m = keyMapping(layer.mappings, k.keyCode);
       if (m) outputs.push(m);
       layer.shiftMappings?.forEach((sm) => {
-        if (sm.key === k.keyCode) outputs.push(sm.output);
+        if (canonicalKey(sm.key) === k.keyCode) {
+          outputs.push(sm.output);
+          if (sm.shift !== false) outputs.push(shiftedDisplayLabel(sm.output));
+        }
       });
     });
     config.noModCombos?.forEach((c) => {
-      if (c.key === k.keyCode) outputs.push(c.output);
+      if (canonicalKey(c.key) === k.keyCode) {
+        outputs.push(c.output);
+        if (c.shift) outputs.push(shiftedDisplayLabel(c.output));
+      }
     });
     map.set(k.keyCode, { physicalKey: k.keyCode, outputs });
   });
@@ -65,14 +76,15 @@ export type ExportKeyboardProps = {
 };
 
 export function ExportKeyboard({
-  keyContexts,
   isHighlighted,
   config,
   scale = 64,
   layerFilter = "all",
 }: ExportKeyboardProps) {
   const width = 15 * scale;
-  const height = 5 * scale;
+  const bindingCount = layerFilter === "all" ? config.layers?.length ?? 0 : 0;
+  const rowHeight = scale + (bindingCount ? bindingCount * BINDING_PITCH + 2 : 0);
+  const height = 5 * rowHeight;
 
   return (
     <div
@@ -89,6 +101,7 @@ export function ExportKeyboard({
           key={keyData.id}
           keyData={keyData}
           scale={scale}
+          rowHeight={rowHeight}
           config={config}
           layerFilter={layerFilter}
           highlighted={isHighlighted(keyData.keyCode)}
@@ -106,9 +119,10 @@ type KeycapProps = {
   config: Config;
   layerFilter: LayerFilter;
   highlighted: boolean;
+  rowHeight: number;
 };
 
-function Keycap({ keyData, scale, config, layerFilter, highlighted }: KeycapProps) {
+function Keycap({ keyData, scale, rowHeight, config, layerFilter, highlighted }: KeycapProps) {
   const view = resolveKeyView(keyData, config, layerFilter);
   const role = view.role;
   const palette = ROLE_PALETTE[role];
@@ -119,7 +133,17 @@ function Keycap({ keyData, scale, config, layerFilter, highlighted }: KeycapProp
 
   const padding = 6;
   const w = keyData.width * scale - 4;
-  const h = keyData.height * scale - 4;
+  const h = keyData.height * rowHeight - 4;
+  const bindings = layerFilter === "all" ? (config.layers ?? []).flatMap((layer, index) => {
+    const mapping = keyMapping(layer.mappings, keyData.keyCode);
+    const shift = layer.shiftMappings?.find((entry) => canonicalKey(entry.key) === keyData.keyCode);
+    if (!mapping && !shift) return [];
+    const outputs = [
+      ...(mapping ? [compactLabel(mapping)] : []),
+      ...(shift ? [shift.shift !== false ? shiftedDisplayLabel(shift.output) : compactLabel(shift.output)] : []),
+    ];
+    return [{ index, label: outputs.join(" / ") }];
+  }) : [];
 
   // Sizing scales with key size so a 2u Backspace doesn't dwarf its label.
   // Long words like "Shift" / "PrtSc" get a smaller primary font so they fit.
@@ -128,14 +152,14 @@ function Keycap({ keyData, scale, config, layerFilter, highlighted }: KeycapProp
   const primaryFontSize = isWideLabel
     ? Math.max(13, Math.round(scale * 0.22))
     : Math.max(14, baseFont);
-  const overlayFontSize = Math.max(10, Math.round(scale * 0.16));
 
   return (
     <div
+      data-export-key={keyData.keyCode}
       style={{
         position: "absolute",
         left: `${keyData.x * scale}px`,
-        top: `${keyData.y * scale}px`,
+        top: `${keyData.y * rowHeight}px`,
         width: `${w}px`,
         height: `${h}px`,
         borderRadius: "8px",
@@ -149,30 +173,14 @@ function Keycap({ keyData, scale, config, layerFilter, highlighted }: KeycapProp
         overflow: "hidden",
       }}
     >
-      {/* Layer-0 overlay (top-left) — "all" view only. Surfaces the layer-0
-          mapping next to the BASE output so you can see at a glance what each
-          layer adds without leaving the composite view. */}
-      {view.topLeft && (
-        <div
-          style={{
-            position: "absolute",
-            top: padding - 1,
-            left: padding,
-            fontSize: `${overlayFontSize}px`,
-            color: view.topLeftColor ?? palette.muted,
-            fontWeight: 600,
-          }}
-        >
-          {view.topLeft}
-        </div>
-      )}
+      <span style={{ position: "absolute", top: 4, left: 5, color: palette.muted, fontSize: 9 }}>{keyData.label}</span>
 
       {/* Center: the final output for the current view — what pressing this
           key actually produces. Color comes from the role palette. */}
       <div
         style={{
           position: "absolute",
-          inset: 0,
+          top: 0, left: 0, right: 0, height: keyData.height * scale - 4,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -193,21 +201,12 @@ function Keycap({ keyData, scale, config, layerFilter, highlighted }: KeycapProp
         </span>
       </div>
 
-      {/* Bottom-right overlay — "all" view only. The layer-1 mapping. */}
-      {view.bottomRight && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: padding - 1,
-            right: padding,
-            fontSize: `${overlayFontSize}px`,
-            color: view.bottomRightColor ?? palette.muted,
-            fontWeight: 600,
-          }}
-        >
-          {view.bottomRight}
-        </div>
-      )}
+      {bindings.length > 0 && <div style={{ position: "absolute", top: scale - 4, left: 4, right: 4 }}>
+        {bindings.map((binding) => <div key={binding.index} data-export-layer={binding.index}
+          style={{ fontSize: 10, lineHeight: "14px", color: "#ffffff", background: layerAccent(binding.index).hex, borderRadius: 2, marginBottom: 1, textAlign: "center" }}>
+          {binding.index + 1}: {binding.label}
+        </div>)}
+      </div>}
     </div>
   );
 }
@@ -218,12 +217,6 @@ type KeyView = {
   /** The big centered label — always the FINAL output for the current view. */
   primary: string;
   primaryColor?: string;
-  /** Top-left overlay — "all" view only: layer-0 output. */
-  topLeft?: string;
-  topLeftColor?: string;
-  /** Bottom-right overlay — "all" view only: layer-1 output. */
-  bottomRight?: string;
-  bottomRightColor?: string;
   /** Drives the card color. */
   role: KeyRole;
 };
@@ -253,8 +246,8 @@ function resolveKeyView(
     // falls through to the BASE output unchanged. Card color signals whether
     // the layer affected this key (violet) or not (the key's natural role).
     const layer = layers[filter];
-    const mapping = layer?.mappings?.[keyData.keyCode];
-    const shift = layer?.shiftMappings?.find((m) => m.key === keyData.keyCode);
+    const mapping = keyMapping(layer?.mappings, keyData.keyCode);
+    const shift = layer?.shiftMappings?.find((m) => canonicalKey(m.key) === keyData.keyCode);
 
     if (mapping) {
       return {
@@ -266,48 +259,24 @@ function resolveKeyView(
 
     if (shift) {
       return {
-        primary: `⇧${compactLabel(shift.output)}`,
+        primary: shift.shift !== false ? shiftedDisplayLabel(shift.output) : compactLabel(shift.output),
         primaryColor: ACCENT_SHIFT,
         role: "layerOutput",
       };
     }
 
-    // No layer activity on this key — pressing it with the layer trigger held
-    // still produces whatever BASE produces. Show that at full clarity.
-    const display = baseOutput ?? physicalLabel;
+    // No-modifier combos are blocked while a layer trigger is held.
+    const display = keyMapping(config.remapping, keyData.keyCode) ?? physicalLabel;
     return {
       primary: compactLabel(display),
       role: classifyRole(display, baseOutput != null),
     };
   }
 
-  // "all" view: BASE output prominent, layer outputs in opposite corners.
-  const layer0 = layers[0]?.mappings?.[keyData.keyCode];
-  const layer1 = layers[1]?.mappings?.[keyData.keyCode];
-  const shift0 = layers[0]?.shiftMappings?.find((m) => m.key === keyData.keyCode);
-  const shift1 = layers[1]?.shiftMappings?.find((m) => m.key === keyData.keyCode);
-
-  const topLeft =
-    layer0 != null
-      ? compactLabel(layer0)
-      : shift0
-      ? `⇧${compactLabel(shift0.output)}`
-      : undefined;
-  const bottomRight =
-    layer1 != null
-      ? compactLabel(layer1)
-      : shift1
-      ? `⇧${compactLabel(shift1.output)}`
-      : undefined;
-
   const display = baseOutput ?? physicalLabel;
 
   return {
     primary: compactLabel(display),
-    topLeft,
-    topLeftColor: ACCENT_LAYER_DIM,
-    bottomRight,
-    bottomRightColor: ACCENT_LAYER_DIM,
     role: classifyRole(display, baseOutput != null),
   };
 }
@@ -322,9 +291,7 @@ function resolveKeyView(
  *  ⇧1 to "!" via the QWERTY shift map).
  */
 function baseOutputFor(keyCode: string, config: Config): string | null {
-  const remap = config.remapping?.[keyCode];
-  if (remap) return remap;
-  const combo = config.noModCombos?.find((c) => c.key === keyCode);
+  const combo = config.noModCombos?.find((c) => canonicalKey(c.key) === keyCode);
   if (combo) {
     if (combo.shift) {
       const shifted = US_SHIFT[combo.output];
@@ -332,7 +299,7 @@ function baseOutputFor(keyCode: string, config: Config): string | null {
     }
     return combo.output;
   }
-  return null;
+  return keyMapping(config.remapping, keyCode) ?? null;
 }
 
 const US_SHIFT: Record<string, string> = {
@@ -490,7 +457,6 @@ const ROLE_PALETTE: Record<KeyRole, Palette> = {
 };
 
 const ACCENT_LAYER = "#C4B5FD";       // violet — primary text in per-layer view
-const ACCENT_LAYER_DIM = "#A78BFA";   // softer violet — overlay layer outputs in "all"
 const ACCENT_SHIFT = "#FCD34D";       // amber — shift-injected primary
 
 // Shrink long key names so they fit on a keycap face. Uses readable words

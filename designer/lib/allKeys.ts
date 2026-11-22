@@ -67,6 +67,17 @@ export const KEY_GROUPS: { group: string; keys: KeyOption[] }[] = [
     ],
   },
   {
+    group: "Numpad",
+    keys: ["NumLock", "KP_Slash", "KP_Asterisk", "KP_Minus", "KP_Plus", "KP_Enter", "KP_Period",
+      ...Array.from({ length: 10 }, (_, i) => `KP_${i}`)].map((code) => ({ code, label: code })),
+  },
+  {
+    group: "Media & browser",
+    keys: ["VolumeMute", "VolumeDown", "VolumeUp", "MediaNext", "MediaPrev", "MediaStop", "MediaPlay",
+      "BrowserBack", "BrowserForward", "BrowserRefresh", "BrowserStop", "BrowserSearch",
+      "BrowserFavorites", "BrowserHome"].map((code) => ({ code, label: code })),
+  },
+  {
     group: "Other",
     keys: [
       { code: "Escape", label: "Escape" },
@@ -76,6 +87,9 @@ export const KEY_GROUPS: { group: string; keys: KeyOption[] }[] = [
       { code: "Backspace", label: "Backspace" },
       { code: "PrintScreen", label: "PrintScreen" },
       { code: "Menu", label: "Menu" },
+      { code: "ScrollLock", label: "ScrollLock" },
+      { code: "Pause", label: "Pause" },
+      { code: "NOP", label: "Block key (NOP)" },
     ],
   },
   {
@@ -89,3 +103,15 @@ export const KEY_GROUPS: { group: string; keys: KeyOption[] }[] = [
 
 // Flat list for quick "is this a valid code" checks.
 export const ALL_KEY_CODES: string[] = KEY_GROUPS.flatMap((g) => g.keys.map((k) => k.code));
+
+const KEY_ALIASES: Record<string, string> = {
+  Backtick: "Grave", Tilde: "Grave", LBracket: "LeftBracket", RBracket: "RightBracket",
+  Caps: "CapsLock", Quote: "Apostrophe", Return: "Enter", LShift: "LeftShift", RShift: "RightShift",
+  LCtrl: "LeftCtrl", RCtrl: "RightCtrl", LWin: "LeftWin", RWin: "RightWin",
+  LeftSuper: "LeftWin", RightSuper: "RightWin", LAlt: "LeftAlt", RAlt: "RightAlt",
+  LALT: "LeftAlt", RALT: "RightAlt", Apps: "Menu", Print: "PrintScreen", Nop: "NOP", None: "NOP",
+};
+
+export function canonicalKey(code: string): string | undefined {
+  return ALL_KEY_CODES.includes(code) ? code : KEY_ALIASES[code];
+}

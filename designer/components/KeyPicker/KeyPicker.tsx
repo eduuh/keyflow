@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
-import { useConfigStore } from "@/lib/store";
+import { useConfigStore, useEditingConfig } from "@/lib/store";
+import { KEY_GROUPS, canonicalKey } from "@/lib/allKeys";
+import { keyMapping } from "@/lib/config";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -65,21 +67,25 @@ const KEYS: Record<KeyCategory, PickerKey[]> = {
 export function KeyPicker() {
   const [category, setCategory] = useState<KeyCategory>("basic");
   const {
-    config,
+    config: document,
+    platform,
     selectedKey,
     currentLayerIndex,
     setKeyMapping,
     clearKeyMapping,
     setShiftMapping,
     clearShiftMapping,
+    removeNoModCombo,
   } = useConfigStore();
+  const config = useEditingConfig();
 
   if (!selectedKey) {
     return (
       <Card className="w-full">
-        <CardContent className="py-12 text-center">
-          <p className="text-base text-muted-foreground">
-            Click any key on the keyboard above to assign a mapping.
+        <CardContent className="py-10 text-center">
+          <p className="text-xs text-primary font-medium uppercase tracking-widest mb-3">Mapping inspector</p>
+          <p className="text-sm text-muted-foreground">
+            Select a key on the canvas or choose another physical key to edit its output.
           </p>
         </CardContent>
       </Card>
@@ -88,37 +94,43 @@ export function KeyPicker() {
 
   const inLayer = currentLayerIndex >= 0;
   const layer = inLayer ? config.layers?.[currentLayerIndex] : undefined;
-  const currentBase = config.remapping?.[selectedKey];
-  const currentLayer = layer?.mappings?.[selectedKey];
-  const currentShift = layer?.shiftMappings?.find((m) => m.key === selectedKey);
+  const currentBase = keyMapping(config.remapping, selectedKey);
+  const currentLayer = keyMapping(layer?.mappings, selectedKey);
+  const currentShift = layer?.shiftMappings?.find((m) => canonicalKey(m.key) === canonicalKey(selectedKey));
+  const combo = !inLayer ? config.noModCombos?.find((m) => canonicalKey(m.key) === canonicalKey(selectedKey)) : undefined;
   const currentTarget = inLayer ? currentLayer : currentBase;
+  const activeCategory = !inLayer && category === "shifted" ? "basic" : category;
+  const ownBase = platform === "shared" || !!keyMapping(document.platformOverrides?.[platform]?.remapping, selectedKey);
+  const canClear = !!currentShift || !!combo || (!!currentTarget && (inLayer || ownBase));
 
   const handleAssign = (code: string, isShifted = false) => {
     if (isShifted && inLayer) {
       setShiftMapping(currentLayerIndex, selectedKey, code);
     } else {
+      if (combo) removeNoModCombo(combo.key);
       setKeyMapping(currentLayerIndex, selectedKey, code);
     }
   };
 
   const handleClear = () => {
-    if (!currentTarget && !currentShift) return;
+    if (!canClear) return;
     if (
       !confirm(
-        `Clear mappings for ${selectedKey}?` +
+        `${!inLayer && platform !== "shared" ? "Revert" : "Clear"} mappings for ${selectedKey}?` +
           (currentTarget ? `\n• → ${currentTarget}` : "") +
           (currentShift ? `\n• → Shift+${currentShift.output}` : ""),
       )
     )
       return;
-    if (currentTarget) clearKeyMapping(currentLayerIndex, selectedKey);
+    if (currentTarget && (inLayer || ownBase)) clearKeyMapping(currentLayerIndex, selectedKey);
     if (currentShift) clearShiftMapping(currentLayerIndex, selectedKey);
+    if (combo) removeNoModCombo(combo.key);
   };
 
   return (
-    <Card data-tour="picker" className="w-full">
-      <CardHeader className="flex-row items-center justify-between space-y-0 pb-4 border-b">
-        <div className="flex items-center gap-3 text-base flex-wrap">
+    <Card data-tour="picker" className="w-full min-w-0 xl:sticky xl:top-24">
+      <CardHeader className="space-y-3 p-4 border-b">
+        <div className="flex items-center gap-2 text-sm flex-wrap">
           <span className="text-muted-foreground text-sm uppercase tracking-wider">Editing</span>
           <Badge variant="secondary" className="font-mono text-base px-3 py-1">
             {selectedKey}
@@ -135,9 +147,10 @@ export function KeyPicker() {
               </Badge>
             </>
           )}
-          {currentShift && (
+          {(currentShift || combo) && (
             <Badge variant="default" className="font-mono text-base px-3 py-1">
-              ⇧ {displayLabel(currentShift.output)}
+              {(currentShift ? currentShift.shift !== false : combo?.shift) ? "⇧ " : ""}
+              {displayLabel((currentShift ?? combo)!.output)}
             </Badge>
           )}
         </div>
@@ -145,16 +158,16 @@ export function KeyPicker() {
           variant="ghost"
           size="default"
           onClick={handleClear}
-          disabled={!currentTarget && !currentShift}
+          disabled={!canClear}
           className="text-destructive hover:text-destructive"
         >
           <Trash2 className="h-4 w-4 mr-1.5" />
-          Clear
+          {!inLayer && platform !== "shared" ? "Use Shared / clear combo" : "Clear"}
         </Button>
       </CardHeader>
-      <CardContent className="pt-6">
-        <Tabs value={category} onValueChange={(v) => setCategory(v as KeyCategory)}>
-          <TabsList className="grid grid-cols-6 w-full mb-4 h-11">
+      <CardContent className="p-4 space-y-4">
+        <Tabs value={activeCategory} onValueChange={(v) => setCategory(v as KeyCategory)}>
+          <TabsList className="grid grid-cols-3 sm:grid-cols-6 xl:grid-cols-3 w-full mb-4 h-auto gap-1">
             <TabsTrigger value="basic" className="text-sm">A-Z</TabsTrigger>
             <TabsTrigger value="numbers" className="text-sm">0-9</TabsTrigger>
             <TabsTrigger value="symbols" className="text-sm">Sym</TabsTrigger>
@@ -168,14 +181,14 @@ export function KeyPicker() {
           <div
             className={cn(
               "grid gap-2",
-              category === "modifiers"
+              activeCategory === "modifiers"
                 ? "grid-cols-[repeat(auto-fill,minmax(96px,1fr))]"
-                : category === "navigation"
+                : activeCategory === "navigation"
                 ? "grid-cols-[repeat(auto-fill,minmax(76px,1fr))]"
                 : "grid-cols-[repeat(auto-fill,minmax(60px,1fr))]",
             )}
           >
-            {KEYS[category].map((k) => {
+            {KEYS[activeCategory].map((k) => {
               const isCurrent =
                 (k.isShifted ? currentShift?.output : currentTarget) === k.code &&
                 (k.isShifted ? !!currentShift : !!currentTarget);
@@ -183,6 +196,9 @@ export function KeyPicker() {
               return (
                 <button
                   key={`${k.code}-${k.isShifted ? "s" : "n"}`}
+                  type="button"
+                  aria-label={`Map to ${k.isShifted ? "Shift+" : ""}${k.code}`}
+                  aria-pressed={isCurrent}
                   onClick={() => handleAssign(k.code, k.isShifted)}
                   className={cn(
                     "h-12 inline-flex items-center justify-center rounded-md border-2 font-mono text-base font-medium",
@@ -199,6 +215,20 @@ export function KeyPicker() {
             })}
           </div>
         </Tabs>
+        <div className="space-y-2 border-t pt-3">
+          <label htmlFor="all-outputs" className="text-xs font-medium">All output keys</label>
+          <select id="all-outputs" value="" onChange={(event) => event.target.value && handleAssign(event.target.value)}
+            className="w-full border rounded-md bg-background p-2 text-sm">
+            <option value="">Function, numpad, media, block key...</option>
+            {KEY_GROUPS.map((group) => <optgroup key={group.group} label={group.group}>
+              {group.keys.map((key) => <option key={key.code} value={key.code}>{key.label}</option>)}
+            </optgroup>)}
+          </select>
+          <p className="text-xs text-muted-foreground" aria-live="polite">
+            {!inLayer && platform !== "shared" && !ownBase ? "Inherited from Shared. Assign an output to override it." :
+              currentTarget || currentShift || combo ? "Binding saved automatically in this environment." : "No mapping. The key passes through."}
+          </p>
+        </div>
       </CardContent>
     </Card>
   );

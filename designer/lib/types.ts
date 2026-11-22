@@ -1,5 +1,5 @@
-// Designer types mirror src/config/JsonConfig.h exactly.
-// When the C++ schema changes, this file must too — that's the contract
+// Designer types track JsonConfig.h and ConfigLoader.h's document overrides.
+// When the runtime schema changes, this file must too — that's the contract
 // flagged in BUILD.md and CONTRIBUTING.md. A round-trip (import → export)
 // must preserve every field defined here without loss.
 
@@ -12,7 +12,13 @@ export type KeyFlowConfig = {
   noModCombos?: NoModCombo[];
   customModifiers?: CustomModifier[];
   layers?: Layer[];
+  platformOverrides?: Partial<Record<Platform, PlatformOverride>>;
 };
+
+export type Platform = "linux" | "windows" | "mac";
+export type EditPlatform = "shared" | Platform;
+export type PlatformOverride = Pick<KeyFlowConfig,
+  "remapping" | "noModCombos" | "customModifiers" | "layers" | "disableCapsLock">;
 
 /** Number-row symbol combo. Fires only when no modifiers held (C++ blocks via blockedModifiers=0xFFFFFFFF). */
 export type NoModCombo = {
@@ -31,7 +37,7 @@ export type ShiftMapping = {
   description?: string;
 };
 
-/** Any physical key promoted to a layer trigger by name. Eduuh-DH doesn't use this; the space-cadet example config does. */
+/** Any physical key promoted to a layer trigger by name, such as Space or PrintScreen. */
 export type CustomModifier = {
   key: string;
   modifierName: string;

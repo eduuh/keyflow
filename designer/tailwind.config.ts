@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import animate from "tailwindcss-animate";
 
 const config: Config = {
   content: [
@@ -13,8 +14,7 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
         mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
-        serif: ["var(--font-fraunces)", "ui-serif", "Georgia", "serif"],
-        keycap: ["var(--font-plex-mono)", "ui-monospace", "monospace"],
+        keycap: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
       },
       colors: {
         background: "hsl(var(--background))",
@@ -63,7 +63,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [animate],
 };
 
 export default config;

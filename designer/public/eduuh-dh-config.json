@@ -10,7 +10,6 @@
     "RightShift": "RightCtrl",
     "Enter": "RightShift",
     "RightCtrl": "PrintScreen",
-    "LeftWin": "LeftAlt",
 
     "_comment2": "Colemak-DH Top Row",
     "E": "F",
@@ -74,11 +73,37 @@
     {"key": "Tab", "output": "Tab", "shift": false, "description": "Shift+Tab passthrough"}
   ],
 
+  "customModifiers": [
+    {
+      "key": "LeftWin",
+      "modifierName": "WIN_MOD",
+      "blockOutput": true
+    }
+  ],
+
   "layers": [
+    {
+      "name": "Win Layer",
+      "trigger": "WIN_MOD",
+      "mappings": {
+        "_comment": "Home row A-L → workspaces 1-9 via numpad relay",
+        "A": "KP_1",
+        "S": "KP_2",
+        "D": "KP_3",
+        "F": "KP_4",
+        "G": "KP_5",
+        "H": "KP_6",
+        "J": "KP_7"
+      }
+    },
     {
       "name": "Numpad Layer",
       "trigger": "LALT",
       "mappings": {
+        "_comment": "Passthrough Shift and Ctrl on this layer",
+        "Enter": "RightShift",
+        "LeftShift": "LeftCtrl",
+        "RightShift": "RightCtrl",
         "9": "7",
         "0": "8",
         "Minus": "9",
@@ -102,6 +127,10 @@
       "name": "Arrows and Symbols Layer",
       "trigger": "RALT",
       "mappings": {
+        "_comment": "Passthrough Shift and Ctrl on this layer",
+        "Enter": "RightShift",
+        "LeftShift": "LeftCtrl",
+        "RightShift": "RightCtrl",
         "K": "Left",
         "L": "Down",
         "Semicolon": "Right",
@@ -126,5 +155,23 @@
         {"key": "V", "output": "Backslash", "shift": true, "description": "| symbol"}
       ]
     }
-  ]
+  ],
+
+  "platformOverrides": {
+    "linux": {
+      "remapping": {
+        "LeftCtrl": "LeftAlt",
+        "PrintScreen": "LeftWin"
+      },
+      "customModifiers": [
+        {
+          "key": "LeftWin",
+          "modifierName": "WIN_MOD",
+          "blockOutput": false
+        }
+      ]
+    },
+    "windows": {},
+    "mac": {}
+  }
 }

@@ -22,7 +22,7 @@ import { startTour } from "./Tour";
 // project-links cluster (Tour / GitHub / theme).
 
 const RELEASE_DOWNLOAD_URL =
-  "https://github.com/eduuh/keyflow/releases/latest/download/keyflow-release.zip";
+  "https://github.com/eduuh/keyflow/releases/latest";
 const REPO_URL = "https://github.com/eduuh/keyflow";
 
 export function Header() {
@@ -61,7 +61,7 @@ export function Header() {
       data-tour="header"
       className="border-b sticky top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
     >
-      <div className="px-4 lg:px-6 py-3 flex items-center justify-between gap-4">
+      <div className="px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3 max-w-[1600px] mx-auto">
         <div className="flex items-center gap-3 min-w-0">
           <div className="p-2 rounded-md bg-modifier text-modifier-foreground shrink-0">
             <Keyboard className="h-4 w-4" />
@@ -77,7 +77,7 @@ export function Header() {
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
           {/* Config workflow: community / import / inspect+edit JSON */}
           <CommunityLayoutsButton />
-          <Button variant="outline" size="sm" onClick={handleImport}>
+          <Button variant="outline" size="sm" onClick={handleImport} aria-label="Import">
             <Upload className="h-4 w-4" />
             <span className="hidden md:inline ml-2">Import</span>
           </Button>
@@ -87,6 +87,7 @@ export function Header() {
             size="sm"
             onClick={() => setShowJsonEditor(true)}
             title="View / edit JSON"
+            aria-label="JSON"
           >
             <FileJson className="h-4 w-4" />
             <span className="hidden md:inline ml-2">JSON</span>
@@ -96,10 +97,10 @@ export function Header() {
           <Button asChild size="sm" data-tour="download-binary">
             <a href={RELEASE_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
               <HardDriveDownload className="h-4 w-4" />
-              <span className="hidden md:inline ml-2">Get keyflow.exe</span>
+              <span className="hidden md:inline ml-2">Get Keyflow</span>
             </a>
           </Button>
-          <Button size="sm" onClick={() => setShowExportModal(true)} data-tour="export-image">
+          <Button size="sm" onClick={() => setShowExportModal(true)} data-tour="export-image" aria-label="Export image">
             <Download className="h-4 w-4" />
             <span className="hidden md:inline ml-2">Export image</span>
           </Button>

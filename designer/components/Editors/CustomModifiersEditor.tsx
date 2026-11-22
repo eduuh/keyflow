@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { useConfigStore } from "@/lib/store";
+import { useConfigStore, useEditingConfig } from "@/lib/store";
 import {
   Card,
   CardContent,
@@ -29,13 +29,16 @@ import { KEY_GROUPS } from "@/lib/allKeys";
 // from Custom1..Custom23 in declaration order.
 
 export function CustomModifiersEditor() {
-  const { config, setCustomModifier, removeCustomModifier } = useConfigStore();
+  const { setCustomModifier, removeCustomModifier } = useConfigStore();
+  const config = useEditingConfig();
   const mods = config.customModifiers ?? [];
 
   const handleAdd = () => {
     const used = new Set(mods.map((m) => m.modifierName));
     const candidates = ["SPACE_MOD", "TAB_MOD", "CAPS_MOD", "ENTER_MOD"];
-    const name = candidates.find((c) => !used.has(c)) ?? `MOD_${mods.length + 1}`;
+    let index = mods.length + 1;
+    while (used.has(`MOD_${index}`)) index++;
+    const name = candidates.find((c) => !used.has(c)) ?? `MOD_${index}`;
     setCustomModifier({ key: "Space", modifierName: name, blockOutput: true });
   };
 
@@ -51,8 +54,8 @@ export function CustomModifiersEditor() {
       <CardContent className="space-y-2">
         {mods.map((mod, i) => (
           <div
-            key={`${mod.modifierName}-${i}`}
-            className="grid grid-cols-[1fr_auto_2fr_auto_auto] items-center gap-2"
+            key={i}
+            className="grid grid-cols-2 sm:grid-cols-[1fr_auto_2fr_auto_auto] items-center gap-2 rounded-lg border p-3"
           >
             <Select
               value={mod.key}
@@ -60,7 +63,7 @@ export function CustomModifiersEditor() {
                 setCustomModifier({ ...mod, key: v, blockOutput: mod.blockOutput ?? true })
               }
             >
-              <SelectTrigger className="h-9 font-mono text-sm">
+              <SelectTrigger className="h-9 font-mono text-sm" aria-label={`Modifier ${i + 1} key`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -86,9 +89,10 @@ export function CustomModifiersEditor() {
                     .toUpperCase()
                     .replace(/[^A-Z0-9_]/g, "_"),
                   blockOutput: mod.blockOutput ?? true,
-                })
+                }, mod.modifierName)
               }
               placeholder="MOD_NAME"
+              aria-label={`Modifier ${i + 1} name`}
               className="font-mono text-sm"
             />
             <div className="flex items-center gap-1.5">
@@ -107,7 +111,12 @@ export function CustomModifiersEditor() {
               variant="ghost"
               size="icon"
               className="text-muted-foreground hover:text-destructive"
-              onClick={() => removeCustomModifier(mod.modifierName)}
+              onClick={() => {
+                const used = config.layers?.some((layer) => layer.triggers.includes(mod.modifierName));
+                if (!used || confirm(`Remove ${mod.modifierName}? Its triggers will be removed; layers with no remaining trigger will be deleted.`)) {
+                  removeCustomModifier(mod.modifierName);
+                }
+              }}
               aria-label="Remove custom modifier"
             >
               <Trash2 className="h-4 w-4" />
@@ -115,7 +124,7 @@ export function CustomModifiersEditor() {
           </div>
         ))}
 
-        <Button variant="outline" size="sm" onClick={handleAdd}>
+        <Button variant="outline" size="sm" onClick={handleAdd} disabled={mods.length >= 23}>
           <Plus className="h-4 w-4 mr-1" />
           Add custom modifier
         </Button>

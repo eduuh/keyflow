@@ -1,295 +1,254 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { KeyFlowConfig, Layer, NoModCombo, CustomModifier, ShiftMapping } from "./types";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Store contract
-//
-// Every field defined in `KeyFlowConfig` is preserved through the store.
-// Importing a config and immediately exporting it must produce byte-equivalent
-// JSON for every field the schema defines. That round-trip safety is the
-// fundamental contract; broken in the previous store (customModifiers,
-// disableCapsLock, multi-trigger triggers[] were dropped on round-trip).
-// ─────────────────────────────────────────────────────────────────────────────
+import { CustomModifier, EditPlatform, KeyFlowConfig, Layer, NoModCombo, PlatformOverride } from "./types";
+import { availableTriggers, normalizeConfig, OverrideField, OVERRIDE_FIELDS, resolveConfig } from "./config";
+import { canonicalKey } from "./allKeys";
 
 type ConfigState = {
   config: KeyFlowConfig;
-  currentLayerIndex: number;   // -1 = BASE layer; 0+ = config.layers[index]
+  platform: EditPlatform;
+  currentLayerIndex: number;
   selectedKey: string | null;
-
-  // Whole-config replacement (used by import). Normalizes legacy shapes:
-  //   - `trigger: "LALT"`         → `triggers: ["LALT"]`
-  //   - `trigger: ["LALT","RALT"]`→ `triggers: ["LALT","RALT"]`
-  // Drops obsolete `strictMode` / `debug` fields without losing anything else.
-  setConfig: (config: KeyFlowConfig) => void;
-
-  // BASE remapping + layer mappings
+  setConfig: (config: unknown) => void;
+  setPlatform: (platform: EditPlatform) => void;
+  resetOverride: (field?: OverrideField, includeDependencies?: boolean) => boolean;
+  applyPlatformPreset: () => void;
+  setName: (name: string) => void;
   setKeyMapping: (layerIndex: number, key: string, target: string) => void;
   clearKeyMapping: (layerIndex: number, key: string) => void;
-
-  // Layer shift mappings (only valid for layerIndex >= 0)
   setShiftMapping: (layerIndex: number, key: string, output: string, shift?: boolean) => void;
   clearShiftMapping: (layerIndex: number, key: string) => void;
-
-  // Layer CRUD
   addLayer: (layer: Layer) => void;
   updateLayer: (index: number, partial: Partial<Layer>) => void;
   deleteLayer: (index: number) => void;
-
-  // noModCombos (number-row symbols, etc.)
-  setNoModCombo: (combo: NoModCombo) => void;
+  setNoModCombo: (combo: NoModCombo, previousKey?: string) => void;
   removeNoModCombo: (key: string) => void;
-
-  // customModifiers (turn any key into a layer trigger)
-  setCustomModifier: (mod: CustomModifier) => void;
+  setCustomModifier: (mod: CustomModifier, previousName?: string) => void;
   removeCustomModifier: (modifierName: string) => void;
-
-  // Selection UI
   setCurrentLayer: (index: number) => void;
   setSelectedKey: (key: string | null) => void;
-
-  // Toggles
   setDisableCapsLock: (value: boolean) => void;
-
-  // Convenience read
   hasBaseModifiers: () => boolean;
 };
 
-const STANDARD_MODIFIERS = new Set([
-  "LeftShift", "RightShift", "LeftCtrl", "RightCtrl",
-  "LeftAlt", "RightAlt", "LeftWin", "RightWin", "PrintScreen",
-  "LSHIFT", "RSHIFT", "LCTRL", "RCTRL", "LALT", "RALT", "LWIN", "RWIN",
-]);
-
 const defaultConfig: KeyFlowConfig = {
-  version: "1.0",
-  name: "My Layout",
-  disableCapsLock: false,
-  remapping: {},
-  noModCombos: [],
-  customModifiers: [],
-  layers: [],
+  version: "1.0", name: "My Layout", disableCapsLock: false,
+  remapping: {}, noModCombos: [], customModifiers: [], layers: [],
 };
 
-// Normalize legacy / variant input shapes into the canonical KeyFlowConfig.
-// Drops obsolete fields (strictMode, debug) so they don't pollute the local
-// store; everything else passes through unchanged.
-function normalizeImport(raw: unknown): KeyFlowConfig {
-  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-
-  const layers: Layer[] = Array.isArray(obj.layers)
-    ? (obj.layers as Array<Record<string, unknown>>).map(normalizeLayer)
-    : [];
-
-  return {
-    version: typeof obj.version === "string" ? obj.version : "1.0",
-    name: typeof obj.name === "string" ? obj.name : undefined,
-    disableCapsLock: typeof obj.disableCapsLock === "boolean" ? obj.disableCapsLock : undefined,
-    remapping: isStringRecord(obj.remapping) ? obj.remapping : {},
-    noModCombos: Array.isArray(obj.noModCombos)
-      ? (obj.noModCombos as NoModCombo[]).filter(isNoModCombo)
-      : [],
-    customModifiers: Array.isArray(obj.customModifiers)
-      ? (obj.customModifiers as CustomModifier[]).filter(isCustomModifier)
-      : [],
-    layers,
-  };
+function removeMapping(mappings: Record<string, string> | undefined, key: string) {
+  return Object.fromEntries(Object.entries(mappings ?? {}).filter(([source]) =>
+    source.startsWith("_") || canonicalKey(source) !== canonicalKey(key)));
 }
 
-function normalizeLayer(raw: Record<string, unknown>): Layer {
-  // C++ accepts either `trigger` (string | string[]) or `triggers`. Coerce to array.
-  let triggers: string[] = [];
-  if (Array.isArray(raw.triggers)) {
-    triggers = (raw.triggers as unknown[]).filter((t): t is string => typeof t === "string");
-  } else if (Array.isArray(raw.trigger)) {
-    triggers = (raw.trigger as unknown[]).filter((t): t is string => typeof t === "string");
-  } else if (typeof raw.trigger === "string") {
-    triggers = [raw.trigger];
-  }
-
-  return {
-    name: typeof raw.name === "string" ? raw.name : "Layer",
-    triggers,
-    mappings: isStringRecord(raw.mappings) ? raw.mappings : {},
-    shiftMappings: Array.isArray(raw.shiftMappings)
-      ? (raw.shiftMappings as ShiftMapping[]).filter(isShiftMapping)
-      : undefined,
-  };
-}
-
-function isStringRecord(v: unknown): v is Record<string, string> {
-  if (!v || typeof v !== "object") return false;
-  return Object.values(v as Record<string, unknown>).every((val) => typeof val === "string");
-}
-
-function isNoModCombo(v: unknown): v is NoModCombo {
-  if (!v || typeof v !== "object") return false;
-  const o = v as NoModCombo;
-  return typeof o.key === "string" && typeof o.output === "string";
-}
-
-function isShiftMapping(v: unknown): v is ShiftMapping {
-  if (!v || typeof v !== "object") return false;
-  const o = v as ShiftMapping;
-  return typeof o.key === "string" && typeof o.output === "string";
-}
-
-function isCustomModifier(v: unknown): v is CustomModifier {
-  if (!v || typeof v !== "object") return false;
-  const o = v as CustomModifier;
-  return typeof o.key === "string" && typeof o.modifierName === "string";
+function updateInheritedModifierLayers(document: KeyFlowConfig, update: (layers: Layer[]) => Layer[]) {
+  return Object.fromEntries(Object.entries(document.platformOverrides ?? {}).map(([platform, override]) => [
+    platform,
+    override.customModifiers === undefined && override.layers !== undefined
+      ? { ...override, layers: update(override.layers) }
+      : override.customModifiers !== undefined && override.layers === undefined
+        ? { ...override, layers: document.layers ?? [] } : override,
+  ]));
 }
 
 export const useConfigStore = create<ConfigState>()(
   persist(
-    (set, get) => ({
-      config: defaultConfig,
-      currentLayerIndex: -1,
-      selectedKey: null,
+    (set, get) => {
+      // Edits target the effective config. Only changed fields are written to
+      // the selected override; inherited arrays are copied on first edit.
+      const edit = (update: (state: ConfigState) => Partial<ConfigState>) => set((state) => {
+        const effective = resolveConfig(state.config, state.platform);
+        const result = update({ ...state, config: effective });
+        if (!result.config) return result;
+        if (state.platform === "shared") {
+          return { ...result, config: { ...result.config, platformOverrides: result.config.platformOverrides ?? state.config.platformOverrides } };
+        }
+        const override: PlatformOverride = { ...state.config.platformOverrides?.[state.platform] };
+        for (const field of OVERRIDE_FIELDS) {
+          if (result.config[field] !== effective[field]) {
+            Object.assign(override, { [field]: result.config[field] });
+          }
+        }
+        return {
+          ...result,
+          config: {
+            ...state.config,
+            platformOverrides: { ...state.config.platformOverrides, [state.platform]: override },
+          },
+        };
+      });
 
-      setConfig: (config) => set({ config: normalizeImport(config) }),
+      const updateLayer = (index: number, update: (layer: Layer) => Layer) => edit((state) => {
+        const layers = [...state.config.layers ?? []];
+        if (!layers[index]) return {};
+        layers[index] = update(layers[index]);
+        return { config: { ...state.config, layers } };
+      });
 
-      setCurrentLayer: (index) => set({ currentLayerIndex: index, selectedKey: null }),
-      setSelectedKey: (key) => set({ selectedKey: key }),
-
-      setDisableCapsLock: (value) =>
-        set((s) => ({ config: { ...s.config, disableCapsLock: value } })),
-
-      setKeyMapping: (layerIndex, key, target) =>
-        set((s) => {
-          if (layerIndex === -1) {
+      return {
+        config: defaultConfig, platform: "shared", currentLayerIndex: -1, selectedKey: null,
+        setConfig: (raw) => set({
+          config: normalizeConfig(raw), currentLayerIndex: -1, selectedKey: null, platform: "shared",
+        }),
+        setName: (name) => set((state) => ({ config: { ...state.config, name } })),
+        setPlatform: (platform) => set({ platform, currentLayerIndex: -1, selectedKey: null }),
+        setCurrentLayer: (currentLayerIndex) => set({ currentLayerIndex, selectedKey: null }),
+        setSelectedKey: (selectedKey) => set({ selectedKey }),
+        resetOverride: (field, includeDependencies = false) => {
+          const state = get();
+          if (state.platform === "shared") return true;
+          const platformOverrides = { ...state.config.platformOverrides };
+          if (field) {
+            const override = { ...platformOverrides[state.platform] };
+            delete override[field];
+            if (includeDependencies && (field === "layers" || field === "customModifiers")) {
+              delete override.layers;
+              delete override.customModifiers;
+            }
+            platformOverrides[state.platform] = override;
+          } else delete platformOverrides[state.platform];
+          const config = { ...state.config, platformOverrides };
+          try {
+            normalizeConfig(config);
+          } catch {
+            return false;
+          }
+          set({ config, currentLayerIndex: -1, selectedKey: null });
+          return true;
+        },
+        applyPlatformPreset: () => {
+          const { platform } = get();
+          if (platform === "shared") return;
+          const target = platform === "windows" ? "RightCtrl" : "LeftWin";
+          get().setKeyMapping(-1, "PrintScreen", target);
+        },
+        setDisableCapsLock: (disableCapsLock) => edit((state) => ({
+          config: { ...state.config, disableCapsLock },
+        })),
+        setKeyMapping: (index, key, target) => {
+          if (index === -1) {
+            set((state) => {
+              if (state.platform === "shared") {
+                const source = Object.keys(state.config.remapping ?? {}).find((source) =>
+                  canonicalKey(source) === canonicalKey(key)) ?? key;
+                return { config: { ...state.config, remapping: { ...removeMapping(state.config.remapping, key), [source]: target } } };
+              }
+              const override = { ...state.config.platformOverrides?.[state.platform] };
+              const source = Object.keys(state.config.remapping ?? {}).find((source) =>
+                canonicalKey(source) === canonicalKey(key)) ?? key;
+              override.remapping = { ...removeMapping(override.remapping, key), [source]: target };
+              return { config: { ...state.config, platformOverrides: {
+                ...state.config.platformOverrides, [state.platform]: override,
+              } } };
+            });
+          } else updateLayer(index, (layer) => ({
+            ...layer, mappings: { ...removeMapping(layer.mappings, key), [key]: target },
+            shiftMappings: layer.shiftMappings?.filter((mapping) => canonicalKey(mapping.key) !== canonicalKey(key)),
+          }));
+        },
+        clearKeyMapping: (index, key) => {
+          if (index === -1) {
+            set((state) => {
+              if (state.platform === "shared") {
+                return { config: { ...state.config, remapping: removeMapping(state.config.remapping, key) } };
+              }
+              const override = { ...state.config.platformOverrides?.[state.platform] };
+              override.remapping = removeMapping(override.remapping, key);
+              return { config: { ...state.config, platformOverrides: {
+                ...state.config.platformOverrides, [state.platform]: override,
+              } } };
+            });
+          } else updateLayer(index, (layer) => ({ ...layer, mappings: removeMapping(layer.mappings, key) }));
+        },
+        setShiftMapping: (index, key, output, shift = true) => {
+          if (index < 0) return;
+          updateLayer(index, (layer) => {
+            const previous = layer.shiftMappings?.find((mapping) => canonicalKey(mapping.key) === canonicalKey(key));
             return {
-              config: {
-                ...s.config,
-                remapping: { ...(s.config.remapping ?? {}), [key]: target },
-              },
+              ...layer, mappings: removeMapping(layer.mappings, key),
+              shiftMappings: [
+                ...layer.shiftMappings?.filter((mapping) => canonicalKey(mapping.key) !== canonicalKey(key)) ?? [],
+                { ...previous, key, output, shift },
+              ],
             };
-          }
-          const layers = [...(s.config.layers ?? [])];
-          const layer = layers[layerIndex];
-          if (!layer) return s;
-          layers[layerIndex] = {
-            ...layer,
-            mappings: { ...layer.mappings, [key]: target },
-          };
-          return { config: { ...s.config, layers } };
-        }),
-
-      clearKeyMapping: (layerIndex, key) =>
-        set((s) => {
-          if (layerIndex === -1) {
-            const remapping = { ...(s.config.remapping ?? {}) };
-            delete remapping[key];
-            return { config: { ...s.config, remapping } };
-          }
-          const layers = [...(s.config.layers ?? [])];
-          const layer = layers[layerIndex];
-          if (!layer) return s;
-          const mappings = { ...layer.mappings };
-          delete mappings[key];
-          layers[layerIndex] = { ...layer, mappings };
-          return { config: { ...s.config, layers } };
-        }),
-
-      setShiftMapping: (layerIndex, key, output, shift = true) =>
-        set((s) => {
-          if (layerIndex === -1) return s;
-          const layers = [...(s.config.layers ?? [])];
-          const layer = layers[layerIndex];
-          if (!layer) return s;
-          const shiftMappings = [...(layer.shiftMappings ?? [])];
-          const existing = shiftMappings.findIndex((m) => m.key === key);
-          const entry: ShiftMapping = { key, output, shift };
-          if (existing >= 0) shiftMappings[existing] = entry;
-          else shiftMappings.push(entry);
-          layers[layerIndex] = { ...layer, shiftMappings };
-          return { config: { ...s.config, layers } };
-        }),
-
-      clearShiftMapping: (layerIndex, key) =>
-        set((s) => {
-          if (layerIndex === -1) return s;
-          const layers = [...(s.config.layers ?? [])];
-          const layer = layers[layerIndex];
-          if (!layer) return s;
-          const shiftMappings = (layer.shiftMappings ?? []).filter((m) => m.key !== key);
-          layers[layerIndex] = { ...layer, shiftMappings };
-          return { config: { ...s.config, layers } };
-        }),
-
-      addLayer: (layer) =>
-        set((s) => ({
-          config: { ...s.config, layers: [...(s.config.layers ?? []), layer] },
+          });
+        },
+        clearShiftMapping: (index, key) => updateLayer(index, (layer) => ({
+          ...layer, shiftMappings: layer.shiftMappings?.filter((mapping) => canonicalKey(mapping.key) !== canonicalKey(key)),
         })),
-
-      updateLayer: (index, partial) =>
-        set((s) => {
-          const layers = [...(s.config.layers ?? [])];
-          if (!layers[index]) return s;
-          layers[index] = { ...layers[index], ...partial };
-          return { config: { ...s.config, layers } };
+        addLayer: (layer) => edit((state) => ({
+          config: { ...state.config, layers: [...state.config.layers ?? [], layer] },
+        })),
+        updateLayer: (index, partial) => updateLayer(index, (layer) => ({ ...layer, ...partial })),
+        deleteLayer: (index) => edit((state) => ({
+          config: { ...state.config, layers: state.config.layers?.filter((_, i) => i !== index) },
+          currentLayerIndex: state.currentLayerIndex === index ? -1
+            : state.currentLayerIndex > index ? state.currentLayerIndex - 1 : state.currentLayerIndex,
+          selectedKey: null,
+        })),
+        setNoModCombo: (combo, previousKey = combo.key) => edit((state) => {
+          const combos = [...state.config.noModCombos ?? []];
+          const index = combos.findIndex((entry) => entry.key === previousKey);
+          if (combos.some((entry, i) => i !== index && canonicalKey(entry.key) === canonicalKey(combo.key))) return {};
+          if (index < 0) combos.push(combo);
+          else combos[index] = combo;
+          return { config: { ...state.config, noModCombos: combos } };
         }),
-
-      deleteLayer: (index) =>
-        set((s) => {
-          const layers = [...(s.config.layers ?? [])];
-          if (!layers[index]) return s;
-          layers.splice(index, 1);
-          let newLayerIndex = s.currentLayerIndex;
-          if (s.currentLayerIndex === index) newLayerIndex = -1;
-          else if (s.currentLayerIndex > index) newLayerIndex = s.currentLayerIndex - 1;
+        removeNoModCombo: (key) => edit((state) => ({
+          config: { ...state.config, noModCombos: state.config.noModCombos?.filter((combo) => combo.key !== key) },
+        })),
+        setCustomModifier: (mod, previousName = mod.modifierName) => edit((state) => {
+          const mods = [...state.config.customModifiers ?? []];
+          const index = mods.findIndex((entry) => entry.modifierName === previousName);
+          if (!mod.modifierName.trim() || mods.some((entry, i) => i !== index && entry.modifierName === mod.modifierName)) return {};
+          if (index < 0) {
+            if (mods.length >= 23) return {};
+            mods.push(mod);
+          } else mods[index] = mod;
+          const rename = (layers: Layer[]) => layers.map((layer) => ({
+            ...layer, triggers: layer.triggers.map((trigger) => trigger === previousName ? mod.modifierName : trigger),
+          }));
+          return { config: {
+            ...state.config, customModifiers: mods,
+            ...(previousName !== mod.modifierName ? {
+              layers: rename(state.config.layers ?? []),
+              ...(state.platform === "shared" ? { platformOverrides: updateInheritedModifierLayers(get().config, rename) } : {}),
+            } : {}),
+          } };
+        }),
+        removeCustomModifier: (name) => edit((state) => {
+          const remove = (layers: Layer[]) => layers.filter((layer) => layer.triggers.some((trigger) => trigger !== name))
+            .map((layer) => ({ ...layer, triggers: layer.triggers.filter((trigger) => trigger !== name) }));
           return {
-            config: { ...s.config, layers },
-            currentLayerIndex: newLayerIndex,
+            config: {
+              ...state.config, customModifiers: state.config.customModifiers?.filter((mod) => mod.modifierName !== name),
+              layers: remove(state.config.layers ?? []),
+              ...(state.platform === "shared" ? { platformOverrides: updateInheritedModifierLayers(get().config, remove) } : {}),
+            },
+            currentLayerIndex: -1, selectedKey: null,
           };
         }),
-
-      setNoModCombo: (combo) =>
-        set((s) => {
-          const list = [...(s.config.noModCombos ?? [])];
-          const existing = list.findIndex((c) => c.key === combo.key);
-          if (existing >= 0) list[existing] = combo;
-          else list.push(combo);
-          return { config: { ...s.config, noModCombos: list } };
-        }),
-
-      removeNoModCombo: (key) =>
-        set((s) => ({
-          config: {
-            ...s.config,
-            noModCombos: (s.config.noModCombos ?? []).filter((c) => c.key !== key),
-          },
-        })),
-
-      setCustomModifier: (mod) =>
-        set((s) => {
-          const list = [...(s.config.customModifiers ?? [])];
-          const existing = list.findIndex((m) => m.modifierName === mod.modifierName);
-          if (existing >= 0) list[existing] = mod;
-          else list.push(mod);
-          return { config: { ...s.config, customModifiers: list } };
-        }),
-
-      removeCustomModifier: (modifierName) =>
-        set((s) => ({
-          config: {
-            ...s.config,
-            customModifiers: (s.config.customModifiers ?? []).filter(
-              (m) => m.modifierName !== modifierName,
-            ),
-          },
-        })),
-
-      hasBaseModifiers: () => {
-        const remapping = get().config.remapping ?? {};
-        return Object.values(remapping).some((target) => STANDARD_MODIFIERS.has(target));
-      },
-    }),
+        hasBaseModifiers: () => availableTriggers(resolveConfig(get().config, get().platform)).length > 0,
+      };
+    },
     {
-      // Bump version when the persisted shape changes. The previous store wrote
-      // strictMode/debug fields; on first load with this new code we ignore them.
       name: "keyflow-config-storage",
       version: 2,
+      partialize: (state) => ({ config: state.config }),
+      merge: (persisted, current) => {
+        const saved = persisted as { config?: unknown };
+        try {
+          return { ...current, config: saved?.config ? normalizeConfig(saved.config) : current.config };
+        } catch {
+          return current;
+        }
+      },
     },
   ),
 );
+
+export function useEditingConfig(): KeyFlowConfig {
+  const config = useConfigStore((state) => state.config);
+  const platform = useConfigStore((state) => state.platform);
+  return resolveConfig(config, platform);
+}

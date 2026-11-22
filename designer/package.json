@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "capture-images": "playwright test --project=capture --reporter=list"
@@ -54,6 +55,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.1.6",
     "playwright": "^1.58.1"
   }
 }
