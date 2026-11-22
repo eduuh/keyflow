@@ -95,6 +95,39 @@ See `config.json` for full example. Basic structure:
 }
 ```
 
+### Platform Overrides
+
+Use `platformOverrides` for values that differ between operating systems. The active
+platform override is applied after the base configuration:
+
+```json
+{
+  "version": "1.0",
+  "remapping": {
+    "PrintScreen": "RightCtrl"
+  },
+  "platformOverrides": {
+    "linux": {
+      "remapping": {
+        "PrintScreen": "LeftWin"
+      }
+    },
+    "windows": {
+      "remapping": {
+        "PrintScreen": "RightCtrl"
+      }
+    },
+    "mac": {}
+  }
+}
+```
+
+Supported platform names are `linux`, `windows`, and `mac`. A platform `remapping`
+entry replaces the matching base key; other base remappings remain unchanged.
+When a platform override contains `noModCombos`, `customModifiers`, or `layers`,
+that array replaces the corresponding base array. `disableCapsLock` is overridden
+when present in the active platform section.
+
 ### Configuration Options
 
 #### Layer triggers and comments

@@ -45,6 +45,49 @@ TEST(ConfigLoaderTest, LoadsComplexConfigFromString) {
   EXPECT_EQ(config.noModCombos.size(), 1u);
 }
 
+TEST(ConfigLoaderTest, AppliesActivePlatformOverrideLast) {
+#if defined(__linux__)
+  const char* activePlatform = "linux";
+#elif defined(_WIN32)
+  const char* activePlatform = "windows";
+#elif defined(__APPLE__)
+  const char* activePlatform = "mac";
+#else
+  const char* activePlatform = nullptr;
+#endif
+
+  const auto config = ConfigLoader::loadFromString(R"({
+    "version": "1.0",
+    "remapping": { "A": "B", "C": "D" },
+    "disableCapsLock": false,
+    "platformOverrides": {
+      "linux": {
+        "remapping": { "A": "F", "PrintScreen": "LeftWin" },
+        "disableCapsLock": true,
+        "layers": [{
+          "name": "linux-nav",
+          "trigger": "RALT",
+          "mappings": { "H": "Left" }
+        }]
+      },
+      "windows": {
+        "remapping": { "A": "G" }
+      }
+    }
+  })");
+
+  if (activePlatform && std::string(activePlatform) == "linux") {
+    EXPECT_EQ(config.remapping.at("A"), "F");
+    EXPECT_EQ(config.remapping.at("C"), "D");
+    EXPECT_EQ(config.remapping.at("PrintScreen"), "LeftWin");
+    EXPECT_TRUE(config.disableCapsLock);
+    ASSERT_EQ(config.layers.size(), 1u);
+    EXPECT_EQ(config.layers.front().name, "linux-nav");
+  } else if (activePlatform && std::string(activePlatform) == "windows") {
+    EXPECT_EQ(config.remapping.at("A"), "G");
+  }
+}
+
 TEST(ConfigLoaderTest, NonExistentFileThrows) {
   EXPECT_THROW(
       {
