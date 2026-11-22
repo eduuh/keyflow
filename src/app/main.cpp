@@ -1,5 +1,6 @@
 #include "DebugLog.h"
 #include "app/Application.h"
+#include "config/BehaviorEnumerator.h"
 #include "config/ConfigBuilder.h"
 #include "config/ConfigLoader.h"
 #include "hardware/Scancodes.h"
@@ -22,7 +23,6 @@ std::atomic<Application*> gApp{nullptr};
 
 void shutdownCallback() {
     if (auto* app = gApp.load()) {
-        app->releaseAllModifiers();
         app->requestShutdown();
     }
 }
@@ -31,6 +31,9 @@ struct CliArgs {
     std::string configPath = "config.json";
     bool debug = false;
     bool verbose = false;
+    bool validate = false;
+    bool help = false;
+    std::vector<std::string> devices;
 };
 
 CliArgs parseArgs(int argc, char* argv[]) {
@@ -41,6 +44,16 @@ CliArgs parseArgs(int argc, char* argv[]) {
             args.debug = true;
         } else if (arg == "--verbose" || arg == "-v") {
             args.verbose = true;
+        } else if (arg == "--validate") {
+            args.validate = true;
+        } else if (arg == "--help" || arg == "-h") {
+            args.help = true;
+        } else if (arg == "--device") {
+            ++i;
+            if (i >= argc || std::string_view(argv[i]).empty()) {
+                throw std::runtime_error("--device requires a keyboard path");
+            }
+            args.devices.emplace_back(argv[i]);
         } else if (!arg.empty() && arg[0] != '-' && arg.find(".json") != std::string_view::npos) {
             args.configPath = std::string(arg);
         }
@@ -81,9 +94,13 @@ void printLoadFailure(IPlatformInit& platform, const std::string& configPath,
                      "       \"remapping\": { \"CapsLock\": \"LeftCtrl\" }\n"
                      "     }\n\n"
                      "See docs/EDUUH_DH.md for the bundled layout's full spec.\n\n";
+#ifdef _WIN32
         platform.showFatalError("config.json not found.\n\nMake sure config.json sits next to "
                                 "keyflow.exe.\n\nPath checked: " +
                                 configPath);
+#else
+        platform.showFatalError("Config not found. Supply an explicit config path: " + configPath);
+#endif
     } else {
         std::cerr << "Common issues:\n"
                      "  - Check JSON syntax (missing commas, brackets)\n"
@@ -111,80 +128,42 @@ std::optional<JsonConfig> loadAndValidateConfig(IPlatformInit& platform,
     }
 }
 
-// Send replacement key with shift injection. Tracker is updated so the safety
-// cleanup on the next key-down can recover from fast typing across shift injections.
-void sendReplaceWithShift(Application& app, ModifierTracker* modTracker, uint16_t outputScancode,
-                          bool isDown) {
-    if (isDown) {
-        app.hardware().sendKey(SC_LSHIFT, true);
-        app.hardware().sendKey(outputScancode, true);
-        if (modTracker != nullptr) {
-            modTracker->setInjectedShift(true);
-        }
-    } else {
-        app.hardware().sendKey(outputScancode, false);
-        app.hardware().sendKey(SC_LSHIFT, false);
-        // Don't clear tracker yet — the safety check on next key DOWN handles it,
-        // catching fast typing before the OS processes SHIFT UP.
-    }
-}
-
-// SAFETY: Ensure Windows has processed shift release before the next character.
-// Prevents shift being "stuck" when typing very fast after shift injection.
-void cleanupInjectedShift(Application& app, ModifierTracker* modTracker,
-                          [[maybe_unused]] uint16_t scancode) {
-    if (modTracker == nullptr || !modTracker->hasInjectedShift()) {
-        return;
-    }
-    DEBUG_LOG("[Safety] Injected shift detected before key 0x" << std::hex << scancode << std::dec
-                                                               << ", cleaning up\n");
-    app.hardware().sendKey(SC_LSHIFT, false);
-    modTracker->clearInjectedModifiers();
-}
-
-bool isCtrlEscape(uint16_t scancode, uint32_t modifiers) {
-    constexpr uint32_t LCTRL_BIT = 1U << 2;
-    constexpr uint32_t RCTRL_BIT = 1U << 3;
-    return scancode == SC_ESCAPE &&
-           (((modifiers & LCTRL_BIT) != 0U) || ((modifiers & RCTRL_BIT) != 0U));
-}
-
-void processEvent(Application& app, ModifierTracker* modTracker, const KeyEvent& event) {
-    if (event.isDown) {
-        cleanupInjectedShift(app, modTracker, event.scancode);
-    }
-
-    auto result = app.pipeline().process(event);
-
-    if (event.isDown && isCtrlEscape(event.scancode, result.modifiers)) {
+bool processEvent(Application& app, const KeyEvent& event) {
+    if (!event.native && event.isDown && event.scancode == SC_ESCAPE &&
+        app.dispatcher().physicalCtrlHeld()) {
         DEBUG_LOG("\n[Main] Ctrl+Escape, exiting...\n");
         app.requestShutdown();
-        return;
+        return true;
     }
 
-    switch (result.action) {
-        case Action::Forward:
-            app.hardware().sendKey(event.scancode, event.isDown);
-            break;
-        case Action::Replace:
-            if (result.injectShift) {
-                sendReplaceWithShift(app, modTracker, result.outputScancode, event.isDown);
-            } else {
-                app.hardware().sendKey(result.outputScancode, event.isDown);
-            }
-            break;
-        case Action::Consume:
-            break;
+    if (!app.dispatcher().process(event)) {
+        std::cerr << "[Main] Keyboard output failed: " << app.hardware().lastError() << "\n";
+        app.requestShutdown();
+        return false;
     }
+    return true;
 }
 
-void runEventLoop(Application& app, ModifierTracker* modTracker) {
+bool runEventLoop(Application& app, IPlatformInit& platform) {
     // 50ms timeout: idle wakes happen ~20 Hz (cheap tray pump) while real key
     // events still unblock waitForKey immediately, so typing latency is unaffected.
     constexpr int IDLE_POLL_MS = 50;
 
     while (app.isRunning()) {
+        platform.processSignals();
+        if (!app.isRunning()) {
+            break;
+        }
+        if (!app.sysTray().processMessages()) {
+            app.requestShutdown();
+            break;
+        }
         auto event = app.hardware().waitForKey(IDLE_POLL_MS);
+        if (app.hardware().hasFailed()) {
+            std::cerr << "[Main] Keyboard input failed: " << app.hardware().lastError() << "\n";
+            app.requestShutdown();
+            break;
+        }
         if (!event) {
             // Idle tick — pump tray messages here; on the hot path (a key arrived)
             // we skip this to keep keystroke processing as lean as possible.
@@ -195,8 +174,11 @@ void runEventLoop(Application& app, ModifierTracker* modTracker) {
             continue;
         }
 
-        processEvent(app, modTracker, *event);
+        if (!processEvent(app, *event)) {
+            return false;
+        }
     }
+    return !app.hardware().hasFailed();
 }
 
 } // namespace
@@ -204,7 +186,20 @@ void runEventLoop(Application& app, ModifierTracker* modTracker) {
 int main(int argc, char* argv[]) {
     auto platformInit = PlatformFactory::createPlatformInit();
 
-    CliArgs args = parseArgs(argc, argv);
+    CliArgs args;
+    try {
+        args = parseArgs(argc, argv);
+    } catch (const std::exception& error) {
+        std::cerr << error.what() << "\n";
+        return 1;
+    }
+    if (args.help) {
+        std::cout << "Usage: keyflow [config.json] [--validate] [--debug] [--verbose]\n";
+#ifdef __linux__
+        std::cout << "Linux runtime requires --device <keyboard-path> (repeatable).\n";
+#endif
+        return 0;
+    }
 
     if (args.verbose) {
         gVerboseLogging = true;
@@ -216,23 +211,65 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // Declare the lock first so it remains held through application cleanup.
+    auto instanceLock = PlatformFactory::createSingleInstanceLock();
     Application app(PlatformFactory::createHardwareIO(), PlatformFactory::createSystemTray());
+    ModifierTracker* modTracker = nullptr;
+    if (!ConfigBuilder::buildPipeline(*config, app.pipeline(), false, &modTracker)) {
+        std::cerr << "[Main] Failed to build pipeline from config\n";
+        return 1;
+    }
+    if (args.validate) {
+        std::cout << "[Config] Valid: " << args.configPath << "\n";
+        return 0;
+    }
+    for (const auto& behavior : enumerateBehaviors(*config)) {
+        if (behavior.kind != Behavior::Kind::CustomModifier &&
+            behavior.expectedOutputScancode != SC_NOP &&
+            !app.hardware().supportsKey(behavior.expectedOutputScancode)) {
+            std::cerr << "[Config] Unsupported output: " << behavior.expectedOutputName << "\n";
+            return 1;
+        }
+        if (behavior.expectedInjectShift && !app.hardware().supportsKey(SC_LSHIFT)) {
+            std::cerr << "[Config] Backend cannot inject Shift\n";
+            return 1;
+        }
+    }
+    if (!app.hardware().configureDevices(args.devices)) {
+        std::cerr << "[Main] Invalid keyboard selection: " << app.hardware().lastError() << "\n";
+        return 1;
+    }
+#ifdef __linux__
+    for (const auto& layer : config->layers) {
+        for (const auto& mapping : layer.shiftMappings) {
+            if (!mapping.shift) {
+                std::cerr << "[Config] Linux cannot activate shiftMappings with shift=false\n";
+                return 1;
+            }
+        }
+    }
+#endif
     app.config().debugMode = args.debug;
     gApp = &app;
 
     platformInit->installSignalHandlers(shutdownCallback);
 
-    auto instanceLock = PlatformFactory::createSingleInstanceLock();
     if (!instanceLock->acquire()) {
+#ifdef _WIN32
         std::cerr << "[Main] Couldn't take over from existing Keyflow instance\n";
         platformInit->showFatalError(
             "Couldn't take over from the existing Keyflow instance.\n\nThe other process may be "
             "running as a different user or with elevated privileges. Try closing it manually.");
+#else
+        std::cerr
+            << "[Main] Unable to acquire instance ownership; another instance may be running\n";
+#endif
         gApp = nullptr;
         return 1;
     }
 
     if (!app.initialize("Keyflow - Keyboard Remapper")) {
+#ifdef _WIN32
         std::cerr
             << "\n[Main] Hardware init failed — the Interception driver couldn't be opened.\n\n"
                "How to fix:\n"
@@ -249,16 +286,17 @@ int main(int argc, char* argv[]) {
             "https://github.com/oblitum/Interception/releases\n\n"
             "Run install-interception.exe /install, reboot, then re-run keyflow.exe.\n\n"
             "If already installed, check that interception.dll sits next to keyflow.exe.");
+#else
+        std::cerr << "[Main] Linux keyboard initialization failed: " << app.hardware().lastError()
+                  << "\n";
+#endif
         gApp = nullptr;
         return 1;
     }
 
-    ModifierTracker* modTracker = nullptr;
-    if (!ConfigBuilder::buildPipeline(*config, app.pipeline(), !args.debug, &modTracker)) {
-        std::cerr << "[Main] Failed to build pipeline from config\n";
-        platformInit->showFatalError(
-            "Failed to build pipeline from config.\n\nRun from PowerShell with --debug for "
-            "details.");
+    platformInit->processSignals();
+    if (!app.isRunning() || !app.hardware().activate()) {
+        std::cerr << "[Main] Keyboard activation stopped: " << app.hardware().lastError() << "\n";
         gApp = nullptr;
         return 1;
     }
@@ -266,9 +304,10 @@ int main(int argc, char* argv[]) {
         app.setModifierTracker(modTracker);
     }
 
-    runEventLoop(app, modTracker);
+    const bool SUCCEEDED = runEventLoop(app, *platformInit);
 
     DEBUG_LOG("\n[Main] Shutting down...\n");
     gApp = nullptr;
-    return 0;
+    app.shutdown();
+    return SUCCEEDED && !app.hardware().hasFailed() ? 0 : 1;
 }

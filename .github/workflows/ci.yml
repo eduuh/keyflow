@@ -13,26 +13,96 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: windows-latest
+    name: Windows (${{ matrix.config }})
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Debug, Release]
     steps:
       - uses: actions/checkout@v6
 
       - name: Set up MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Configure (Debug, tests on)
+      - name: Configure (tests on)
         shell: pwsh
-        run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Debug -DENABLE_TESTS=ON
+        run: cmake -S . -B builds/Windows-${{ matrix.config }} -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DENABLE_TESTS=ON
 
       - name: Build
         shell: pwsh
-        run: cmake --build build --config Debug
+        run: cmake --build builds/Windows-${{ matrix.config }} --config ${{ matrix.config }} --target keyflow keyflow_tests
 
       - name: Run tests
         shell: pwsh
+        run: ctest --test-dir builds/Windows-${{ matrix.config }} -C ${{ matrix.config }} --output-on-failure --no-tests=error
+
+      - name: Validate both unchanged config fixtures (no input capture)
+        shell: pwsh
         run: |
-          cd build
-          ctest -C Debug --output-on-failure
+          $config = "${{ matrix.config }}"
+          $output = $config.ToLower()
+          $folder = "builds/Windows-$config/$output/bin/$config"
+          $binary = Join-Path $folder "keyflow.exe"
+          if (-not (Test-Path $binary -PathType Leaf)) {
+            Write-Error "Runtime executable missing: $binary"
+            exit 1
+          }
+          $copiedConfig = Join-Path $folder "config.json"
+          if ((Get-FileHash "src/config.json").Hash -ne (Get-FileHash $copiedConfig).Hash) {
+            Write-Error "Bundled config differs from src/config.json"
+            exit 1
+          }
+          $runtimeConfig = (Resolve-Path "src/config.json").Path
+          $designerConfig = (Resolve-Path "designer/public/eduuh-dh-config.json").Path
+          & $binary --validate $runtimeConfig
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $binary --validate $designerConfig
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  build-and-test-linux:
+    name: Linux (Ubuntu 24.04, ${{ matrix.config }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Linux build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config libevdev-dev
+
+      - name: Configure (runtime and tests on)
+        run: cmake -S . -B builds/Linux-${{ matrix.config }} -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DENABLE_LINUX_BACKEND=ON -DENABLE_TESTS=ON -DENABLE_LINUX_DEVICE_TESTS=OFF
+
+      - name: Build runtime and tests
+        run: cmake --build builds/Linux-${{ matrix.config }} --target keyflow keyflow_tests --parallel 2
+
+      - name: Run nonprivileged tests
+        run: ctest --test-dir builds/Linux-${{ matrix.config }} --output-on-failure --no-tests=error
+
+      - name: Validate both unchanged config fixtures (no input capture)
+        shell: bash
+        run: |
+          config="${{ matrix.config }}"
+          folder="builds/Linux-$config/${config,,}/bin"
+          test -x "$folder/keyflow"
+          cmp src/config.json "$folder/config.json"
+          "$folder/keyflow" --help
+          "$folder/keyflow" --validate src/config.json
+          "$folder/keyflow" --validate designer/public/eduuh-dh-config.json
+
+      - name: Test Linux deployment helpers without device access
+        run: python3 -B -m unittest discover -s tests/linux_service -v
+
+      - name: Verify backend-OFF portable tests
+        run: |
+          cmake -S . -B builds/Portable-${{ matrix.config }} -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DENABLE_LINUX_BACKEND=OFF -DENABLE_TESTS=ON -DENABLE_LINUX_DEVICE_TESTS=OFF
+          cmake --build builds/Portable-${{ matrix.config }} --target keyflow_tests --parallel 2
+          ctest --test-dir builds/Portable-${{ matrix.config }} --output-on-failure --no-tests=error
 
   release-artifact:
     # Produce a Release build of keyflow.exe + bundled files on every push to
@@ -41,7 +111,7 @@ jobs:
     # the artifact list focused on main-line commits and saves runner minutes.
     # Gated on build-and-test passing: a known-broken binary is worse than no
     # binary.
-    needs: build-and-test
+    needs: [build-and-test, build-and-test-linux]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     steps:
@@ -101,11 +171,60 @@ jobs:
           Copy-Item "LICENSE" $folder
           Copy-Item "README.md" $folder
           Copy-Item "THIRD_PARTY_NOTICES.md" $folder
+          Copy-Item "BUILD.md" $folder
+          New-Item -ItemType Directory -Force "$folder/docs" | Out-Null
+          Copy-Item "docs/*" "$folder/docs/" -Recurse
 
       - name: Upload keyflow build artifact
         uses: actions/upload-artifact@v4
         with:
           name: keyflow-main-${{ steps.short.outputs.sha }}
           path: ${{ steps.locate.outputs.folder }}/*
+          retention-days: 30
+          if-no-files-found: error
+
+  linux-main-artifact:
+    # Nonprivileged CI proves build/config gates, not kernel or desktop acceptance.
+    needs: [build-and-test, build-and-test-linux]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Linux build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config libevdev-dev
+
+      - name: Build experimental Linux runtime (Release)
+        run: |
+          cmake -S . -B builds/Linux-Artifact -DCMAKE_BUILD_TYPE=Release -DENABLE_LINUX_BACKEND=ON
+          cmake --build builds/Linux-Artifact --target keyflow --parallel 2
+
+      - name: Stage and verify native artifact
+        shell: bash
+        run: |
+          folder="builds/Linux-Artifact/release/bin"
+          test -x "$folder/keyflow"
+          cmp src/config.json "$folder/config.json"
+          cp LICENSE README.md THIRD_PARTY_NOTICES.md BUILD.md "$folder/"
+          cp -a docs "$folder/"
+          mkdir -p "$folder/scripts"
+          cp -a scripts/linux "$folder/scripts/"
+          printf '%s\n' "$GITHUB_SHA" > "$folder/SOURCE_COMMIT"
+          for file in keyflow config.json LICENSE README.md THIRD_PARTY_NOTICES.md BUILD.md; do
+            test -f "$folder/$file"
+          done
+          test ! -e "$folder/interception.dll"
+
+      - name: Compute short SHA for artifact name
+        id: short
+        run: echo "sha=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload experimental Linux build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: keyflow-linux-main-${{ steps.short.outputs.sha }}
+          path: builds/Linux-Artifact/release/bin/*
           retention-days: 30
           if-no-files-found: error

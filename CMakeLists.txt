@@ -33,17 +33,31 @@ include_directories(
 
 # Platform detection
 set(KEYFLOW_HAS_PLATFORM_BACKEND FALSE)
+set(KEYFLOW_LINUX_BACKEND_DEFAULT OFF)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(KEYFLOW_LINUX_BACKEND_DEFAULT ON)
+endif()
+option(ENABLE_LINUX_BACKEND "Build the Linux evdev/uinput runtime" ${KEYFLOW_LINUX_BACKEND_DEFAULT})
 
 if(WIN32)
     set(KEYFLOW_HAS_PLATFORM_BACKEND TRUE)
     message(STATUS "  Platform: Windows")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    if(ENABLE_LINUX_BACKEND)
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(LIBEVDEV REQUIRED IMPORTED_TARGET libevdev)
+        set(KEYFLOW_HAS_PLATFORM_BACKEND TRUE)
+        message(STATUS "  Platform: Linux (experimental evdev/uinput runtime)")
+    else()
+        message(STATUS "  Platform: Linux (runtime disabled - tests only)")
+    endif()
 elseif(APPLE)
     message(STATUS "  Platform: macOS (no runtime backend yet - tests only)")
-elseif(UNIX)
-    message(STATUS "  Platform: Linux (no runtime backend yet - tests only)")
+else()
+    message(STATUS "  Platform: ${CMAKE_SYSTEM_NAME} (no runtime backend - tests only)")
 endif()
 
-# === Keyflow executable (Windows only, requires platform backend) ===
+# === Keyflow executable (requires platform backend) ===
 if(KEYFLOW_HAS_PLATFORM_BACKEND)
     if(WIN32)
         include_directories(
@@ -65,6 +79,12 @@ if(KEYFLOW_HAS_PLATFORM_BACKEND)
         set(PLATFORM_SOURCES
             src/platform/windows/WindowsHardwareIO.cpp
             "${CMAKE_CURRENT_BINARY_DIR}/keyflow.rc"
+        )
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(PLATFORM_SOURCES
+            src/platform/linux/LinuxHardwareIO.cpp
+            src/platform/linux/LinuxPlatformInit.cpp
+            src/platform/linux/LinuxSingleInstanceLock.cpp
         )
     endif()
 
@@ -90,6 +110,8 @@ if(KEYFLOW_HAS_PLATFORM_BACKEND)
                 $<$<CONFIG:Release>:/ENTRY:mainCRTStartup>
             )
         endif()
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        target_link_libraries(keyflow PRIVATE PkgConfig::LIBEVDEV)
     endif()
 
     # Output directory - organize by build type
@@ -157,12 +179,16 @@ if(ENABLE_TESTS)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
 
-    # Disable -Werror for Google Test targets
+    # Keep the existing warning exception for locally built Google Test targets.
     if(NOT MSVC)
-        target_compile_options(gtest PRIVATE -Wno-error=undef)
-        target_compile_options(gtest_main PRIVATE -Wno-error=undef)
-        target_compile_options(gmock PRIVATE -Wno-error=undef)
-        target_compile_options(gmock_main PRIVATE -Wno-error=undef)
+        foreach(test_target IN ITEMS gtest gtest_main gmock gmock_main)
+            if(TARGET ${test_target})
+                get_target_property(test_target_imported ${test_target} IMPORTED)
+                if(NOT test_target_imported)
+                    target_compile_options(${test_target} PRIVATE -Wno-error=undef)
+                endif()
+            endif()
+        endforeach()
     endif()
 
     # Unit tests (platform-agnostic, always available)

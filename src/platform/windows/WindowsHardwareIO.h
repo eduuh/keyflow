@@ -22,10 +22,16 @@ class WindowsHardwareIO final : public IHardwareIO {
     void shutdown() noexcept override;
     [[nodiscard]] std::optional<KeyEvent> waitForKey(int timeoutMS = 0) noexcept override;
     void sendKey(uint16_t scancode, bool isDown) noexcept override;
+    [[nodiscard]] bool sendEvent(const KeyEvent& event) noexcept override;
+    [[nodiscard]] bool hasFailed() const noexcept override { return failed_; }
+    [[nodiscard]] std::string_view lastError() const noexcept override {
+        return failed_ ? "Interception event send failed" : "";
+    }
     [[nodiscard]] bool isInitialized() const noexcept override { return initialized_; }
 
   private:
     bool initialized_ = false;
+    bool failed_ = false;
     void* context_ = nullptr;
     // Atomic because the console-ctrl handler thread reads it via
     // sendKey() during shutdown while the main thread writes it in waitForKey().

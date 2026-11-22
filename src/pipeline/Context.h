@@ -58,7 +58,7 @@ struct Context {
         tapped = false;
         tappedSlow = false;
         tapHoldMake = false;
-        repeat = false;
+        repeat = event.action == KeyAction::Repeat;
         modifiers = 0;
         action = Action::Forward;
         injectShift = false;

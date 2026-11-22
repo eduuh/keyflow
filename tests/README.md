@@ -1,6 +1,7 @@
 # Tests
 
-Unit tests for keyflow processors and config loading. Built with Google Test (auto-fetched via CMake).
+Unit tests for keyflow processors, config loading and platform boundaries. Built
+with Google Test (found from an installed package or fetched via CMake).
 
 ## Run
 
@@ -8,7 +9,8 @@ Unit tests for keyflow processors and config loading. Built with Google Test (au
 .\build.ps1 -Tests
 ```
 
-Tests run as part of the Debug build. To run individually:
+The script defaults to Release and runs CTest when `-Tests` is supplied.
+For Debug, use `.\build.ps1 -Config Debug -Tests`. To run an existing Debug suite:
 
 ```powershell
 cd builds\Debug
@@ -28,6 +30,88 @@ tests/unit/
 tests/fixtures/    # MockProcessor, PipelineHarness
 ```
 
-The integration test treats src/config.json as the spec — edit the config, the
-test surface updates automatically. Adding a new unit test: drop a `test_*.cpp`
-under the right `unit/` folder; CMake picks it up automatically.
+The config-coverage integration test drives `src/config.json` through the real
+pipeline without hardware. It is engine evidence, not proof of injected OS output.
+The designer fixture is a distinct witness with different expectations; preserve
+both JSON files unchanged for Linux integration. Literal expected traces must
+complement config-derived coverage rather than merely counting mappings.
+
+Adding a new unit test: drop a `test_*.cpp` under the right `unit/` folder and
+reconfigure CMake so its source glob picks it up.
+
+## Linux and Portable Tests
+
+Use direct CMake under `builds/`. For a Linux runtime plus nonprivileged tests:
+
+```sh
+cmake -S . -B builds/Linux-Debug -DCMAKE_BUILD_TYPE=Debug -DENABLE_TESTS=ON
+cmake --build builds/Linux-Debug --target keyflow keyflow_tests --parallel 2
+ctest --test-dir builds/Linux-Debug --output-on-failure --no-tests=error
+builds/Linux-Debug/debug/bin/keyflow --validate "$PWD/src/config.json"
+builds/Linux-Debug/debug/bin/keyflow --validate "$PWD/designer/public/eduuh-dh-config.json"
+```
+
+This needs pkg-config and libevdev development headers. See [BUILD.md](../BUILD.md)
+for prerequisites and the independent Release gate. Validation captures no input.
+To run portable tests without libevdev or a runtime target:
+
+```sh
+cmake -S . -B builds/Portable -DENABLE_LINUX_BACKEND=OFF -DENABLE_TESTS=ON
+cmake --build builds/Portable --target keyflow_tests --parallel 2
+ctest --test-dir builds/Portable --output-on-failure --no-tests=error
+```
+
+Backend-OFF success is not a Linux runtime build or device acceptance.
+macOS remains tests-only. CI builds actual Windows and Ubuntu 24.04 runtimes
+in separate Debug/Release entries; it does not run privileged device IO.
+
+## Evidence and Device-test Gate
+
+Report parser/validation, engine traces, kernel IO, and application-visible
+behavior separately. A real executable and passing nonprivileged tests cannot
+prove exclusive capture, consumer readiness, balanced kernel output, recovery,
+glyphs, compositor repeat or desktop shortcuts. Linux remains **EXPERIMENTAL**
+until the later live kernel/application verification is recorded.
+
+Device tests are opt-in and outside hosted CI. Enabling the
+`ENABLE_LINUX_DEVICE_TESTS` / `linux-device` gate requires separate authorization
+for a disposable VM or dedicated seat, explicitly selected synthetic devices,
+scoped access and an unaffected control channel. An explicitly enabled run must
+fail when access is unavailable; a disabled gate means not executed, not passed.
+Synthetic uinput devices can still be visible to desktop consumers, so a shared
+workstation is not a safe substitute. Do not enumerate/grab physical keyboards,
+change permissions or services, or log personal typing as part of ordinary tests.
+
+Build the isolated suite without executing device IO:
+
+```sh
+cmake -S . -B builds/Linux-Device -DENABLE_TESTS=ON -DENABLE_LINUX_DEVICE_TESTS=ON
+cmake --build builds/Linux-Device --target keyflow_linux_device_tests --parallel 2
+```
+
+Only after explicit environment/access approval, execute:
+
+```sh
+ctest --test-dir builds/Linux-Device -L linux-device --output-on-failure --no-tests=error
+```
+
+The suite creates only its own synthetic source, exclusively grabs the output
+consumer before injecting, and destroys both devices afterward. It checks literal
+traces from both unchanged fixtures, explicit repeats, native passthrough, balanced
+cleanup, competing capture, owned-device exclusion, cancellation and source loss.
+The ten current cases also cover held-source startup rollback, real selected
+queue overflow and disposable-child SIGKILL recovery. They do not prove desktop
+readiness, exhaustive IO-failure boundaries or Windows application parity.
+
+## Linux Service Tools
+
+Deployment helpers use standard-library Python tests:
+
+```sh
+python3 -B -m unittest discover -s tests/linux_service -v
+```
+
+These tests use temporary files and mocked account/service/device operations.
+They must not change installed services, grant device access or read physical
+input. Passing them is not a fresh live installation or reboot test; see the
+[separate service guide](../docs/LINUX_SERVICE.md).

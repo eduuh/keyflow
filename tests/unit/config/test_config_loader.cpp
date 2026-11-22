@@ -1,3 +1,4 @@
+#include "config/ConfigBuilder.h"
 #include "config/ConfigLoader.h"
 #include <gtest/gtest.h>
 
@@ -27,6 +28,8 @@ constexpr const char *kInvalidKeyConfig = R"({
   "remapping": { "INVALID_KEY_NAME_123": "A" }
 })";
 
+class ShippedConfigTest : public testing::TestWithParam<const char *> {};
+
 } // namespace
 
 TEST(ConfigLoaderTest, LoadsSimpleConfigFromString) {
@@ -40,6 +43,49 @@ TEST(ConfigLoaderTest, LoadsComplexConfigFromString) {
   EXPECT_EQ(config.remapping.size(), 2u);
   EXPECT_EQ(config.layers.size(), 1u);
   EXPECT_EQ(config.noModCombos.size(), 1u);
+}
+
+TEST(ConfigLoaderTest, AppliesActivePlatformOverrideLast) {
+#if defined(__linux__)
+  const char* activePlatform = "linux";
+#elif defined(_WIN32)
+  const char* activePlatform = "windows";
+#elif defined(__APPLE__)
+  const char* activePlatform = "mac";
+#else
+  const char* activePlatform = nullptr;
+#endif
+
+  const auto config = ConfigLoader::loadFromString(R"({
+    "version": "1.0",
+    "remapping": { "A": "B", "C": "D" },
+    "disableCapsLock": false,
+    "platformOverrides": {
+      "linux": {
+        "remapping": { "A": "F", "PrintScreen": "LeftWin" },
+        "disableCapsLock": true,
+        "layers": [{
+          "name": "linux-nav",
+          "trigger": "RALT",
+          "mappings": { "H": "Left" }
+        }]
+      },
+      "windows": {
+        "remapping": { "A": "G" }
+      }
+    }
+  })");
+
+  if (activePlatform && std::string(activePlatform) == "linux") {
+    EXPECT_EQ(config.remapping.at("A"), "F");
+    EXPECT_EQ(config.remapping.at("C"), "D");
+    EXPECT_EQ(config.remapping.at("PrintScreen"), "LeftWin");
+    EXPECT_TRUE(config.disableCapsLock);
+    ASSERT_EQ(config.layers.size(), 1u);
+    EXPECT_EQ(config.layers.front().name, "linux-nav");
+  } else if (activePlatform && std::string(activePlatform) == "windows") {
+    EXPECT_EQ(config.remapping.at("A"), "G");
+  }
 }
 
 TEST(ConfigLoaderTest, NonExistentFileThrows) {
@@ -78,3 +124,106 @@ TEST(ConfigLoaderValidationTest, ValidConfigPasses) {
   config.remapping["A"] = "B";
   EXPECT_TRUE(ConfigLoader::validate(config).valid);
 }
+
+TEST(ConfigLoaderTest, LayerMetadataIsNotAKeyMapping) {
+  const auto config = ConfigLoader::loadFromString(R"({
+    "version": "1.0",
+    "layers": [{
+      "name": "nav",
+      "trigger": "RALT",
+      "mappings": {
+        "_comment": "Navigation keys",
+        "_note": "Ignored metadata",
+        "H": "Left"
+      }
+    }]
+  })");
+
+  ASSERT_EQ(config.layers.size(), 1u);
+  EXPECT_EQ(config.layers.front().mappings.size(), 1u);
+  EXPECT_EQ(config.layers.front().mappings.at("H"), "Left");
+  EXPECT_TRUE(ConfigLoader::validate(config).valid);
+  Pipeline pipeline;
+  EXPECT_TRUE(ConfigBuilder::buildPipeline(config, pipeline, false));
+}
+
+TEST(ConfigLoaderValidationTest, DeclaredCustomLayerTriggerPasses) {
+  const auto config = ConfigLoader::loadFromString(R"({
+    "version": "1.0",
+    "customModifiers": [{
+      "key": "LeftWin",
+      "modifierName": "WIN_MOD"
+    }],
+    "layers": [{
+      "name": "Win",
+      "trigger": "WIN_MOD",
+      "mappings": { "J": "KP_7" }
+    }]
+  })");
+
+  const auto result = ConfigLoader::validate(config);
+  EXPECT_TRUE(result.valid) << testing::PrintToString(result.errors);
+  Pipeline pipeline;
+  EXPECT_TRUE(ConfigBuilder::buildPipeline(config, pipeline, false));
+}
+
+TEST(ConfigLoaderValidationTest, StandardModifierAliasesMatchBuilder) {
+  const auto config = ConfigLoader::loadFromString(R"({
+    "version": "1.0",
+    "layers": [{
+      "name": "nav",
+      "triggers": ["RALT", "MOD11", "LALT", "MOD12", "MOD13", "PRINT"],
+      "mappings": { "H": "Left" }
+    }]
+  })");
+
+  const auto result = ConfigLoader::validate(config);
+  EXPECT_TRUE(result.valid) << testing::PrintToString(result.errors);
+  Pipeline pipeline;
+  EXPECT_TRUE(ConfigBuilder::buildPipeline(config, pipeline, false));
+}
+
+TEST(ConfigLoaderValidationTest, UndeclaredLayerTriggerFails) {
+  const auto config = ConfigLoader::loadFromString(R"({
+    "version": "1.0",
+    "layers": [{
+      "name": "nav",
+      "trigger": "UNKNOWN_MOD",
+      "mappings": { "H": "Left" }
+    }]
+  })");
+
+  const auto result = ConfigLoader::validate(config);
+  EXPECT_FALSE(result.valid);
+  ASSERT_EQ(result.errors.size(), 1u);
+  EXPECT_EQ(result.errors.front().first, "layers[0].trigger");
+}
+
+TEST(ConfigLoaderValidationTest, NonModifierKeyCannotTriggerLayer) {
+  const auto config = ConfigLoader::loadFromString(R"({
+    "version": "1.0",
+    "layers": [{
+      "name": "nav",
+      "trigger": "A",
+      "mappings": { "H": "Left" }
+    }]
+  })");
+
+  const auto result = ConfigLoader::validate(config);
+  EXPECT_FALSE(result.valid);
+  ASSERT_EQ(result.errors.size(), 1u);
+  EXPECT_EQ(result.errors.front().first, "layers[0].trigger");
+}
+
+TEST_P(ShippedConfigTest, ValidatesAndBuildsUnchanged) {
+  const auto config = ConfigLoader::loadFromFile(GetParam());
+
+  const auto result = ConfigLoader::validate(config);
+  EXPECT_TRUE(result.valid) << testing::PrintToString(result.errors);
+  Pipeline pipeline;
+  EXPECT_TRUE(ConfigBuilder::buildPipeline(config, pipeline, false));
+}
+
+INSTANTIATE_TEST_SUITE_P(WindowsConfigurations, ShippedConfigTest,
+                         testing::Values(KEYFLOW_CONFIG_PATH,
+                                         KEYFLOW_DESIGNER_CONFIG_PATH));

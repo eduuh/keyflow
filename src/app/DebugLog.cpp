@@ -16,7 +16,11 @@ void writeVerboseTimestamp(std::ofstream& out) {
     auto millis = duration_cast<milliseconds>(now.time_since_epoch()) % 1000;
 
     std::tm tmBuf{};
+#ifdef _WIN32
     (void)localtime_s(&tmBuf, &t);
+#else
+    (void)localtime_r(&t, &tmBuf);
+#endif
 
     out << std::put_time(&tmBuf, "%H:%M:%S") << '.' << std::setfill('0') << std::setw(3)
         << millis.count() << ' ';

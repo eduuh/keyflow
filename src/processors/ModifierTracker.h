@@ -35,14 +35,16 @@ class ModifierTracker : public IProcessor {
                         << static_cast<int>(modBit) << " isDown=" << ctx.isDown << "\n");
 
             // Update modifier state
-            if (ctx.isDown) {
-                activeModifiers_ |= static_cast<uint32_t>(modBit);
-                VERBOSE_LOG("[ModifierTracker] Modifier pressed, activeModifiers now: 0x"
-                            << std::hex << activeModifiers_ << std::dec << "\n");
-            } else {
-                activeModifiers_ &= ~static_cast<uint32_t>(modBit);
-                VERBOSE_LOG("[ModifierTracker] Modifier released, activeModifiers now: 0x"
-                            << std::hex << activeModifiers_ << std::dec << "\n");
+            if (updateStandardModifier(ctx.scancode, ctx.outputScancode, ctx.isDown)) {
+                if (ctx.isDown) {
+                    activeModifiers_ |= static_cast<uint32_t>(modBit);
+                    VERBOSE_LOG("[ModifierTracker] Modifier pressed, activeModifiers now: 0x"
+                                << std::hex << activeModifiers_ << std::dec << "\n");
+                } else {
+                    activeModifiers_ &= ~static_cast<uint32_t>(modBit);
+                    VERBOSE_LOG("[ModifierTracker] Modifier released, activeModifiers now: 0x"
+                                << std::hex << activeModifiers_ << std::dec << "\n");
+                }
             }
         }
 
@@ -134,6 +136,30 @@ class ModifierTracker : public IProcessor {
     void clearInjectedModifiers() noexcept { injectedShift_ = false; }
 
   private:
+    bool updateStandardModifier(uint16_t physical, uint16_t output, bool down) {
+        auto held = heldStandard_.find(physical);
+        if (down) {
+            if (held != heldStandard_.end()) {
+                return false;
+            }
+            heldStandard_.emplace(physical, output);
+            return ++standardOwners_[output] == 1;
+        }
+        if (held == heldStandard_.end()) {
+            return false;
+        }
+        const auto selected = held->second;
+        heldStandard_.erase(held);
+        auto owner = standardOwners_.find(selected);
+        if (owner == standardOwners_.end() || --owner->second != 0) {
+            return false;
+        }
+        standardOwners_.erase(owner);
+        return true;
+    }
+
+    std::unordered_map<uint16_t, uint16_t> heldStandard_;
+    std::unordered_map<uint16_t, unsigned> standardOwners_;
     uint32_t activeModifiers_ = 0;                              // Bitmask of active modifiers
     std::unordered_map<uint16_t, ModifierBit> customModifiers_; // scancode → custom modifier bit
     std::unordered_map<std::string, ModifierBit> customModifierNames_; // name → custom modifier bit

@@ -22,6 +22,7 @@ bool WindowsHardwareIO::initialize() noexcept {
                                 INTERCEPTION_FILTER_KEY_E0 | INTERCEPTION_FILTER_KEY_E1);
 
     initialized_ = true;
+    failed_ = false;
     DEBUG_LOG("[HardwareIO] Initialized\n");
     return true;
 }
@@ -65,28 +66,37 @@ std::optional<KeyEvent> WindowsHardwareIO::waitForKey(int timeoutMS) noexcept {
     if (keyStroke->state & INTERCEPTION_KEY_E1)
         scancode |= 0xE100;
 
-    return KeyEvent(scancode, isDown);
+    return KeyEvent(scancode, isDown ? KeyAction::Press : KeyAction::Release,
+                    static_cast<uint16_t>(device));
 }
 
 void WindowsHardwareIO::sendKey(uint16_t scancode, bool isDown) noexcept {
-    const int device = currentDevice_.load(std::memory_order_relaxed);
+    (void)sendEvent(KeyEvent(scancode, isDown));
+}
+
+bool WindowsHardwareIO::sendEvent(const KeyEvent& event) noexcept {
+    const int device =
+        event.source != 0 ? event.source : currentDevice_.load(std::memory_order_relaxed);
     if (!initialized_ || context_ == nullptr || device == 0) {
-        return;
+        return false;
     }
 
     InterceptionKeyStroke stroke = {};
-    uint16_t baseScancode = scancode & 0x00FF;
-    bool isE0 = (scancode & 0xE000) == 0xE000;
-    bool isE1 = (scancode & 0xE100) == 0xE100;
+    uint16_t baseScancode = event.scancode & 0x00FF;
+    bool isE0 = (event.scancode & 0xFF00) == 0xE000;
+    bool isE1 = (event.scancode & 0xFF00) == 0xE100;
 
     stroke.code = baseScancode;
-    stroke.state = isDown ? 0 : INTERCEPTION_KEY_UP;
+    stroke.state = event.isDown ? 0 : INTERCEPTION_KEY_UP;
     if (isE0)
         stroke.state |= INTERCEPTION_KEY_E0;
     if (isE1)
         stroke.state |= INTERCEPTION_KEY_E1;
 
-    interception_send(context_, device, reinterpret_cast<InterceptionStroke*>(&stroke), 1);
+    const bool sent =
+        interception_send(context_, device, reinterpret_cast<InterceptionStroke*>(&stroke), 1) == 1;
+    failed_ = failed_ || !sent;
+    return sent;
 }
 
 } // namespace keyflow

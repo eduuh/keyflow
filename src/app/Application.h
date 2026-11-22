@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/Config.h"
+#include "app/OutputDispatcher.h"
 #include "hardware/Scancodes.h"
 #include "pipeline/Pipeline.h"
 #include "platform/IPlatform.h"
@@ -37,9 +38,10 @@ class ModifierTracker;
 class Application {
   public:
     Application(std::unique_ptr<IHardwareIO> hardware, std::unique_ptr<ISystemTray> sysTray)
-        : hardware_(std::move(hardware)), sysTray_(std::move(sysTray)) {}
+        : hardware_(std::move(hardware)), sysTray_(std::move(sysTray)),
+          dispatcher_(pipeline_, *hardware_) {}
 
-    ~Application() noexcept { cleanup(); }
+    ~Application() noexcept { shutdown(); }
 
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
@@ -76,6 +78,7 @@ class Application {
     IHardwareIO& hardware() noexcept { return *hardware_; }
     Pipeline& pipeline() noexcept { return pipeline_; }
     ISystemTray& sysTray() noexcept { return *sysTray_; }
+    OutputDispatcher& dispatcher() noexcept { return dispatcher_; }
 
     ModifierTracker& modifierTracker() noexcept { return *modifierTracker_; }
     void setModifierTracker(ModifierTracker* tracker) noexcept { modifierTracker_ = tracker; }
@@ -97,18 +100,19 @@ class Application {
         hardware_->sendKey(SC_RWIN, false);
     }
 
-  private:
-    void cleanup() noexcept {
+    void shutdown() noexcept {
         if (hardware_ && hardware_->isInitialized()) {
-            releaseAllModifiers();
+            dispatcher_.shutdown();
             hardware_->shutdown();
         }
     }
 
+  private:
     Config config_;
     std::unique_ptr<IHardwareIO> hardware_;
     std::unique_ptr<ISystemTray> sysTray_;
     Pipeline pipeline_;
+    OutputDispatcher dispatcher_;
     std::atomic<bool> running_{true};
     ModifierTracker* modifierTracker_ = nullptr;
 };

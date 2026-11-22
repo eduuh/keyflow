@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../pipeline/Modifiers.h"
 #include "JsonConfig.h"
 #include "KeyNameMapper.h"
 
@@ -178,11 +179,12 @@ class ConfigLoader {
                 result.valid = false;
             }
 
-            // Validate trigger keys
+            // Use the same modifier namespace as ConfigBuilder.
             for (const auto& trigger : layer.triggers) {
-                if (!KeyNameMapper::nameToScancode(trigger)) {
+                if (modifierNameToBit(trigger) == ModifierBit::None &&
+                    seenModifierNames.count(trigger) == 0) {
                     result.errors.emplace_back(layerContext + ".trigger",
-                                               "Unknown key name: '" + trigger + "'");
+                                               "Unknown trigger modifier: '" + trigger + "'");
                     result.valid = false;
                 }
             }
@@ -265,7 +267,63 @@ class ConfigLoader {
             config.disableCapsLock = j["disableCapsLock"].get<bool>();
         }
 
+        // Apply platform-specific overrides last.
+        if (j.contains("platformOverrides")) {
+            if (!j["platformOverrides"].is_object()) {
+                throw std::runtime_error("platformOverrides must be an object");
+            }
+
+            const char* platform = nullptr;
+#if defined(_WIN32)
+            platform = "windows";
+#elif defined(__APPLE__)
+            platform = "mac";
+#elif defined(__linux__)
+            platform = "linux";
+#endif
+
+            if (platform != nullptr &&
+                j["platformOverrides"].contains(platform)) {
+                const json& override = j["platformOverrides"][platform];
+                if (!override.is_object()) {
+                    throw std::runtime_error(
+                        std::string("platformOverrides.") + platform +
+                        " must be an object");
+                }
+                applyPlatformOverride(override, config);
+            }
+        }
+
         return config;
+    }
+
+    static void applyPlatformOverride(const json& override, JsonConfig& config) {
+        if (override.contains("remapping")) {
+            std::unordered_map<std::string, std::string> remapping;
+            parseRemapping(override["remapping"], remapping);
+            for (const auto& [key, value] : remapping) {
+                config.remapping[key] = value;
+            }
+        }
+
+        if (override.contains("noModCombos")) {
+            config.noModCombos.clear();
+            parseNoModCombos(override["noModCombos"], config.noModCombos);
+        }
+
+        if (override.contains("customModifiers")) {
+            config.customModifiers.clear();
+            parseCustomModifiers(override["customModifiers"], config.customModifiers);
+        }
+
+        if (override.contains("layers")) {
+            config.layers.clear();
+            parseLayers(override["layers"], config.layers);
+        }
+
+        if (override.contains("disableCapsLock")) {
+            config.disableCapsLock = override["disableCapsLock"].get<bool>();
+        }
     }
 
     /**
@@ -359,11 +417,7 @@ class ConfigLoader {
                 throw std::runtime_error("Layer must have 'mappings' field");
             }
 
-            for (auto& [key, value] : item["mappings"].items()) {
-                if (value.is_string()) {
-                    layer.mappings[key] = value.get<std::string>();
-                }
-            }
+            parseRemapping(item["mappings"], layer.mappings);
 
             // Shift mappings (optional)
             if (item.contains("shiftMappings")) {

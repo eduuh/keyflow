@@ -1,0 +1,48 @@
+[Unit]
+Description=Keyflow keyboard remapper (experimental)
+Requires=@DEVICE_UNIT@
+After=systemd-udevd.service @DEVICE_UNIT@
+BindsTo=@DEVICE_UNIT@
+
+[Service]
+Type=exec
+User=keyflow
+Group=keyflow
+ExecStartPre=/usr/local/lib/keyflow/keyflow --validate /etc/keyflow/config.json
+ExecStartPre=/usr/bin/python3 -I /usr/local/lib/keyflow/wait-all-up.py --device @DEVICE@
+ExecStart=/usr/local/lib/keyflow/keyflow --device @DEVICE@ /etc/keyflow/config.json
+WorkingDirectory=/run/keyflow
+RuntimeDirectory=keyflow
+RuntimeDirectoryMode=0700
+Environment=XDG_RUNTIME_DIR=/run/keyflow
+UMask=0077
+Restart=no
+TimeoutStopSec=5s
+KillMode=control-group
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+DevicePolicy=closed
+DeviceAllow=/dev/uinput rw
+# DAC limits input reads to the selected keyboard and the dynamic output node.
+DeviceAllow=char-input r
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
