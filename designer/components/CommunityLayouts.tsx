@@ -138,7 +138,7 @@ function CommunityLayoutsModal({ isOpen, onClose }: CommunityLayoutsModalProps) 
         <DialogHeader>
           <DialogTitle>Community layouts</DialogTitle>
           <DialogDescription>
-            Browse layouts shared by other users. Click "Load" to import one
+            Browse layouts shared by other users. Click &quot;Load&quot; to import one
             into the designer. To submit yours, open a PR adding an entry to{" "}
             <code className="text-xs">designer/lib/community-layouts.ts</code>.
           </DialogDescription>
@@ -170,6 +170,7 @@ export function CommunityLayoutsButton() {
         size="sm"
         onClick={() => setOpen(true)}
         title="Browse community layouts"
+        aria-label="Layouts"
         data-tour="community-layouts"
       >
         <Users className="h-4 w-4" />
@@ -193,8 +194,8 @@ export function CommunityLayoutsSection() {
           <CardTitle className="text-base">Community layouts</CardTitle>
         </div>
         <CardDescription>
-          Layouts shared by the community. Click "Load" to import one as a starting point,
-          or "View on GitHub" to see its source. Submit yours via PR.
+          Layouts shared by the community. Click &quot;Load&quot; to import one as a starting point,
+          or &quot;View on GitHub&quot; to see its source. Submit yours via PR.
         </CardDescription>
       </CardHeader>
       <CardContent>

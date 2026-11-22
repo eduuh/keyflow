@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
-import { useConfigStore } from "@/lib/store";
+import { useConfigStore, useEditingConfig } from "@/lib/store";
+import { availableTriggers } from "@/lib/config";
+import { TRIGGER_ALIAS } from "@/lib/keyDisplay";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -20,20 +23,9 @@ type LayerEditorProps = {
   onClose: () => void;
 };
 
-const MODIFIER_KEYS = [
-  "RALT",
-  "LALT",
-  "RCTRL",
-  "LCTRL",
-  "RSHIFT",
-  "LSHIFT",
-  "RWIN",
-  "LWIN",
-  "CAPS",
-];
-
 export function LayerEditor({ layerIndex, onClose }: LayerEditorProps) {
-  const { config, updateLayer, deleteLayer } = useConfigStore();
+  const { updateLayer, deleteLayer } = useConfigStore();
+  const config = useEditingConfig();
   const layer = config.layers?.[layerIndex];
 
   const [name, setName] = useState(layer?.name || "");
@@ -41,25 +33,16 @@ export function LayerEditor({ layerIndex, onClose }: LayerEditorProps) {
 
   if (!layer) return null;
 
-  const baseRemapping = config.remapping || {};
-  const availableModifiers = Array.from(
-    new Set(Object.values(baseRemapping).filter((t) => MODIFIER_KEYS.includes(t))),
-  );
-
-  const layers = config.layers || [];
-  const usedByOthers = new Set<string>();
-  layers.forEach((l, i) => {
-    if (i === layerIndex) return;
-    (l.triggers || []).forEach((t) => usedByOthers.add(t));
-  });
+  const availableModifiers = Array.from(new Set([...Object.keys(TRIGGER_ALIAS).filter((name) => !name.startsWith("MOD")),
+    ...availableTriggers(config)]));
 
   const addable = availableModifiers.filter(
-    (m) => !triggers.includes(m) && !usedByOthers.has(m),
+    (m) => !triggers.includes(m),
   );
 
   const handleSave = () => {
-    if (triggers.length === 0) {
-      alert("Layer needs at least one trigger modifier.");
+    if (triggers.length === 0 || !name.trim()) {
+      alert("Layer needs a name and at least one trigger modifier.");
       return;
     }
     updateLayer(layerIndex, { name, triggers });
@@ -78,6 +61,7 @@ export function LayerEditor({ layerIndex, onClose }: LayerEditorProps) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Edit Layer</DialogTitle>
+          <DialogDescription>Name the layer and choose any modifier that activates it.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

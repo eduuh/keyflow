@@ -15,6 +15,7 @@ const CONFIG_PATH = path.resolve(__dirname, "../../src/config.json");
 
 test.describe("import → export round-trip", () => {
   test("preserves every field of src/config.json", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("keyflow-designer-tour-seen", "true"));
     await page.goto("/");
 
     // Drive the file picker by intercepting the click. The Import button
@@ -30,6 +31,7 @@ test.describe("import → export round-trip", () => {
     // Re-export. Intercept the download.
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: /^JSON$/i }).click();
+    await page.getByRole("button", { name: /^Download$/ }).click();
     const download = await downloadPromise;
 
     // Read the exported JSON and compare against the source.
@@ -55,6 +57,8 @@ test.describe("import → export round-trip", () => {
     expect(exported.noModCombos).toEqual(source.noModCombos);
     expect(exported.customModifiers ?? []).toEqual(source.customModifiers ?? []);
     expect(exported.layers).toEqual(source.layers);
+    normalizeOverrides(source);
+    expect(exported.platformOverrides).toEqual(source.platformOverrides);
   });
 });
 
@@ -62,6 +66,10 @@ function stripComments(obj: Record<string, unknown>) {
   for (const k of Object.keys(obj)) {
     if (k.startsWith("_")) delete obj[k];
   }
+}
+
+function normalizeOverrides(config: { platformOverrides?: Record<string, { layers?: Array<Record<string, unknown>> }> }) {
+  for (const override of Object.values(config.platformOverrides ?? {})) normalizeLayers(override);
 }
 
 function normalizeLayers(config: { layers?: Array<Record<string, unknown>> }) {

@@ -33,7 +33,7 @@ const PRESETS: Preset[] = [
 // Once the user picks a preset (or maps a modifier manually), this disappears
 // for good. Dismissible via the × button.
 export function BaseModifierSetup() {
-  const { config, setConfig, hasBaseModifiers } = useConfigStore();
+  const { setKeyMapping, hasBaseModifiers } = useConfigStore();
   const [mounted, setMounted] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
@@ -42,10 +42,7 @@ export function BaseModifierSetup() {
   if (hasBaseModifiers() || dismissed) return null;
 
   const apply = (preset: Preset) => {
-    setConfig({
-      ...config,
-      remapping: { ...(config.remapping ?? {}), ...preset.remapping },
-    });
+    Object.entries(preset.remapping).forEach(([key, target]) => setKeyMapping(-1, key, target));
   };
 
   return (

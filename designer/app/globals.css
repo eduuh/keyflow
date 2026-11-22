@@ -1,99 +1,70 @@
-/* driver.js — overlay styles for the onboarding tour (must precede @tailwind per CSS @import rules) */
 @import "../node_modules/driver.js/dist/driver.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   GMK Olivia palette
-   ─────────────────────
-   Inspired by one of the most beloved mechanical-keyboard keycap sets in
-   the community. The colors:
-
-     Cream (#F5F1E8)         the case + most keycap surfaces
-     Dark mocha (#3D3530)    modifier keys + dark accents
-     Burgundy (#6B2D3F)      primary brand accent (Esc/Enter on real Olivia)
-     Dusty pink (#D4A5A5)    secondary highlight (special keys on the set)
-
-   Two-tone keycap convention: ALPHAS in cream with dark legends, MODIFIERS
-   in mocha with cream legends. The page chrome leans into that contrast.
-   ───────────────────────────────────────────────────────────────────────── */
-
 @layer base {
   :root {
-    /* Surfaces — warm cream */
-    --background: 40 32% 93%;          /* #F5F1E8 */
-    --foreground: 0 4% 13%;            /* charcoal */
-    --card: 42 36% 97%;                /* #FAF7F0 off-white */
-    --card-foreground: 0 4% 13%;
-    --popover: 42 36% 97%;
-    --popover-foreground: 0 4% 13%;
-
-    /* Brand: deep burgundy */
-    --primary: 347 41% 30%;            /* #6B2D3F */
-    --primary-foreground: 40 32% 95%;  /* cream */
-
-    /* Modifier-key surface (kept as a token so it's reusable) */
-    --modifier: 18 9% 21%;             /* #3D3530 dark mocha */
-    --modifier-foreground: 40 30% 90%; /* cream */
-
-    /* Pink highlight */
-    --accent: 0 39% 80%;               /* lighter dusty pink */
-    --accent-foreground: 347 41% 25%;  /* burgundy on pink */
-
-    /* Neutral support */
-    --secondary: 40 20% 86%;
-    --secondary-foreground: 0 4% 13%;
-    --muted: 40 25% 88%;
-    --muted-foreground: 18 7% 38%;
-
-    --destructive: 0 60% 45%;
-    --destructive-foreground: 40 32% 95%;
-
-    --border: 40 14% 78%;
-    --input: 40 14% 82%;
-    --ring: 347 41% 40%;
-
-    --radius: 0.5rem;
+    --background: 220 25% 97%;
+    --foreground: 222 35% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 35% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 35% 15%;
+    --primary: 221 75% 46%;
+    --primary-foreground: 0 0% 100%;
+    --modifier: 222 30% 24%;
+    --modifier-foreground: 220 25% 96%;
+    --accent: 220 75% 95%;
+    --accent-foreground: 221 75% 35%;
+    --secondary: 220 20% 94%;
+    --secondary-foreground: 222 35% 20%;
+    --muted: 220 20% 94%;
+    --muted-foreground: 220 12% 42%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 87%;
+    --input: 220 20% 84%;
+    --ring: 221 75% 46%;
+    --radius: 0.75rem;
   }
 
   .dark {
-    /* Surfaces — dark mocha */
-    --background: 18 8% 11%;
-    --foreground: 40 25% 90%;
-    --card: 18 8% 15%;
-    --card-foreground: 40 25% 90%;
-    --popover: 18 8% 15%;
-    --popover-foreground: 40 25% 90%;
-
-    /* Brand: lighter burgundy in dark mode for contrast */
-    --primary: 347 45% 50%;
-    --primary-foreground: 40 32% 95%;
-
-    --modifier: 18 9% 25%;
-    --modifier-foreground: 40 25% 90%;
-
-    --accent: 0 35% 60%;
-    --accent-foreground: 40 25% 95%;
-
-    --secondary: 18 9% 20%;
-    --secondary-foreground: 40 25% 88%;
-    --muted: 18 9% 18%;
-    --muted-foreground: 40 15% 60%;
-
-    --destructive: 0 55% 45%;
-    --destructive-foreground: 40 25% 95%;
-
-    --border: 18 9% 24%;
-    --input: 18 9% 22%;
-    --ring: 347 45% 55%;
+    --background: 222 30% 9%;
+    --foreground: 220 25% 94%;
+    --card: 222 26% 13%;
+    --card-foreground: 220 25% 94%;
+    --popover: 222 26% 13%;
+    --popover-foreground: 220 25% 94%;
+    --primary: 217 90% 68%;
+    --primary-foreground: 222 40% 12%;
+    --modifier: 222 22% 23%;
+    --modifier-foreground: 220 25% 96%;
+    --accent: 221 36% 22%;
+    --accent-foreground: 217 90% 78%;
+    --secondary: 222 22% 19%;
+    --secondary-foreground: 220 25% 94%;
+    --muted: 222 22% 19%;
+    --muted-foreground: 220 15% 67%;
+    --destructive: 0 80% 68%;
+    --destructive-foreground: 222 30% 9%;
+    --border: 222 20% 25%;
+    --input: 222 20% 30%;
+    --ring: 217 90% 68%;
   }
 
-  * {
-    @apply border-border;
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+  button:focus-visible, a:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
-  body {
-    @apply bg-background text-foreground;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

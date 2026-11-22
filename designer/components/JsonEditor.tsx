@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useConfigStore } from "@/lib/store";
+import { normalizeConfig } from "@/lib/config";
 
 // JSON view + edit modal.
 //
@@ -58,6 +59,7 @@ export function JsonEditor({ isOpen, onClose }: JsonEditorProps) {
         setError("Config must include a 'version' string field");
         return null;
       }
+      normalizeConfig(parsed);
       setError(null);
       return parsed;
     } catch (e) {
@@ -92,6 +94,7 @@ export function JsonEditor({ isOpen, onClose }: JsonEditorProps) {
   };
 
   const handleDownload = () => {
+    if (!tryParse()) return;
     // Download what's currently in the editor (which may differ from the
     // store if the user has unsaved edits — match the visible text).
     const blob = new Blob([text], { type: "application/json" });
@@ -116,8 +119,7 @@ export function JsonEditor({ isOpen, onClose }: JsonEditorProps) {
           <DialogTitle>JSON view & edit</DialogTitle>
           <DialogDescription>
             Direct access to your config as JSON. Edit, format, save back to the designer,
-            or download. The same C++ schema applies — see{" "}
-            <code className="text-xs">docs/EDUUH_DH.md</code> for the reference shape.
+            or download all environments together. The selected platform preview does not flatten this document.
           </DialogDescription>
         </DialogHeader>
 
@@ -127,12 +129,13 @@ export function JsonEditor({ isOpen, onClose }: JsonEditorProps) {
           spellCheck={false}
           className="font-mono text-sm flex-1 min-h-[40vh] resize-none"
           aria-invalid={!!error}
+          aria-label="Configuration JSON"
         />
 
         {error && (
           <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-destructive/10 border border-destructive/40">
             <X className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-            <p className="text-sm text-destructive font-mono">{error}</p>
+            <p role="alert" className="text-sm text-destructive font-mono">{error}</p>
           </div>
         )}
 

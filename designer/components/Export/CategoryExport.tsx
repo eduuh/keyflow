@@ -4,7 +4,8 @@ import { useRef, useState } from "react";
 import { Download, Loader2, Image as ImageIcon } from "lucide-react";
 import { toPng } from "html-to-image";
 import JSZip from "jszip";
-import { useConfigStore } from "@/lib/store";
+import { useConfigStore, useEditingConfig } from "@/lib/store";
+import { PLATFORMS } from "@/lib/config";
 import {
   Dialog,
   DialogContent,
@@ -63,6 +64,7 @@ const CATEGORIES: ExportCategory[] = [
         new Set([
           "Grave", "Minus", "Equals", "LeftBracket", "RightBracket",
           "Backslash", "Semicolon", "Apostrophe", "Comma", "Period", "Slash",
+          "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "~", "_", "+", "{", "}", "|", ":", '"', "<", ">", "?",
         ]).has(o),
       ),
   },
@@ -82,7 +84,7 @@ const CATEGORIES: ExportCategory[] = [
     label: "Functional",
     match: (ctx) =>
       ctx.outputs.some((o) =>
-        new Set(["Escape", "Tab", "Enter", "Backspace", "Delete", "Insert"]).has(o),
+        new Set(["Escape", "Tab", "Enter", "Backspace", "Delete", "Insert"]).has(o) || /^F\d+$/.test(o),
       ),
   },
   {
@@ -98,31 +100,38 @@ type CategoryExportProps = {
 };
 
 export function CategoryExport({ isOpen, onClose }: CategoryExportProps) {
-  const { config } = useConfigStore();
+  const { platform } = useConfigStore();
+  const config = useEditingConfig();
   const [activeCategory, setActiveCategory] = useState<string>("layout");
   const [exporting, setExporting] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
 
   // Build a context for every key in the layout so categories can be matched.
   const keyContexts = buildKeyContexts(config);
 
   const current = CATEGORIES.find((c) => c.id === activeCategory) ?? CATEGORIES[0];
+  const fileName = `${config.name || "keyflow"}-${platform}`;
 
   const exportOne = async (category: ExportCategory) => {
     if (!exportRef.current) return;
     // Switch to the requested category, wait a tick for re-render, then snapshot.
     setActiveCategory(category.id);
     setExporting(category.id);
+    setError(null);
     await new Promise((r) => setTimeout(r, 100));
     try {
       const dataUrl = await toPng(exportRef.current, {
         pixelRatio: 2,
         backgroundColor: "#0a0a0a",
+        preferredFontFormat: "woff2",
       });
       const a = document.createElement("a");
       a.href = dataUrl;
-      a.download = `${config.name || "keyflow"}-${category.id}.png`;
+      a.download = `${fileName}-${category.id}.png`;
       a.click();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "PNG export failed");
     } finally {
       setExporting(null);
     }
@@ -132,6 +141,8 @@ export function CategoryExport({ isOpen, onClose }: CategoryExportProps) {
     if (!exportRef.current) return;
     const zip = new JSZip();
     setExporting("all");
+    setError(null);
+    const previousCategory = activeCategory;
     try {
       for (const cat of CATEGORIES) {
         setActiveCategory(cat.id);
@@ -139,47 +150,52 @@ export function CategoryExport({ isOpen, onClose }: CategoryExportProps) {
         const dataUrl = await toPng(exportRef.current, {
           pixelRatio: 2,
           backgroundColor: "#0a0a0a",
+          preferredFontFormat: "woff2",
         });
         const base64 = dataUrl.split(",")[1];
-        zip.file(`${config.name || "keyflow"}-${cat.id}.png`, base64, { base64: true });
+        zip.file(`${fileName}-${cat.id}.png`, base64, { base64: true });
       }
       const blob = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${config.name || "keyflow"}-categories.zip`;
+      a.download = `${fileName}-categories.zip`;
       a.click();
       URL.revokeObjectURL(url);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "ZIP export failed");
     } finally {
       setExporting(null);
+      setActiveCategory(previousCategory);
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Export keyboard layout images</DialogTitle>
           <DialogDescription>
-            Renders the full keyboard with cyan highlights on keys matching each category.
-            Each key shows BASE + every layer output stacked.
+            ANSI main block for {platform === "shared" ? "Shared" : PLATFORMS[platform]}, including all layer bindings.
+            Cyan highlights keys matching the selected category. JSON export preserves every physical key and environment.
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeCategory} onValueChange={setActiveCategory} className="space-y-4">
-          <TabsList className="grid grid-cols-7 w-full">
+        <Tabs value={activeCategory} onValueChange={(category) => !exporting && setActiveCategory(category)} className="space-y-4">
+          <TabsList className="flex flex-wrap justify-start h-auto w-full">
             {CATEGORIES.map((cat) => (
-              <TabsTrigger key={cat.id} value={cat.id} className="text-xs">
+              <TabsTrigger key={cat.id} value={cat.id} className="text-xs" disabled={!!exporting}>
                 {cat.label}
               </TabsTrigger>
             ))}
           </TabsList>
 
           <div
-            ref={exportRef}
-            className="rounded-md overflow-auto p-6"
+            className="rounded-md overflow-auto max-w-full"
+            aria-label="Export preview"
             style={{ background: "#0a0a0a" }}
           >
+            <div ref={exportRef} className="w-max p-6" style={{ background: "#0a0a0a" }}>
             <ExportKeyboard
               keyContexts={keyContexts}
               isHighlighted={(keyCode) => {
@@ -189,10 +205,12 @@ export function CategoryExport({ isOpen, onClose }: CategoryExportProps) {
               }}
               config={config}
             />
+            </div>
           </div>
         </Tabs>
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap gap-3 items-center justify-between">
           <span className="text-xs text-muted-foreground">
             Highlighted:{" "}
             <Badge variant="secondary">

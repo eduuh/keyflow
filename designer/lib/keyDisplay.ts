@@ -1,3 +1,5 @@
+import { canonicalKey } from "./allKeys";
+
 // Display labels for key codes. The C++ schema speaks in key-code names
 // ("Slash", "Grave", "LeftShift") but the UI needs glyphs ("/", "`", "⇧"),
 // otherwise users see literal strings on the keycaps. One place to look up
@@ -75,10 +77,12 @@ const SHIFTED_LABELS: Record<string, string> = {
 };
 
 export function displayLabel(keyCode: string): string {
-  return UNSHIFTED_LABELS[keyCode] ?? keyCode;
+  const key = canonicalKey(keyCode) ?? keyCode;
+  return UNSHIFTED_LABELS[key] ?? key;
 }
 
 export function shiftedDisplayLabel(keyCode: string): string {
+  keyCode = canonicalKey(keyCode) ?? keyCode;
   // Letters: shift just uppercases — already the canonical render.
   if (/^[A-Z]$/.test(keyCode)) return keyCode;
   const glyph = SHIFTED_LABELS[keyCode];
@@ -108,5 +112,8 @@ export const TRIGGER_ALIAS: Record<string, string> = {
   RSHIFT: "RightShift",
   LWIN: "LeftWin",
   RWIN: "RightWin",
-  CAPS: "CapsLock",
+  PRINT: "PrintScreen",
+  MOD11: "RightAlt",
+  MOD12: "LeftAlt",
+  MOD13: "LeftCtrl",
 };

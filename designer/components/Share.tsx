@@ -36,6 +36,7 @@ export function ShareButton() {
         size="sm"
         onClick={() => setOpen(true)}
         title="Share or load layouts"
+        aria-label="Share"
         data-tour="share"
       >
         <Share2 className="h-4 w-4" />
@@ -224,8 +225,8 @@ function UploadResult({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Gist created. The raw URL below is what others paste into the "Load
-        URL" tab — or what you use in the Publish PR tab to register this
+        Gist created. The raw URL below is what others paste into the &quot;Load
+        URL&quot; tab — or what you use in the Publish PR tab to register this
         layout with the community.
       </p>
       <div className="flex gap-2">
@@ -429,7 +430,7 @@ function PublishPanel() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Submit your layout to the community gallery. You'll need a hosted{" "}
+        Submit your layout to the community gallery. You&apos;ll need a hosted{" "}
         <strong>raw URL</strong> first — use the <em>Upload</em> tab to make one,
         or point at a file in your own repo.
       </p>
@@ -470,7 +471,7 @@ function PublishPanel() {
         </div>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="pub-raw">Raw URL (the layout's config.json)</Label>
+        <Label htmlFor="pub-raw">Raw URL (the layout&apos;s config.json)</Label>
         <Input
           id="pub-raw"
           value={rawUrl}

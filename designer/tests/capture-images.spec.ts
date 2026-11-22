@@ -1,5 +1,5 @@
-import { test } from "@playwright/test";
-import { mkdir } from "node:fs/promises";
+import { test, expect } from "@playwright/test";
+import { mkdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 // Generates documentation screenshots for the Eduuh-DH layout.
@@ -20,8 +20,9 @@ const docsImagesDir = resolve(process.cwd(), "../docs/images");
 const SHOTS = [
   { layer: "all", file: "eduuh-dh-all.png", label: "all layers composite" },
   { layer: "base", file: "eduuh-dh-base.png", label: "BASE remap only" },
-  { layer: "0", file: "eduuh-dh-numpad.png", label: "Numpad layer (LAlt)" },
-  { layer: "1", file: "eduuh-dh-arrows.png", label: "Arrows & Symbols layer (RAlt)" },
+  { layer: "Win Layer", file: "eduuh-dh-win.png", label: "Win layer (WIN_MOD)" },
+  { layer: "Numpad Layer", file: "eduuh-dh-numpad.png", label: "Numpad layer (LAlt)" },
+  { layer: "Arrows and Symbols Layer", file: "eduuh-dh-arrows.png", label: "Arrows & Symbols layer (RAlt)" },
 ];
 
 test.beforeAll(async () => {
@@ -38,7 +39,11 @@ test.beforeEach(async ({ page }) => {
 
 for (const shot of SHOTS) {
   test(`capture ${shot.label}`, async ({ page }) => {
-    await page.goto(`/screenshot/?layer=${shot.layer}`);
+    const config = JSON.parse(await readFile(resolve(process.cwd(), "../src/config.json"), "utf8"));
+    const index = config.layers.findIndex((layer: { name: string }) => layer.name === shot.layer);
+    const isNamedLayer = shot.layer !== "all" && shot.layer !== "base";
+    if (isNamedLayer) expect(index, `${shot.layer} must exist in the maintained config`).toBeGreaterThanOrEqual(0);
+    await page.goto(`/screenshot/?layer=${isNamedLayer ? index : shot.layer}`);
     await page.locator("[data-screenshot-ready]").waitFor();
     // Fonts settling avoids glyph FOUT artifacts in the snapshot.
     await page.evaluate(() => document.fonts.ready);

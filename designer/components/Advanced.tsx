@@ -5,7 +5,7 @@ import { ChevronDown, Settings2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useConfigStore } from "@/lib/store";
+import { useEditingConfig } from "@/lib/store";
 import { CombosEditor } from "./Editors/CombosEditor";
 import { CustomModifiersEditor } from "./Editors/CustomModifiersEditor";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 export function Advanced() {
   const [open, setOpen] = useState(false);
-  const { config } = useConfigStore();
+  const config = useEditingConfig();
 
   const comboCount = config.noModCombos?.length ?? 0;
   const modCount = config.customModifiers?.length ?? 0;

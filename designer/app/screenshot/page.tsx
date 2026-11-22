@@ -26,8 +26,9 @@ import type { KeyFlowConfig } from "@/lib/types";
 // URL params:
 //   ?layer=all   → BASE + every layer mapping stacked per keycap (composite)
 //   ?layer=base  → BASE remap only
-//   ?layer=0     → BASE + layer 0 (Numpad for Eduuh-DH)
-//   ?layer=1     → BASE + layer 1 (Arrows & Symbols)
+//   ?layer=0     → BASE + layer 0 (Win for Eduuh-DH)
+//   ?layer=1     → BASE + layer 1 (Numpad)
+//   ?layer=2     → BASE + layer 2 (Arrows & Symbols)
 
 function parseLayerParam(raw: string | null): LayerFilter {
   if (raw === "base") return "base";
