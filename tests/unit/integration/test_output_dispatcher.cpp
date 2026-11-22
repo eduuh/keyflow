@@ -93,8 +93,9 @@ TEST(OutputDispatcherTest, OverlappingSourcesDoNotReleaseOtherHolder) {
 }
 
 TEST(OutputDispatcherTest, DistinctPhysicalKeysShareModifierOwnership) {
-  auto harness =
-      keyflow::testing::PipelineHarness::fromConfigFile(KEYFLOW_CONFIG_PATH);
+  auto config = ConfigLoader::loadFromFile(KEYFLOW_CONFIG_PATH);
+  config.remapping["LeftCtrl"] = "LeftCtrl";
+  auto harness = keyflow::testing::PipelineHarness::fromConfig(std::move(config));
   RecordingHardware hardware;
   OutputDispatcher dispatcher(harness.pipeline(), hardware);
 

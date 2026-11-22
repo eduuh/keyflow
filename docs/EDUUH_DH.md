@@ -40,7 +40,7 @@ Eduuh-DH is a Colemak-inspired layout for Keyflow. It puts common letters on the
 
 Caps Lock no longer toggles Caps Lock. Left and right Shift act as Ctrl when used with shortcuts.
 
-On Linux, Left Windows passes through as Super. It can open the app launcher and control workspaces and windows.
+On Linux, physical Left Ctrl acts as Left Alt; the Shift-to-Ctrl mappings remain unchanged. Left Windows passes through as Super. It can open the app launcher and control workspaces and windows.
 
 ## Number row
 
