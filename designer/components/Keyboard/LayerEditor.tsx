@@ -24,6 +24,10 @@ const MODIFIER_LABELS: Record<string, string> = {
   RWIN: "Right Win / Super", PRINT: "Print Screen",
 };
 
+function modifierLabel(name: string): string {
+  return Object.hasOwn(MODIFIER_LABELS, name) ? MODIFIER_LABELS[name] : name;
+}
+
 type LayerEditorProps = {
   layerIndex?: number;
   onClose: () => void;
@@ -98,7 +102,7 @@ export function LayerEditor({ layerIndex, onClose }: LayerEditorProps) {
               )}
               {triggers.map((t) => (
                 <Badge key={t} variant="secondary" className="gap-1 pl-2 pr-1">
-                  {MODIFIER_LABELS[t] ?? t}
+                  {modifierLabel(t)}
                   <button
                     type="button"
                     onClick={() => setTriggers(triggers.filter((x) => x !== t))}
@@ -120,11 +124,11 @@ export function LayerEditor({ layerIndex, onClose }: LayerEditorProps) {
                     variant="outline"
                     size="sm"
                     className="h-7 border-dashed"
-                    aria-label={`Add ${MODIFIER_LABELS[mod] ?? mod} (${mod})`}
+                    aria-label={`Add ${modifierLabel(mod)} (${mod})`}
                     onClick={() => setTriggers([...triggers, mod])}
                   >
                     <Plus className="h-3 w-3 mr-1" />
-                    {MODIFIER_LABELS[mod] ?? mod}
+                    {modifierLabel(mod)}
                   </Button>
                 ))}
               </div>

@@ -97,6 +97,7 @@ test("New layer works on a blank layout and stays visible when tabs overflow on 
   await dialog.getByRole("button", { name: "Create layer" }).click();
   expect((await saveConfig(page)).layers).toEqual([{ name: "Navigation", triggers: ["RALT"], mappings: {} }]);
   const manyLayers = {
+    customModifiers: [{ key: "Space", modifierName: "constructor" }],
     version: "1.0", layers: Array.from({ length: 12 }, (_, i) => ({ name: `Layer ${i + 1}`, triggers: ["RALT"], mappings: {} })),
   };
   const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByRole("button", { name: "Import", exact: true }).click()]);
@@ -107,6 +108,9 @@ test("New layer works on a blank layout and stays visible when tabs overflow on 
   expect(box.x + box.width).toBeLessThanOrEqual(390);
   await create.click();
   await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Add constructor (constructor)", exact: true }).click();
+  await dialog.getByRole("button", { name: "Create layer", exact: true }).click();
+  expect((await saveConfig(page)).layers.at(-1).triggers).toEqual(["RALT", "constructor"]);
 });
 
 test("saved JSON offers actionable platform setup without pretending macOS has a runtime", async ({ page }) => {
@@ -115,7 +119,11 @@ test("saved JSON offers actionable platform setup without pretending macOS has a
   await page.getByRole("button", { name: "How to use your JSON" }).click();
   const dialog = page.getByRole("dialog", { name: "Use your config" });
   await expect(dialog.locator("code").first()).toHaveText('.\\keyflow.exe --validate "C:\\path\\your-layout.json"');
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await dialog.getByRole("button", { name: "Copy command", exact: true }).first().click();
+  await expect(dialog.getByRole("button", { name: "Copied", exact: true })).toHaveCount(1);
   await dialog.getByRole("button", { name: "Linux", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Copy command", exact: true })).toHaveCount(2);
   await expect(dialog.locator("code").first()).toHaveText('./keyflow --validate "/path/to/your-layout.json"');
   await expect(dialog.locator("code").nth(1)).toContainText("--device");
   await dialog.getByRole("button", { name: "macOS", exact: true }).click();

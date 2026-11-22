@@ -66,7 +66,7 @@ export function SetupInstructions({ onClose }: { onClose: () => void }) {
 }
 
 function Command({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
   const [error, setError] = useState(false);
   return (
     <div className="rounded-lg border bg-muted p-3 space-y-2">
@@ -74,12 +74,12 @@ function Command({ text }: { text: string }) {
       <Button variant="outline" size="sm" onClick={async () => {
         try {
           await navigator.clipboard.writeText(text);
-          setCopied(true);
+          setCopiedText(text);
           setError(false);
         } catch {
           setError(true);
         }
-      }}>{copied ? "Copied" : "Copy command"}</Button>
+      }}>{copiedText === text ? "Copied" : "Copy command"}</Button>
       {error && <p role="status" className="text-xs">Select the command above to copy it.</p>}
     </div>
   );
