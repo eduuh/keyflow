@@ -7,6 +7,16 @@ overrides, and export the layout as category-filtered PNG images.
 The designer's TypeScript types track `src/config/JsonConfig.h` and the
 `platformOverrides` document format in `src/config/ConfigLoader.h`. Import → export
 preserves supported fields, comments, optional values and all platform sections.
+New sessions start blank, with unchanged keys. Existing saved layouts stay intact.
+Choose **New layout** to start from Blank, QWERTY, Colemak, Colemak-DH (US ANSI
+Angle), Dvorak, Workman or the maintained Eduuh-DH config. Eduuh-DH only loads
+when explicitly selected. Creation asks for the name, with optional starting
+editing environment and Caps Lock settings.
+
+The standard templates remap US ANSI letters and punctuation from a US QWERTY OS
+keymap. Their positions follow [xkeyboard-config's `symbols/us`](https://gitlab.freedesktop.org/xkeyboard-config/xkeyboard-config/-/blob/master/symbols/us).
+They do not install an OS layout, copy AltGr/dead-key behavior, or change Caps Lock
+to Backspace. Those behaviors are separate from the positional key remaps.
 
 ## What's in it
 
@@ -14,22 +24,32 @@ preserves supported fields, comments, optional values and all platform sections.
   clear selection outlines and colored layer-binding badges. The ANSI main
   block scrolls on narrow screens instead of clipping keys. Use "Other physical
   keys" for function, navigation, numpad, media and browser keys.
+- **Two focused pages**: Remapping is the default keyboard-and-layers workspace.
+  Settings holds the layout name, Caps Lock, platform presets and inheritance,
+  custom modifiers and no-modifier combos. The environment selector stays beside
+  the keyboard so the edit scope is always visible.
+- **Simple file workflow**: Import and Save config stay visible. More contains
+  JSON editing, image export, sharing, community layouts, setup instructions and the optional tour.
+  Tours never start automatically or block a first-visit theme change.
 - **Environment presets and overrides**: switch between Shared, Linux, Windows
   and macOS. The keyboard, editors and image export show the effective selected
   environment. JSON download and sharing always keep the complete portable document.
-- **Layer system**: unlimited layers, each with one or more trigger modifiers
+- **Layer system**: New layer is always visible beside the scrolling tabs.
+  Give it a name and choose its hold-to-activate modifier in the creation dialog;
+  physical modifiers do not require a preliminary BASE remap.
+  Unlimited layers, each with one or more trigger modifiers
   (multi-trigger layers OR'd together). Click the pencil icon on a layer tab
   to edit name and triggers.
 - **Inline key mapping**: select a key on the board → the picker card below
   shows the current binding and tabs for `A-Z / 0-9 / Sym / Shift+ / Mod / Nav`.
   Click a target to assign. Shift mappings only work inside layers. The "All
   output keys" selector includes every canonical runtime key, including `NOP`.
-- **No-modifier combos**: editor card at the bottom for `noModCombos` —
+- **No-modifier combos**: editor card on Settings for `noModCombos` —
   remap the number row to symbols without holding Shift (the C++ side blocks
   the combo from firing if any modifier is held).
-- **Custom modifiers**: editor card for `customModifiers` — promote any key
+- **Custom modifiers**: editor card on Settings for `customModifiers` — promote any key
   (Space, Tab, etc.) to a layer trigger by name. Space-Cadet style.
-- **Category-filtered PNG export**: click Export to open the export dialog.
+- **Category-filtered PNG export**: choose More → Export image.
   Categories: Layout / Letters / Numbers / Symbols / Directional / Functional
   / Return. Each renders the full keyboard with the matching keys highlighted
   in cyan. "Download all (.zip)" bundles every category in one go.
@@ -57,6 +77,10 @@ to that platform's `platformOverrides` section:
 Imports reject malformed supported fields instead of silently discarding them.
 Legacy `trigger` strings/arrays and `triggers` strings normalize to `triggers[]`.
 Custom modifier renames update dependent layer triggers.
+Save config, JSON download and Gist upload share the same validation/serialization
+boundary. Unknown key/trigger names and invalid modifier definitions block output;
+unsupported JSON fields are not emitted. Alias spellings remain preserved in the
+document while selectors show the corresponding supported key.
 
 ## Run
 
@@ -64,6 +88,16 @@ Custom modifier renames update dependent layer triggers.
 npm install
 npm run dev          # http://localhost:3000
 ```
+
+## Use the generated JSON
+
+Save config downloads the complete portable document and shows a **How to use
+your JSON** link. The same guide is always available under **More → Setup instructions**.
+It includes copyable validation/start commands, driver/device-access prerequisites
+and safe stop/restart instructions for Windows and experimental Linux.
+macOS is configuration-only: Keyflow does not yet have a macOS remapping runtime.
+See [CONFIG_USAGE.md](../docs/CONFIG_USAGE.md) and the
+[Linux service guide](../docs/LINUX_SERVICE.md) for installed-service details.
 
 ## Deploy (GitHub Pages)
 
@@ -98,8 +132,10 @@ npm run lint         # ESLint (Next.js 16 flat config)
 The tests live in `designer/tests/`:
 - `round-trip.spec.ts` — imports `src/config.json` and confirms re-exporting
   preserves every field (the contract this whole rewrite is built around).
-- `smoke.spec.ts` — page loads, key click opens picker, add-layer is gated
-  on a BASE modifier remap.
+- `smoke.spec.ts` — page loads, key click opens picker, and a new layer can be
+  created without a BASE modifier remap.
+- `creation.spec.ts` — blank startup, opt-in keyboard templates, creation options,
+  persistent New layer visibility, readable key typography and platform setup guidance.
 - `config-support.spec.ts` — complete document round-trip, runtime merge
   semantics, inheritance, trigger aliases, atomic validation and editor regressions.
 - `designer-workflows.spec.ts` — platform presets, key categories, layers,
@@ -115,13 +151,14 @@ tests mock GitHub requests; they never create public Gists or PRs.
 designer/
 ├── app/
 │   ├── layout.tsx        Root with fonts and theme provider
-│   ├── page.tsx          Composes Header + LayerTabs + Keyboard + KeyPicker + editors
+│   ├── page.tsx          Remapping: environment selector, layers, keyboard and picker
+│   ├── settings/page.tsx Layout/platform settings, modifiers and combos
 │   └── globals.css       shadcn neutral theme tokens (light + dark)
 ├── components/
 │   ├── ui/               shadcn primitives (button, card, dialog, ...)
-│   ├── Header.tsx        Brand + Import/Export/JSON/theme buttons
+│   ├── Header.tsx        Navigation, Import/Save, More tools and theme
 │   ├── ThemeProvider.tsx Theme context (light/dark/system)
-│   ├── BaseModifierSetup.tsx  Quick-start banner shown until ≥1 modifier remapped
+│   ├── BaseModifierSetup.tsx  Layer-trigger quick starts inside Settings
 │   ├── Keyboard/
 │   │   ├── Keyboard.tsx  ANSI main block + other physical key selector
 │   │   ├── Key.tsx       One key — color-coded by output type

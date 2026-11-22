@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { useConfigStore } from "../lib/store";
-import { normalizeConfig, resolveConfig, availableTriggers } from "../lib/config";
+import { normalizeConfig, serializeConfig, resolveConfig, availableTriggers } from "../lib/config";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { ALL_KEY_CODES, canonicalKey } from "../lib/allKeys";
@@ -182,5 +182,37 @@ test("invalid imports fail atomically instead of silently discarding data", () =
   ]) {
     expect(() => useConfigStore.getState().setConfig(invalid)).toThrow();
     expect(useConfigStore.getState().config).toEqual(original);
+  }
+});
+
+test("runtime key and trigger checks reject inherited object names", () => {
+  for (const name of ["constructor", "toString", "valueOf", "__proto__"]) {
+    expect(canonicalKey(name)).toBeUndefined();
+    expect(() => normalizeConfig({ version: "1.0", remapping: { A: name } })).toThrow(/unknown key/);
+    expect(() => normalizeConfig({ version: "1.0", layers: [
+      { name: "Invalid", triggers: [name], mappings: {} },
+    ] })).toThrow(/unknown trigger/);
+  }
+});
+
+test("config serialization emits only supported fields and keeps portable overrides", () => {
+  const raw = {
+    version: "1.0", unsupportedOption: true,
+    remapping: { Return: "A", _comment: "Preserved metadata" },
+    layers: [{ name: "Layer", trigger: "LALT", mappings: { A: "B" }, unsupportedOption: true }],
+    platformOverrides: { linux: { layers: [], disableCapsLock: false, unsupportedOption: true } },
+  };
+  expect(JSON.parse(serializeConfig(raw))).toEqual({
+    version: "1.0", remapping: raw.remapping,
+    layers: [{ name: "Layer", triggers: ["LALT"], mappings: { A: "B" } }],
+    platformOverrides: { linux: { layers: [], disableCapsLock: false } },
+  });
+  for (const invalid of [
+    { version: "1.0", remapping: { A: "Unknown" } },
+    { version: "1.0", layers: [{ name: "Layer", triggers: ["UNKNOWN"], mappings: {} }] },
+    { version: "1.0", customModifiers: [{ key: "Space", modifierName: "" }] },
+    { version: "1.0", customModifiers: Array.from({ length: 24 }, (_, index) => ({ key: "Space", modifierName: `MOD_${index}` })) },
+  ]) {
+    expect(() => serializeConfig(invalid)).toThrow();
   }
 });

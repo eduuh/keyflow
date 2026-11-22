@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useConfigStore } from "@/lib/store";
+import { serializeConfig } from "@/lib/config";
 import {
   addRecentUrl, assertRawUrl, getGistToken, getRecentUrls, setGistToken,
 } from "@/lib/share-storage";
@@ -32,7 +33,7 @@ export function ShareButton() {
   return (
     <>
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
         title="Share or load layouts"
@@ -40,7 +41,7 @@ export function ShareButton() {
         data-tour="share"
       >
         <Share2 className="h-4 w-4" />
-        <span className="hidden md:inline ml-2">Share</span>
+        <span>Share</span>
       </Button>
       <ShareDialog isOpen={open} onClose={() => setOpen(false)} />
     </>
@@ -112,6 +113,7 @@ function UploadPanel({ onClose }: { onClose: () => void }) {
     }
     setBusy(true);
     try {
+      const content = serializeConfig(config);
       const res = await fetch("https://api.github.com/gists", {
         method: "POST",
         headers: {
@@ -126,7 +128,7 @@ function UploadPanel({ onClose }: { onClose: () => void }) {
             `Keyflow layout: ${config.name ?? "Untitled"}`,
           public: true,
           files: {
-            "config.json": { content: JSON.stringify(config, null, 2) },
+            "config.json": { content },
           },
         }),
       });

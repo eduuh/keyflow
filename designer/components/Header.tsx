@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import Link from "next/link";
 import {
-  Moon, Sun, Download, Upload, FileJson, Keyboard, Github,
-  HardDriveDownload, Compass,
+  Moon, Sun, Download, Upload, FileJson, Github,
+  HardDriveDownload, Compass, ChevronDown, Plus, BookOpen,
 } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
 import { useConfigStore } from "@/lib/store";
@@ -11,25 +12,45 @@ import { CategoryExport } from "./Export/CategoryExport";
 import { CommunityLayoutsButton } from "./CommunityLayouts";
 import { JsonEditor } from "./JsonEditor";
 import { ShareButton } from "./Share";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { serializeConfig } from "@/lib/config";
 import { startTour } from "./Tour";
-
-// Public-facing header. Two filled primary actions side by side:
-//   • Get keyflow.exe  →  GitHub's predictable "latest release" download URL
-//   • Export image     →  opens the category PNG export dialog
-// Plus the config-workflow cluster (Layouts / Import / JSON) and the
-// project-links cluster (Tour / GitHub / theme).
+import { NewLayout } from "./NewLayout";
+import { SetupInstructions } from "./SetupInstructions";
 
 const RELEASE_DOWNLOAD_URL =
   "https://github.com/eduuh/keyflow/releases/latest";
 const REPO_URL = "https://github.com/eduuh/keyflow";
 
-export function Header() {
+export function Header({ settings = false }: { settings?: boolean }) {
   const { theme, toggleTheme } = useTheme();
   const { config, setConfig } = useConfigStore();
   const [showExportModal, setShowExportModal] = useState(false);
   const [showJsonEditor, setShowJsonEditor] = useState(false);
+  const [showNewLayout, setShowNewLayout] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
+  const tools = useRef<HTMLDetailsElement>(null);
+
+  const closeTools = () => {
+    if (!tools.current) return;
+    tools.current.open = false;
+    tools.current.querySelector("summary")?.focus();
+  };
+
+  const handleSave = () => {
+    try {
+      const url = URL.createObjectURL(new Blob([serializeConfig(config)], { type: "application/json" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${config.name || "config"}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setDownloaded(true);
+    } catch (error) {
+      alert("Cannot save config: " + (error instanceof Error ? error.message : "Invalid configuration"));
+    }
+  };
 
   const handleImport = () => {
     const input = document.createElement("input");
@@ -63,73 +84,86 @@ export function Header() {
     >
       <div className="px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3 max-w-[1600px] mx-auto">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="p-2 rounded-md bg-modifier text-modifier-foreground shrink-0">
-            <Keyboard className="h-4 w-4" />
-          </div>
           <div className="leading-tight min-w-0">
-            <h1 className="text-sm font-semibold truncate">Keyflow Designer</h1>
-            <p className="text-xs text-muted-foreground font-mono truncate">
-              {config.name || "Untitled"} · v{config.version}
+            <h1 aria-label="Keyflow Designer" className="text-sm font-semibold truncate">Keyflow<span className="hidden sm:inline"> Designer</span></h1>
+            <p data-layout-name className="text-xs text-muted-foreground truncate max-w-40">
+              {config.name || "Untitled"}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
-          {/* Config workflow: community / import / inspect+edit JSON */}
-          <CommunityLayoutsButton />
+          <Button variant="outline" size="sm" onClick={() => setShowNewLayout(true)}>
+            <Plus className="h-4 w-4" />New layout
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href={settings ? "/" : "/settings"} data-tour="settings-link">
+              {settings ? "Remapping" : "Settings"}
+            </Link>
+          </Button>
           <Button variant="outline" size="sm" onClick={handleImport} aria-label="Import">
             <Upload className="h-4 w-4" />
-            <span className="hidden md:inline ml-2">Import</span>
+            <span>Import</span>
           </Button>
-          <ShareButton />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowJsonEditor(true)}
-            title="View / edit JSON"
-            aria-label="JSON"
-          >
-            <FileJson className="h-4 w-4" />
-            <span className="hidden md:inline ml-2">JSON</span>
-          </Button>
-
-          {/* Primary CTAs */}
-          <Button asChild size="sm" data-tour="download-binary">
-            <a href={RELEASE_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
-              <HardDriveDownload className="h-4 w-4" />
-              <span className="hidden md:inline ml-2">Get Keyflow</span>
-            </a>
-          </Button>
-          <Button size="sm" onClick={() => setShowExportModal(true)} data-tour="export-image" aria-label="Export image">
+          <Button size="sm" onClick={handleSave} data-tour="save-config">
             <Download className="h-4 w-4" />
-            <span className="hidden md:inline ml-2">Export image</span>
+            Save config
           </Button>
-
-          <Separator orientation="vertical" className="h-6 mx-1 hidden sm:block" />
-
-          {/* Tour + project links */}
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={startTour}
-            aria-label="Take a tour"
-            title="Take a tour"
-          >
-            <Compass className="h-4 w-4" />
-          </Button>
-          <Button asChild variant="outline" size="icon" aria-label="View on GitHub">
-            <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
-              <Github className="h-4 w-4" />
-            </a>
-          </Button>
-          <Button variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
+          <details ref={tools} className="relative" onKeyDown={(event) => {
+            if (event.key === "Escape" && tools.current?.open) {
+              event.preventDefault();
+              closeTools();
+            }
+          }} onBlur={(event) => {
+            if (tools.current && !event.currentTarget.contains(event.relatedTarget)) tools.current.open = false;
+          }}>
+            <summary data-tour="more-tools" aria-label="More tools"
+              className={buttonVariants({ variant: "ghost", size: "sm", className: "cursor-pointer list-none [&::-webkit-details-marker]:hidden" })}>
+              More <ChevronDown className="h-4 w-4" />
+            </summary>
+            <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-lg border bg-popover p-2 shadow-lg flex flex-col gap-1 [&_button]:w-full [&_button]:justify-start [&_a]:w-full [&_a]:justify-start"
+              onClickCapture={(event) => {
+                if (tools.current?.open && event.target instanceof Element && event.target.closest("button, a")) closeTools();
+              }}>
+              <Button variant="ghost" size="sm" onClick={() => setShowJsonEditor(true)} aria-label="JSON">
+                <FileJson className="h-4 w-4" />JSON
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowExportModal(true)} aria-label="Export image">
+                <Download className="h-4 w-4" />Export image
+              </Button>
+              <ShareButton />
+              <CommunityLayoutsButton />
+              <Button variant="ghost" size="sm" onClick={() => setShowSetup(true)}>
+                <BookOpen className="h-4 w-4" />Setup instructions
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <a href={RELEASE_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
+                  <HardDriveDownload className="h-4 w-4" />Get Keyflow
+                </a>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => startTour(settings)} aria-label="Take a tour">
+                <Compass className="h-4 w-4" />Take a tour
+              </Button>
+              <Button asChild variant="ghost" size="sm" aria-label="View on GitHub">
+                <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
+                  <Github className="h-4 w-4" />View on GitHub
+                </a>
+              </Button>
+            </div>
+          </details>
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
         </div>
       </div>
 
+      {downloaded && <p className="px-4 lg:px-8 pb-2 max-w-[1600px] mx-auto text-xs text-muted-foreground" role="status">
+        Config downloaded. <button type="button" className="text-primary underline" onClick={() => setShowSetup(true)}>How to use your JSON</button>
+      </p>}
       <CategoryExport isOpen={showExportModal} onClose={() => setShowExportModal(false)} />
       <JsonEditor isOpen={showJsonEditor} onClose={() => setShowJsonEditor(false)} />
+      {showNewLayout && <NewLayout onClose={() => setShowNewLayout(false)} />}
+      {showSetup && <SetupInstructions onClose={() => setShowSetup(false)} />}
     </header>
   );
 }

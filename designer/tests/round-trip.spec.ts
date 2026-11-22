@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
+import { readFile } from "node:fs/promises";
 
 // Critical contract: importing a config and immediately re-exporting it
 // must preserve every C++ schema field. The previous store silently dropped
@@ -15,7 +16,6 @@ const CONFIG_PATH = path.resolve(__dirname, "../../src/config.json");
 
 test.describe("import → export round-trip", () => {
   test("preserves every field of src/config.json", async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem("keyflow-designer-tour-seen", "true"));
     await page.goto("/");
 
     // Drive the file picker by intercepting the click. The Import button
@@ -26,21 +26,16 @@ test.describe("import → export round-trip", () => {
     await chooser.setFiles(CONFIG_PATH);
 
     // Wait for the imported config name to appear in the header.
-    await expect(page.getByText(/Eduuh-DH/i).first()).toBeVisible({ timeout: 5000 });
+    const source = JSON.parse(await readFile(CONFIG_PATH, "utf-8"));
+    await expect(page.locator("[data-layout-name]")).toHaveText(source.name);
 
     // Re-export. Intercept the download.
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: /^JSON$/i }).click();
-    await page.getByRole("button", { name: /^Download$/ }).click();
+    await page.getByRole("button", { name: "Save config", exact: true }).click();
     const download = await downloadPromise;
 
     // Read the exported JSON and compare against the source.
-    const tmpPath = path.join(process.cwd(), "test-results", "exported.json");
-    await download.saveAs(tmpPath);
-
-    const fs = await import("node:fs/promises");
-    const source = JSON.parse(await fs.readFile(CONFIG_PATH, "utf-8"));
-    const exported = JSON.parse(await fs.readFile(tmpPath, "utf-8"));
+    const exported = JSON.parse(await readFile((await download.path())!, "utf-8"));
 
     // Strip C++-only metadata that the designer normalizes:
     //   - `_comment*` keys (the C++ parser ignores them; the designer preserves
@@ -61,6 +56,28 @@ test.describe("import → export round-trip", () => {
     expect(exported.platformOverrides).toEqual(source.platformOverrides);
   });
 });
+
+for (const saved of [
+  { version: "1.0", name: "Existing empty layout", remapping: {}, layers: [] },
+  { version: "1.0", name: "Existing custom layout", remapping: { A: "B" }, layers: [],
+    platformOverrides: { linux: { remapping: { A: "C" }, layers: [] }, windows: {}, mac: {} } },
+]) {
+  test(`startup preserves ${saved.name}`, async ({ page }) => {
+    await page.addInitScript((config) => {
+      if (!localStorage.getItem("keyflow-config-storage")) {
+        localStorage.setItem("keyflow-config-storage", JSON.stringify({ version: 2, state: { config } }));
+      }
+    }, saved);
+    await page.goto("/");
+    await expect(page.locator("[data-layout-name]")).toHaveText(saved.name);
+    await page.reload();
+    await expect(page.locator("[data-layout-name]")).toHaveText(saved.name);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("keyflow-config-storage")!).state.config)).toEqual(saved);
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Save config", exact: true }).click();
+    expect(JSON.parse(await readFile((await (await download).path())!, "utf8"))).toEqual(saved);
+  });
+}
 
 function stripComments(obj: Record<string, unknown>) {
   for (const k of Object.keys(obj)) {

@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useConfigStore } from "@/lib/store";
-import { normalizeConfig } from "@/lib/config";
+import { normalizeConfig, serializeConfig } from "@/lib/config";
 
 // JSON view + edit modal.
 //
@@ -59,9 +59,9 @@ export function JsonEditor({ isOpen, onClose }: JsonEditorProps) {
         setError("Config must include a 'version' string field");
         return null;
       }
-      normalizeConfig(parsed);
+      const config = normalizeConfig(parsed);
       setError(null);
-      return parsed;
+      return config;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Invalid JSON");
       return null;
@@ -94,10 +94,11 @@ export function JsonEditor({ isOpen, onClose }: JsonEditorProps) {
   };
 
   const handleDownload = () => {
-    if (!tryParse()) return;
+    const parsed = tryParse();
+    if (!parsed) return;
     // Download what's currently in the editor (which may differ from the
     // store if the user has unsaved edits — match the visible text).
-    const blob = new Blob([text], { type: "application/json" });
+    const blob = new Blob([serializeConfig(parsed)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -120,6 +121,7 @@ export function JsonEditor({ isOpen, onClose }: JsonEditorProps) {
           <DialogDescription>
             Direct access to your config as JSON. Edit, format, save back to the designer,
             or download all environments together. The selected platform preview does not flatten this document.
+            Only runtime-supported fields are kept when formatting, saving or downloading.
           </DialogDescription>
         </DialogHeader>
 

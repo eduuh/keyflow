@@ -81,9 +81,9 @@ export function KeyPicker() {
 
   if (!selectedKey) {
     return (
-      <Card className="w-full">
+      <Card data-tour="picker" className="w-full">
         <CardContent className="py-10 text-center">
-          <p className="text-xs text-primary font-medium uppercase tracking-widest mb-3">Mapping inspector</p>
+          <p className="text-sm font-medium mb-3">Key mapping</p>
           <p className="text-sm text-muted-foreground">
             Select a key on the canvas or choose another physical key to edit its output.
           </p>
@@ -131,7 +131,7 @@ export function KeyPicker() {
     <Card data-tour="picker" className="w-full min-w-0 xl:sticky xl:top-24">
       <CardHeader className="space-y-3 p-4 border-b">
         <div className="flex items-center gap-2 text-sm flex-wrap">
-          <span className="text-muted-foreground text-sm uppercase tracking-wider">Editing</span>
+          <span className="text-muted-foreground text-sm">Editing</span>
           <Badge variant="secondary" className="font-mono text-base px-3 py-1">
             {selectedKey}
           </Badge>
@@ -190,8 +190,8 @@ export function KeyPicker() {
           >
             {KEYS[activeCategory].map((k) => {
               const isCurrent =
-                (k.isShifted ? currentShift?.output : currentTarget) === k.code &&
-                (k.isShifted ? !!currentShift : !!currentTarget);
+                canonicalKey((k.isShifted ? currentShift?.output : currentTarget) ?? "") === k.code &&
+                (k.isShifted ? !!currentShift && currentShift.shift !== false : !!currentTarget);
               const typeStyle = KEY_TYPE_STYLES[getKeyType(k.code)];
               return (
                 <button

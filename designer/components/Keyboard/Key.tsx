@@ -38,7 +38,7 @@ export function Key({ keyData, scale = 50 }: { keyData: KeyLayoutData; scale?: n
     return [{ index, label, name: entry.name }];
   }) : [];
   const changed = !!(mapping || shift || combo);
-  const fontSize = legend.length <= 2 ? scale * 0.34 : legend.length <= 5 ? scale * 0.2 : scale * 0.14;
+  const fontSize = Math.max(11, legend.length <= 2 ? scale * 0.30 : legend.length <= 5 ? scale * 0.22 : scale * 0.18);
   const details = bindings.map((entry) => `${entry.name}: ${entry.label}`).join("\n");
   return (
     <button type="button" onClick={() => setSelectedKey(keyData.keyCode)} aria-pressed={selected}
@@ -54,19 +54,19 @@ export function Key({ keyData, scale = 50 }: { keyData: KeyLayoutData; scale?: n
       )}
       style={{ left: keyData.x * scale + 2, top: keyData.y * scale + 2,
         width: keyData.width * scale - 5, height: keyData.height * scale - 5 }}>
-      <span className="absolute top-1 left-1.5 text-muted-foreground font-mono leading-none"
-        style={{ fontSize: Math.max(8, scale * 0.13) }}>{keyData.label}</span>
-      <span className={cn("font-keycap font-semibold leading-none", changed && "text-primary")}
+      <span className="absolute top-1 left-1.5 text-muted-foreground font-keycap font-medium leading-none"
+        style={{ fontSize: Math.max(10, scale * 0.20) }}>{keyData.label}</span>
+      <span className={cn("inline-block max-w-full px-1 truncate font-keycap font-semibold leading-none", changed && "text-primary")}
         style={{ fontSize }}>{legend}</span>
       {bindings.length > 0 && (
         <span className="absolute bottom-1 left-1 right-1 flex justify-center gap-1 overflow-hidden">
           {bindings.slice(0, 2).map((entry) => (
-            <span key={entry.index} className="font-mono font-medium leading-none px-1 rounded-sm text-white"
-              style={{ background: layerAccent(entry.index).hex, fontSize: Math.max(8, scale * 0.13) }}>
+            <span key={entry.index} className="font-keycap font-medium leading-none px-1 rounded-sm text-white"
+              style={{ background: layerAccent(entry.index).hex, fontSize: Math.max(10, scale * 0.18) }}>
               {entry.label}
             </span>
           ))}
-          {bindings.length > 2 && <span className="text-[9px] text-muted-foreground">+{bindings.length - 2}</span>}
+          {bindings.length > 2 && <span className="text-[10px] text-muted-foreground">+{bindings.length - 2}</span>}
         </span>
       )}
     </button>

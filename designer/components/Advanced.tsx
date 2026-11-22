@@ -8,16 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { useEditingConfig } from "@/lib/store";
 import { CombosEditor } from "./Editors/CombosEditor";
 import { CustomModifiersEditor } from "./Editors/CustomModifiersEditor";
+import { BaseModifierSetup } from "./BaseModifierSetup";
 import { cn } from "@/lib/utils";
 
-// Collapsible "Advanced" section holding the two power-user editors:
-// noModCombos (number-row → symbol without Shift) and customModifiers
-// (any key promoted to a layer trigger). Both are off the critical path
-// for most users, so they default to collapsed — counts in the header
-// make it obvious there's something to see when you do have data.
-
 export function Advanced() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const config = useEditingConfig();
 
   const comboCount = config.noModCombos?.length ?? 0;
@@ -34,7 +29,7 @@ export function Advanced() {
       >
         <span className="flex items-center gap-3">
           <Settings2 className="h-4 w-4" />
-          <span className="font-medium">Advanced settings</span>
+          <span className="font-medium">Modifiers and combos</span>
           {total > 0 && (
             <Badge variant="secondary" className="text-xs">
               {total}
@@ -46,6 +41,7 @@ export function Advanced() {
 
       {open && (
         <CardContent className="pt-4 space-y-4 border-t">
+          <BaseModifierSetup />
           <CombosEditor />
           <CustomModifiersEditor />
         </CardContent>

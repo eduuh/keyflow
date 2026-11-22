@@ -123,7 +123,7 @@ function KeyDropdown({ value, onChange, label, disabledKeys = [] }: {
   value: string; onChange: (v: string) => void; label: string; disabledKeys?: string[];
 }) {
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select value={canonicalKey(value) ?? value} onValueChange={onChange}>
       <SelectTrigger className="h-9 font-mono text-sm" aria-label={label}>
         <SelectValue />
       </SelectTrigger>

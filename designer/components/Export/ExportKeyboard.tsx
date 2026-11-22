@@ -93,7 +93,7 @@ export function ExportKeyboard({
         width: `${width}px`,
         height: `${height}px`,
         fontFamily:
-          "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
+          "var(--font-geist-mono), ui-monospace, monospace",
       }}
     >
       {ansiLayout.map((keyData) => (
@@ -148,7 +148,7 @@ function Keycap({ keyData, scale, rowHeight, config, layerFilter, highlighted }:
   // Sizing scales with key size so a 2u Backspace doesn't dwarf its label.
   // Long words like "Shift" / "PrtSc" get a smaller primary font so they fit.
   const isWideLabel = view.primary.length >= 4 && /^[A-Za-z]+$/.test(view.primary);
-  const baseFont = Math.round(scale * 0.32);
+  const baseFont = Math.round(scale * 0.28);
   const primaryFontSize = isWideLabel
     ? Math.max(13, Math.round(scale * 0.22))
     : Math.max(14, baseFont);
@@ -173,7 +173,7 @@ function Keycap({ keyData, scale, rowHeight, config, layerFilter, highlighted }:
         overflow: "hidden",
       }}
     >
-      <span style={{ position: "absolute", top: 4, left: 5, color: palette.muted, fontSize: 9 }}>{keyData.label}</span>
+      <span style={{ position: "absolute", top: 4, left: 5, color: palette.muted, fontSize: Math.max(11, Math.round(scale * 0.18)), fontWeight: 500 }}>{keyData.label}</span>
 
       {/* Center: the final output for the current view — what pressing this
           key actually produces. Color comes from the role palette. */}
@@ -203,7 +203,7 @@ function Keycap({ keyData, scale, rowHeight, config, layerFilter, highlighted }:
 
       {bindings.length > 0 && <div style={{ position: "absolute", top: scale - 4, left: 4, right: 4 }}>
         {bindings.map((binding) => <div key={binding.index} data-export-layer={binding.index}
-          style={{ fontSize: 10, lineHeight: "14px", color: "#ffffff", background: layerAccent(binding.index).hex, borderRadius: 2, marginBottom: 1, textAlign: "center" }}>
+          style={{ fontSize: 11, lineHeight: "14px", color: "#ffffff", background: layerAccent(binding.index).hex, borderRadius: 2, marginBottom: 1, textAlign: "center" }}>
           {binding.index + 1}: {binding.label}
         </div>)}
       </div>}

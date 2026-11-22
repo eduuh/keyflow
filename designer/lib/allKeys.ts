@@ -113,5 +113,6 @@ const KEY_ALIASES: Record<string, string> = {
 };
 
 export function canonicalKey(code: string): string | undefined {
-  return ALL_KEY_CODES.includes(code) ? code : KEY_ALIASES[code];
+  if (ALL_KEY_CODES.includes(code)) return code;
+  return Object.hasOwn(KEY_ALIASES, code) ? KEY_ALIASES[code] : undefined;
 }

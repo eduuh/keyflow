@@ -18,20 +18,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
+const MODIFIER_LABELS: Record<string, string> = {
+  LALT: "Left Alt", RALT: "Right Alt", LCTRL: "Left Ctrl", RCTRL: "Right Ctrl",
+  LSHIFT: "Left Shift", RSHIFT: "Right Shift", LWIN: "Left Win / Super",
+  RWIN: "Right Win / Super", PRINT: "Print Screen",
+};
+
 type LayerEditorProps = {
-  layerIndex: number;
+  layerIndex?: number;
   onClose: () => void;
 };
 
 export function LayerEditor({ layerIndex, onClose }: LayerEditorProps) {
-  const { updateLayer, deleteLayer } = useConfigStore();
+  const { updateLayer, deleteLayer, addLayer, setCurrentLayer } = useConfigStore();
   const config = useEditingConfig();
-  const layer = config.layers?.[layerIndex];
+  const layer = layerIndex !== undefined ? config.layers?.[layerIndex] : undefined;
+  const creating = layerIndex === undefined;
 
-  const [name, setName] = useState(layer?.name || "");
-  const [triggers, setTriggers] = useState<string[]>(layer?.triggers ?? []);
+  const [name, setName] = useState(layer?.name || `Layer ${(config.layers?.length ?? 0) + 1}`);
+  const [triggers, setTriggers] = useState<string[]>(layer?.triggers ?? ["RALT"]);
 
-  if (!layer) return null;
+  if (!creating && !layer) return null;
 
   const availableModifiers = Array.from(new Set([...Object.keys(TRIGGER_ALIAS).filter((name) => !name.startsWith("MOD")),
     ...availableTriggers(config)]));
@@ -45,11 +52,17 @@ export function LayerEditor({ layerIndex, onClose }: LayerEditorProps) {
       alert("Layer needs a name and at least one trigger modifier.");
       return;
     }
-    updateLayer(layerIndex, { name, triggers });
+    if (layerIndex === undefined) {
+      addLayer({ name: name.trim(), triggers, mappings: {} });
+      setCurrentLayer(config.layers?.length ?? 0);
+    } else {
+      updateLayer(layerIndex, { name, triggers });
+    }
     onClose();
   };
 
   const handleDelete = () => {
+    if (layerIndex === undefined || !layer) return;
     if (confirm(`Delete "${layer.name}"? All mappings will be lost.`)) {
       deleteLayer(layerIndex);
       onClose();
@@ -60,8 +73,8 @@ export function LayerEditor({ layerIndex, onClose }: LayerEditorProps) {
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Layer</DialogTitle>
-          <DialogDescription>Name the layer and choose any modifier that activates it.</DialogDescription>
+          <DialogTitle>{creating ? "New layer" : "Edit Layer"}</DialogTitle>
+          <DialogDescription>Name the layer and choose the modifier you hold to activate it. Physical modifiers work without any setup in BASE.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -85,7 +98,7 @@ export function LayerEditor({ layerIndex, onClose }: LayerEditorProps) {
               )}
               {triggers.map((t) => (
                 <Badge key={t} variant="secondary" className="gap-1 pl-2 pr-1">
-                  {t}
+                  {MODIFIER_LABELS[t] ?? t}
                   <button
                     type="button"
                     onClick={() => setTriggers(triggers.filter((x) => x !== t))}
@@ -107,10 +120,11 @@ export function LayerEditor({ layerIndex, onClose }: LayerEditorProps) {
                     variant="outline"
                     size="sm"
                     className="h-7 border-dashed"
+                    aria-label={`Add ${MODIFIER_LABELS[mod] ?? mod} (${mod})`}
                     onClick={() => setTriggers([...triggers, mod])}
                   >
                     <Plus className="h-3 w-3 mr-1" />
-                    {mod}
+                    {MODIFIER_LABELS[mod] ?? mod}
                   </Button>
                 ))}
               </div>
@@ -128,29 +142,31 @@ export function LayerEditor({ layerIndex, onClose }: LayerEditorProps) {
             )}
           </div>
 
-          <div className="rounded-md border p-3 text-xs space-y-1">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Mapped keys</span>
-              <span className="font-medium">{Object.keys(layer.mappings || {}).length}</span>
+          {layer && (
+            <div className="rounded-md border p-3 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Mapped keys</span>
+                <span className="font-medium">{Object.keys(layer.mappings || {}).length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Shift mappings</span>
+                <span className="font-medium">{(layer.shiftMappings || []).length}</span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Shift mappings</span>
-              <span className="font-medium">{(layer.shiftMappings || []).length}</span>
-            </div>
-          </div>
+          )}
         </div>
 
         <DialogFooter className="flex-row justify-between sm:justify-between">
-          <Button variant="destructive" size="sm" onClick={handleDelete}>
+          {!creating && <Button variant="destructive" size="sm" onClick={handleDelete}>
             <Trash2 className="h-4 w-4 mr-1" />
             Delete
-          </Button>
+          </Button>}
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleSave}>
-              Save
+            <Button size="sm" onClick={handleSave} disabled={!name.trim() || triggers.length === 0}>
+              {creating ? "Create layer" : "Save"}
             </Button>
           </div>
         </DialogFooter>
