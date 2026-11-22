@@ -162,6 +162,7 @@
   "platformOverrides": {
     "linux": {
       "remapping": {
+        "LeftCtrl": "LeftAlt",
         "PrintScreen": "LeftWin"
       },
       "customModifiers": [
