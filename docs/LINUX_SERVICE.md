@@ -132,6 +132,22 @@ For an existing installation, update only `/etc/keyflow/config.json`, validate
 it, release all keys and restart `keyflow.service`. Clicking a password dialog's
 button is the temporary workaround until the corrected layout is active.
 
+### Check the installed config
+
+The service only reads `/etc/keyflow/config.json`. Nothing syncs that file with the
+checkout, so a Linux copy or a hand edit can drift silently. To compare it with
+`src/config.json`, run this without sudo:
+
+```sh
+python3 -I scripts/linux/check-config.py
+```
+
+The check exits 0 when the two match. It exits 1 on drift and prints each differing
+key with both values, for example
+`remapping.Enter: reference="RightShift" installed="Enter"`. Layer keys are named
+by layer. Pass `--reference <file>` to compare against a deliberate Linux copy instead.
+Run it before debugging modifier or layer behaviour.
+
 After successful typing, stop the trial timer and recheck both service states.
 If the timer already restored Kanata, start a new guarded trial instead of
 enabling an inactive Keyflow service:

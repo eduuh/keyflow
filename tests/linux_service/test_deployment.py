@@ -1,6 +1,7 @@
 import contextlib
 import importlib.util
 import io
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -24,6 +25,7 @@ def load(name, file):
 installer = load("installer", "install.py")
 rollback = load("rollback", "rollback.py")
 waiter = load("waiter", "wait-all-up.py")
+checker = load("checker", "check-config.py")
 
 
 class DeploymentTests(unittest.TestCase):
@@ -214,6 +216,43 @@ class DeploymentTests(unittest.TestCase):
             waiter.wait_for_release("/fake/device", timeout=1)
         self.assertGreaterEqual(state["reads"], 7)
         close.assert_called_once_with(9)
+
+
+class ConfigDriftTests(unittest.TestCase):
+    REFERENCE = {
+        "remapping": {"_comment": "x", "Enter": "RightShift"},
+        "layers": [{"name": "Numpad Layer", "mappings": {"Enter": "RightShift"}}],
+    }
+
+    def run_check(self, installed):
+        with tempfile.TemporaryDirectory() as directory:
+            reference_path = Path(directory) / "reference.json"
+            installed_path = Path(directory) / "installed.json"
+            reference_path.write_text(json.dumps(self.REFERENCE))
+            installed_path.write_text(json.dumps(installed))
+            return subprocess.run(
+                [sys.executable, "-I", str(ROOT / "scripts/linux/check-config.py"),
+                 "--reference", str(reference_path), "--installed", str(installed_path)],
+                stdout=subprocess.PIPE, text=True,
+            )
+
+    def test_matching_configs_are_in_sync(self):
+        result = self.run_check(self.REFERENCE)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("In sync", result.stdout)
+
+    def test_drift_names_each_changed_key_by_layer_name(self):
+        installed = {
+            "remapping": {"Enter": "Enter", "Tab": "Tab"},
+            "layers": [{"name": "Numpad Layer", "mappings": {"Enter": "Enter"}}],
+        }
+        result = self.run_check(installed)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('remapping.Enter: reference="RightShift" installed="Enter"', result.stdout)
+        self.assertIn('layers.Numpad Layer.mappings.Enter: reference="RightShift" '
+                      'installed="Enter"', result.stdout)
+        self.assertIn('remapping.Tab: reference=(missing) installed="Tab"', result.stdout)
+        self.assertNotIn("_comment", result.stdout)
 
 
 if __name__ == "__main__":
