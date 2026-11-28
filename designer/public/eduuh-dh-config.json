@@ -100,10 +100,7 @@
       "name": "Numpad Layer",
       "trigger": "LALT",
       "mappings": {
-        "_comment": "Passthrough Shift and Ctrl on this layer",
-        "Enter": "RightShift",
-        "LeftShift": "LeftCtrl",
-        "RightShift": "RightCtrl",
+        "_comment": "Shift, Ctrl and Enter fall through to the base remap",
         "9": "7",
         "0": "8",
         "Minus": "9",
@@ -127,10 +124,7 @@
       "name": "Arrows and Symbols Layer",
       "trigger": "RALT",
       "mappings": {
-        "_comment": "Passthrough Shift and Ctrl on this layer",
-        "Enter": "RightShift",
-        "LeftShift": "LeftCtrl",
-        "RightShift": "RightCtrl",
+        "_comment": "Shift, Ctrl and Enter fall through to the base remap",
         "K": "Left",
         "L": "Down",
         "Semicolon": "Right",
@@ -160,7 +154,9 @@
   "platformOverrides": {
     "linux": {
       "remapping": {
-        "LeftCtrl": "LeftAlt",
+        "LeftShift": "LeftShift",
+        "RightShift": "RightShift",
+        "Enter": "Enter",
         "PrintScreen": "LeftWin"
       },
       "customModifiers": [
