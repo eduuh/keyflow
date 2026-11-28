@@ -163,8 +163,10 @@ sh scripts/linux/install-hooks.sh
 ```
 
 This adds `post-merge` and `post-checkout` hooks to the shared hooks directory,
-which covers every worktree. They only warn and never block git. The installer
-leaves any existing hook of those names untouched.
+which covers every worktree. They only warn and never block git. The hooks
+compare the two files byte for byte and never run code from the checkout, so
+checking out an untrusted branch is safe. The installer leaves any existing hook
+of those names untouched.
 
 After successful typing, stop the trial timer and recheck both service states.
 If the timer already restored Kanata, start a new guarded trial instead of
