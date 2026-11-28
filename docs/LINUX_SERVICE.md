@@ -123,20 +123,28 @@ The bundled config keeps Windows physical key identities. In that layout Enter
 is RightShift, not Kanata's tap-hold Enter. Check the layout, OS keymap, NumLock,
 modifiers and layers before accepting it at the login screen.
 
-For a normal Enter key in Linux password prompts and applications, make a Linux
-copy of the config and set `"Enter": "Enter"` in its `remapping` object. Pass that
-copy to `--config`; also change the Enter passthrough entries in each layer's
-`mappings` object. Do not edit the Windows fixture. This deliberately removes
-Enter-as-RightShift, while CapsLock remains LeftShift in the bundled layout.
-For an existing installation, update only `/etc/keyflow/config.json`, validate
-it, release all keys and restart `keyflow.service`. Clicking a password dialog's
-button is the temporary workaround until the corrected layout is active.
+Keep one config, `src/config.json`. Don't hand-edit a separate Linux copy, and
+don't edit `/etc/keyflow/config.json` directly: a copy drifts silently from the
+repository. Put Linux-only differences in the config's `platformOverrides.linux`
+object, which applies only on Linux.
+
+### Update an installed config
+
+To deploy `src/config.json` to an installed service, run this as your normal user:
+
+```sh
+python3 -I scripts/linux/deploy-config.py --dry-run   # show drift only
+python3 -I scripts/linux/deploy-config.py
+```
+
+The script validates the config with the installed binary. If the installed copy
+already matches, it does nothing. Otherwise it installs the config with `sudo`,
+restarts `keyflow.service`, then confirms the installed copy matches. Release all
+keys when it says so.
 
 ### Check the installed config
 
-The service only reads `/etc/keyflow/config.json`. Nothing syncs that file with the
-checkout, so a Linux copy or a hand edit can drift silently. To compare it with
-`src/config.json`, run this without sudo:
+To compare `/etc/keyflow/config.json` with `src/config.json`, run this without sudo:
 
 ```sh
 python3 -I scripts/linux/check-config.py
@@ -145,8 +153,18 @@ python3 -I scripts/linux/check-config.py
 The check exits 0 when the two match. It exits 1 on drift and prints each differing
 key with both values, for example
 `remapping.Enter: reference="RightShift" installed="Enter"`. Layer keys are named
-by layer. Pass `--reference <file>` to compare against a deliberate Linux copy instead.
-Run it before debugging modifier or layer behaviour.
+by layer. Pass `--reference <file>` to compare against another file.
+
+To get this warning automatically after every `git pull` or checkout, install the
+hooks once per clone:
+
+```sh
+sh scripts/linux/install-hooks.sh
+```
+
+This adds `post-merge` and `post-checkout` hooks to the shared hooks directory,
+which covers every worktree. They only warn and never block git. The installer
+leaves any existing hook of those names untouched.
 
 After successful typing, stop the trial timer and recheck both service states.
 If the timer already restored Kanata, start a new guarded trial instead of

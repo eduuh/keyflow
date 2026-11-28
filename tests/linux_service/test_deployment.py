@@ -26,6 +26,7 @@ installer = load("installer", "install.py")
 rollback = load("rollback", "rollback.py")
 waiter = load("waiter", "wait-all-up.py")
 checker = load("checker", "check-config.py")
+deployer = load("deployer", "deploy-config.py")
 
 
 class DeploymentTests(unittest.TestCase):
@@ -253,6 +254,49 @@ class ConfigDriftTests(unittest.TestCase):
                       'installed="Enter"', result.stdout)
         self.assertIn('remapping.Tab: reference=(missing) installed="Tab"', result.stdout)
         self.assertNotIn("_comment", result.stdout)
+
+
+class DeployConfigTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        base = Path(self.directory.name)
+        self.config = base / "config.json"
+        self.installed = base / "installed.json"
+        self.config.write_text('{"remapping": {"Enter": "RightShift"}}')
+        self.installed.write_text('{"remapping": {"Enter": "Enter"}}')
+        self.calls = []
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def fake_run(self, arguments, check):
+        self.calls.append(arguments[:3])
+        if arguments[:2] == ["sudo", "install"]:
+            Path(arguments[-1]).write_bytes(Path(arguments[-2]).read_bytes())
+
+    def deploy(self, **options):
+        with contextlib.redirect_stdout(io.StringIO()):
+            return deployer.deploy(self.config, self.installed, Path("/bin/keyflow"),
+                                   run=self.fake_run, **options)
+
+    def test_drift_installs_restarts_and_rechecks(self):
+        self.assertEqual(self.deploy(), "deployed")
+        self.assertEqual(self.installed.read_text(), self.config.read_text())
+        self.assertEqual(self.calls, [["/bin/keyflow", "--validate", str(self.config)],
+                                      ["sudo", "install", "-m"],
+                                      ["sudo", "systemctl", "restart"]])
+
+    def test_in_sync_and_dry_run_never_touch_the_service(self):
+        self.assertEqual(self.deploy(dry_run=True), "would deploy")
+        self.installed.write_text(self.config.read_text())
+        self.assertEqual(self.deploy(), "unchanged")
+        self.assertFalse([call for call in self.calls if call[0] == "sudo"])
+
+    def test_refuses_without_an_installed_service(self):
+        self.installed.unlink()
+        with self.assertRaises(FileNotFoundError):
+            self.deploy()
+        self.assertEqual(self.calls, [])
 
 
 if __name__ == "__main__":

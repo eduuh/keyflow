@@ -1,0 +1,14 @@
+#!/bin/sh
+# keyflow-config-drift: warn when the installed Keyflow config differs from this
+# checkout after a pull or checkout. Never blocks git. Installed as post-merge and
+# post-checkout by scripts/linux/install-hooks.sh.
+
+[ -f /etc/keyflow/config.json ] || exit 0
+top=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+check="$top/scripts/linux/check-config.py"
+[ -f "$check" ] || exit 0
+
+report=$(python3 -I "$check" 2>&1) && exit 0
+printf '%s\n' "$report" | sed 's/^/keyflow: /' >&2
+echo "keyflow: install this checkout's config with: python3 -I scripts/linux/deploy-config.py" >&2
+exit 0
